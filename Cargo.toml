@@ -1,0 +1,7 @@
+[package]
+name = "id3"
+version = "0.0.1"
+authors = ["James Hurst <jamesrhurst@users.noreply.github.com>"]
+
+[dependencies.audiotag]
+git = "https://github.com/jamesrhurst/rust-audiotag.git"
