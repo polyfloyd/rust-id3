@@ -26,8 +26,16 @@ fn main() {
 }
 ```
 
+##Supported ID3 Versions
+
+  * ID3v2.2 reading
+  * ID3v2.3 reading/writing
+  * ID3v2.4 reading/writing
+
 ##Unsupported Features
 
+  * ID3v2.2 writing (currently working on this)
+  * ID3v1 
   * Unsynchronization
   * Grouping identity
   * Encryption
