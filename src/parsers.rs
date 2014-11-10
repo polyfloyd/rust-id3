@@ -1,6 +1,6 @@
 extern crate audiotag;
 
-use self::audiotag::{TagError, TagResult, InvalidInputError};
+use self::audiotag::{TagError, TagResult, InvalidInputError, StringDecodingError, UnsupportedFeatureError};
 
 use picture::Picture;
 use frame::{Contents, PictureContent, CommentContent, TextContent, ExtendedTextContent, LinkContent, ExtendedLinkContent, LyricsContent};
@@ -153,8 +153,9 @@ pub fn comment_to_bytes(encoding: encoding::Encoding, description: &str, text: &
     }
 }
 
-/// Returns a vector representation of an APIC frame.
-pub fn picture_to_bytes(encoding: encoding::Encoding, picture: &Picture) -> Vec<u8> {
+/// Returns a vector representation of an APIC frame suitable for writing to an ID3v2.3/ID3v2.4
+/// tag.
+pub fn picture_to_bytes_v3(encoding: encoding::Encoding, picture: &Picture) -> Vec<u8> {
     match encoding {
         encoding::Latin1 | encoding::UTF8 => {
             let mut data = Vec::with_capacity(1 + picture.mime_type.len() + 1 + 1 + picture.description.len() + 1 + picture.data.len());
@@ -191,17 +192,90 @@ pub fn picture_to_bytes(encoding: encoding::Encoding, picture: &Picture) -> Vec<
         }
     }
 }
+
+/// Returns a vector representation of an APIC frame suitable for writing to an ID3v2.2 tag.
+pub fn picture_to_bytes_v2(encoding: encoding::Encoding, picture: &Picture) -> Vec<u8> {
+    let format = match picture.mime_type.as_slice() {
+        "image/jpeg" => "JPG",
+        "image/png" => "PNG",
+        _ => panic!("unknown MIME type") // TODO handle this better
+    };
+
+    let mut data = match encoding {
+        encoding::Latin1 => Vec::with_capacity(1 + 3 + 1 + picture.description.len() + 1 + picture.data.len()),
+        _ => Vec::with_capacity(1 + 3 + 1 + (2 + picture.description.len() * 2) + 2 + picture.data.len()),
+    };
+
+    data.push(encoding as u8);
+    data.extend(String::from_str(format).into_bytes().into_iter());
+    data.push(picture.picture_type as u8);
+
+    match encoding {
+        encoding::Latin1 => {
+            data.extend(picture.description.clone().into_bytes().into_iter());
+            data.push(0x0);
+        },
+        _ => { // ignore other encodings and just encode as UTF16
+            data.extend(util::string_to_utf16(picture.description.as_slice()).into_iter());
+            data.push_all([0x0, 0x0]);
+        },
+    }
+
+    data.push_all(picture.data.as_slice());
+    data
+}
 // }}}
 
 // Decoders {{{
-/// Attempts to parse the data as a picture frame.
+/// Attempts to parse the data as an ID3v2.2 picture frame.
 /// Returns a `PictureContent`.
-pub fn parse_apic(data: &[u8]) -> TagResult<ParserResult> {
-    let mut picture = Picture::new();
-
+pub fn parse_apic_v2(data: &[u8]) -> TagResult<ParserResult> {
     if data.len() == 0 {
         return Err(TagError::new(InvalidInputError, "frame does not contain any data"))
     }
+    
+    let mut picture = Picture::new();
+
+    let encoding = try_encoding!(data[0]);
+
+    let format = match String::from_utf8(data.slice(1, 4).to_vec()) {
+        Ok(format) => format,
+        Err(bytes) => return Err(TagError::new(StringDecodingError(bytes), "image format is not valid utf8"))
+    };
+
+    picture.mime_type = match format.as_slice() {
+        "PNG" => String::from_str("image/png"),
+        "JPG" => String::from_str("image/jpeg"),
+        other => {
+            debug!("can't determine MIME type for `{}`", other);
+            return Err(TagError::new(UnsupportedFeatureError, "can't determine MIME type for image format"))
+        }
+    }; 
+
+    match FromPrimitive::from_u8(data[4]) {
+        Some(t) => picture.picture_type = t,
+        None => return Err(TagError::new(InvalidInputError, "invalid picture type"))
+    };
+
+    let start = 5;
+    let mut i = try_delim!(encoding, data.as_slice(), start, "missing image description terminator");
+    picture.description = try_string!(encoding, data.slice(start, i).to_vec());
+
+    i += util::delim_len(encoding);
+
+    picture.data = data.slice_from(i).to_vec();
+
+    Ok(ParserResult::new(encoding, PictureContent(picture)))
+}
+
+/// Attempts to parse the data as an ID3v2.3/ID3v2.4 picture frame.
+/// Returns a `PictureContent`.
+pub fn parse_apic_v3(data: &[u8]) -> TagResult<ParserResult> {
+    if data.len() == 0 {
+        return Err(TagError::new(InvalidInputError, "frame does not contain any data"))
+    }
+    
+    let mut picture = Picture::new();
 
     let encoding = try_encoding!(data[0]);
 
@@ -326,6 +400,7 @@ mod tests {
     use encoding;
     use util;
     use picture::{Picture, picture_type};
+    use std::collections::HashMap;
 
     fn bytes_for_encoding(text: &str, encoding: encoding::Encoding) -> Vec<u8> {
         match encoding {
@@ -343,8 +418,43 @@ mod tests {
     }
 
     #[test]
-    fn test_apic() {
-        assert!(parsers::parse_apic([]).is_err());
+    fn test_apic_v2() {
+        assert!(parsers::parse_apic_v2([]).is_err());
+
+        let mut format_map = HashMap::new();
+        format_map.insert("image/jpeg", "JPG");
+        format_map.insert("image/png", "PNG");
+
+        for (mime_type, format) in format_map.into_iter() {
+            for description in vec!("", "description").into_iter() {
+                let picture_type = picture_type::CoverFront;
+                let picture_data = vec!(0xF9, 0x90, 0x3A, 0x02, 0xBD);
+
+                let mut picture = Picture::new();
+                picture.mime_type = String::from_str(mime_type);
+                picture.picture_type = picture_type;
+                picture.description = String::from_str(description);
+                picture.data = picture_data.clone();
+
+                for encoding in vec!(encoding::Latin1, encoding::UTF16).into_iter() {
+                    println!("`{}`, `{}`, `{}`", mime_type, description, encoding);
+                    let mut data = Vec::new();
+                    data.push(encoding as u8);
+                    data.extend(String::from_str(format).into_bytes().into_iter());
+                    data.push(picture_type as u8);
+                    data.extend(bytes_for_encoding(description, encoding).into_iter());
+                    data.extend(delim_for_encoding(encoding).into_iter());
+                    data.push_all(picture_data.as_slice());
+                    assert_eq!(*parsers::parse_apic_v2(data.as_slice()).unwrap().contents.picture(), picture);
+                    assert_eq!(parsers::picture_to_bytes_v2(encoding, &picture), data);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_apic_v3() {
+        assert!(parsers::parse_apic_v3([]).is_err());
 
         for mime_type in vec!("", "image/jpeg").into_iter() {
             for description in vec!("", "description").into_iter() {
@@ -367,8 +477,8 @@ mod tests {
                     data.extend(bytes_for_encoding(description, encoding).into_iter());
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.push_all(picture_data.as_slice());
-                    assert_eq!(*parsers::parse_apic(data.as_slice()).unwrap().contents.picture(), picture);
-                    assert_eq!(parsers::picture_to_bytes(encoding, &picture), data);
+                    assert_eq!(*parsers::parse_apic_v3(data.as_slice()).unwrap().contents.picture(), picture);
+                    assert_eq!(parsers::picture_to_bytes_v3(encoding, &picture), data);
                 }
             }
         }

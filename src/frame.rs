@@ -127,6 +127,8 @@ pub struct Frame {
     pub uuid: Vec<u8>,
     /// The frame identifier.
     pub id: String,
+    /// The major version of the tag which this frame belongs to.
+    version: u8,
     /// The encoding to be used when converting this frame to bytes.
     pub encoding: encoding::Encoding,
     /// The offset of the frame in the file.
@@ -168,8 +170,10 @@ pub struct FrameFlags {
 impl FrameFlags {
     /// Returns a new `FrameFlags` with all flags set to false.
     pub fn new() -> FrameFlags {
-        FrameFlags { tag_alter_preservation: false, file_alter_preservation: false, read_only: false, compression: false, 
-            encryption: false, grouping_identity: false, unsynchronization: false, data_length_indicator: false }
+        FrameFlags { 
+            tag_alter_preservation: false, file_alter_preservation: false, read_only: false, compression: false, 
+            encryption: false, grouping_identity: false, unsynchronization: false, data_length_indicator: false 
+        }
     }
 
     /// Returns a vector representation suitable for writing to a file containing an ID3v2.3
@@ -246,9 +250,80 @@ impl FrameFlags {
 
 // Frame {{{
 impl Frame {
-    /// Creates a new `Frame` with the specified identifier.
+    /// Creates a new ID3v2.3 frame with the specified identifier.
     pub fn new(id: &str) -> Frame {
-        Frame { uuid: util::uuid(), id: String::from_str(id), encoding: encoding::UTF16, offset: 0, flags: FrameFlags::new(), contents: UnknownContent(Vec::new()) }
+        Frame { 
+            uuid: util::uuid(), id: String::from_str(id), version: 3, encoding: encoding::UTF16, 
+            offset: 0, flags: FrameFlags::new(), contents: UnknownContent(Vec::new()) 
+        }
+    }
+    
+    /// Creates a new frame with the specified identifier and version.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Frame;
+    ///
+    /// let frame = Frame::with_version("TALB", 4);
+    /// assert_eq!(frame.version(), 4);
+    /// ```
+    pub fn with_version(id: &str, version: u8) -> Frame {
+        let mut frame = Frame::new(id);
+        frame.version = version;
+        frame
+    }
+
+    /// Ensures the encoding is compatible with the current version.
+    fn verify_encoding(&mut self) {
+        if self.version < 4 {
+            self.encoding = match self.encoding {
+                encoding::Latin1 => encoding::Latin1,
+                encoding::UTF16 => encoding::UTF16,
+                _ => encoding::UTF16
+            };
+        }
+    }
+
+    /// Returns the version of the tag which this frame belongs to.
+    pub fn version(&self) -> u8 {
+        self.version
+    }
+
+    /// Sets the version of the tag. This converts the frame identifier from the previous version
+    /// to the corresponding frame identifier in the new version.
+    ///
+    /// Returns true if the conversion was successful. Returns false if the frame identifier could
+    /// not be converted.
+    pub fn set_version(&mut self, version: u8) -> bool {
+        if self.version == version || (self.version == 3 && version == 4) || (self.version == 4 && version == 3) {
+            return true;
+        }
+
+        if (self.version == 3 || self.version == 4) && version == 2 {
+            match util::convert_id_3_to_2(self.id.clone().as_slice()) {
+                Some(id) => self.id = String::from_str(id),
+                None => {
+                    debug!("no ID3v2.3 to ID3v2.3 mapping for {}", self.id);
+                    return false;
+                }
+            }
+        } else if self.version == 2 && (version == 3 || version == 4) {
+            match util::convert_id_2_to_3(self.id.clone().as_slice()) {
+                Some(id) => self.id = String::from_str(id),
+                None => {
+                    debug!("no ID3v2.2 to ID3v2.3 mapping for {}", self.id);
+                    return false;
+                }
+            }
+        } else {
+            // not sure when this would ever occur but lets just say the conversion failed
+            return false;
+        }
+
+        self.verify_encoding();
+
+        self.version = version;
+        true
     }
 
     /// Generates a new uuid for this frame.
@@ -266,12 +341,13 @@ impl Frame {
         self.uuid = util::uuid();
     }
 
+    // Reading {{{
     /// Attempts to reads from a file containing an ID3v2.2 tag.
     ///
     /// Returns a `Frame` or `None` if padding is encountered.
     pub fn read_v2(file: &mut File) -> TagResult<Option<Frame>> {
         let mut frame = Frame::new("");
-        frame.uuid = util::uuid();
+        frame.version = 2;
 
         frame.offset = try!(file.tell());
 
@@ -280,50 +356,21 @@ impl Frame {
         if c == 0 { // padding
             return Ok(None);
         }
-        let frameid = try!(file.read_exact(3));
-        let frameid_str = match String::from_utf8(frameid) { Ok(id) => id, Err(bytes) => return Err(TagError::new(StringDecodingError(bytes), "frame identifier is not valid utf8")) };
-
-        frame.id = match util::convert_id_2_to_3(frameid_str.as_slice()) {
-            Some(id) => String::from_str(id),
-            None => return Err(TagError::new(UnsupportedFeatureError, "frame type is not supported for id3v2.2 to id3v2.3/4 conversion"))
+        
+        frame.id = match String::from_utf8(try!(file.read_exact(3))) { 
+            Ok(id) => id, 
+            Err(bytes) => return Err(TagError::new(StringDecodingError(bytes), "frame identifier is not valid utf8")) 
         };
+        
+        debug!("reading {}", frame.id); 
 
         let sizebytes = try!(file.read_exact(3));
         let size = (sizebytes[0] as uint << 16) | (sizebytes[1] as uint << 8) | sizebytes[2] as uint;
 
         let data = try!(file.read_exact(size as uint));
-
-        if frame.id.as_slice() == "APIC" {
-            let encoding = data[0];
-            let format = match String::from_utf8(data.slice(1, 4).to_vec()) {
-                Ok(format) => format,
-                Err(bytes) => return Err(TagError::new(StringDecodingError(bytes), "image format is not valid utf8"))
-            };
-            let mime_type = match format.as_slice() {
-                "PNG" => "image/png",
-                "JPG" => "image/jpeg",
-                _ => return Err(TagError::new(UnsupportedFeatureError, "image format is not supported for id3v2.2 to id3v2.3/4 conversion"))
-            };
-
-            let pictype = data[4];
-            let remaining = data.slice_from(5).to_vec();
-
-            let mut new_data = Vec::with_capacity(1 + mime_type.len() + 1 +  remaining.len());
-            new_data.push(encoding);
-            new_data.extend(String::from_str(mime_type).into_bytes().into_iter());
-            new_data.push(0x0);
-            new_data.push(pictype);
-            new_data.extend(remaining.into_iter());
-
-            match frame.parse_data(new_data.as_slice()) {
-                Ok(_) => { },
-                Err(_) => return Err(TagError::new(InvalidInputError, "converted image frame was invalid"))
-            }
-        } else {
-            match frame.parse_data(data.as_slice()) {
-                Ok(_) => { },
-                Err(err) => return Err(err)
-            }
+        match frame.parse_data(data.as_slice()) {
+            Ok(_) => {},
+            Err(err) => return Err(err)
         }
 
         Ok(Some(frame))
@@ -334,7 +381,7 @@ impl Frame {
     /// Returns a `Frame` or `None` if padding is encountered.
     pub fn read_v3(file: &mut File) -> TagResult<Option<Frame>> {
         let mut frame = Frame::new("");
-        frame.uuid = util::uuid();
+        frame.version = 3;
 
         frame.offset = try!(file.tell());
 
@@ -343,8 +390,11 @@ impl Frame {
         if c == 0 { // padding
             return Ok(None);
         }
-        let frameid = try!(file.read_exact(4));
-        frame.id = match String::from_utf8(frameid) { Ok(id) => id, Err(bytes) => return Err(TagError::new(StringDecodingError(bytes), "frame identifier is not valid utf8")) };
+
+        frame.id = match String::from_utf8(try!(file.read_exact(4))) { 
+            Ok(id) => id, 
+            Err(bytes) => return Err(TagError::new(StringDecodingError(bytes), "frame identifier is not valid utf8")) 
+        };
 
         debug!("reading {}", frame.id); 
 
@@ -387,7 +437,7 @@ impl Frame {
     /// Returns a `Frame` or `None` if padding is encountered.
     pub fn read_v4(file: &mut File) -> TagResult<Option<Frame>> {
         let mut frame = Frame::new("");
-        frame.uuid = util::uuid();
+        frame.version = 4;
 
         frame.offset = try!(file.tell());
 
@@ -396,8 +446,13 @@ impl Frame {
         if c == 0 { // padding
             return Ok(None);
         }
-        let frameid = try!(file.read_exact(4));
-        frame.id = match String::from_utf8(frameid) { Ok(id) => id, Err(bytes) => return Err(TagError::new(StringDecodingError(bytes), "frame identifier is not valid utf8")) };
+
+        frame.id = match String::from_utf8(try!(file.read_exact(4))) { 
+            Ok(id) => id, 
+            Err(bytes) => return Err(TagError::new(StringDecodingError(bytes), "frame identifier is not valid utf8")) 
+        };
+
+        debug!("reading {}", frame.id);
 
         let mut size = util::unsynchsafe(try!(file.read_be_u32()));
 
@@ -451,13 +506,30 @@ impl Frame {
             0x4 => Frame::read_v4(file),
             _ =>  Err(TagError::new(InvalidInputError, "unsupported id3 tag version"))
         }
-
     }
-    
+    // }}}
+  
+    // To Bytes {{{
+    /// Creates a vector representation of the frame suitable for writing to an ID3v2.2 tag.
+    pub fn to_bytes_v2(&mut self) -> Vec<u8> {
+        self.verify_encoding();
+
+        let contents_bytes = self.contents_to_bytes();
+        let contents_size = contents_bytes.len();
+
+        let mut bytes = Vec::with_capacity(3 + 3 + contents_size);
+        bytes.extend(String::from_str(self.id.slice_to(3)).into_bytes().into_iter());
+        bytes.push_all(util::u32_to_bytes(contents_size as u32).slice(1, 4));
+        bytes.extend(contents_bytes.into_iter());
+        bytes
+    }
+
     /// Creates a vector representation of the frame suitable for writing to an ID3v2.3 tag.
     ///
     /// If the compression flag is set to true then contents will be compressed.
-    pub fn to_bytes_v3(&self) -> Vec<u8> {
+    pub fn to_bytes_v3(&mut self) -> Vec<u8> {
+        self.verify_encoding();
+
         let mut contents_bytes = self.contents_to_bytes();
         let mut contents_size = contents_bytes.len();
         let contents_decompressed_size = contents_size;
@@ -469,7 +541,7 @@ impl Frame {
         }
 
         let mut bytes = Vec::with_capacity(4 + 4 + 2 + contents_size);
-        bytes.extend(self.id.clone().into_bytes().into_iter());
+        bytes.extend(String::from_str(self.id.slice_to(4)).into_bytes().into_iter());
         bytes.extend(util::u32_to_bytes(contents_size as u32).into_iter());
         bytes.extend(self.flags.to_bytes(0x3).into_iter());
         if self.flags.compression {
@@ -483,6 +555,8 @@ impl Frame {
     ///
     /// If the compression flag is set to true then contents will be compressed.
     pub fn to_bytes_v4(&mut self) -> Vec<u8> {
+        self.verify_encoding();
+
         let mut contents_bytes = self.contents_to_bytes();
         let mut contents_size = contents_bytes.len();
         let contents_decompressed_size = contents_size;
@@ -499,7 +573,7 @@ impl Frame {
         }
 
         let mut bytes = Vec::with_capacity(4 + 4 + 2 + contents_size);
-        bytes.extend(self.id.clone().into_bytes().into_iter());
+        bytes.extend(String::from_str(self.id.slice_to(4)).into_bytes().into_iter());
         bytes.extend(util::u32_to_bytes(util::synchsafe(contents_size as u32)).into_iter());
         bytes.extend(self.flags.to_bytes(0x4).into_iter());
         if self.flags.data_length_indicator {
@@ -516,8 +590,10 @@ impl Frame {
     /// If the compression flag is set to true then contents will be compressed.
     pub fn to_bytes(&mut self, version: u8) -> Vec<u8> {
         match version {
-            0x3 => self.to_bytes_v3(),
-            _ => self.to_bytes_v4()
+            2 => self.to_bytes_v2(),
+            3 => self.to_bytes_v3(),
+            4 => self.to_bytes_v4(),
+            _ => panic!("no frame encoder for this version") // we shouldn't encouter this
         }
     }
 
@@ -530,11 +606,19 @@ impl Frame {
             ExtendedLinkContent((ref key, ref value)) => parsers::extended_weblink_to_bytes(self.encoding, key.as_slice(), value.as_slice()),
             LyricsContent(ref text) => parsers::lyrics_to_bytes(self.encoding, "", text.as_slice()),
             CommentContent((ref description, ref text)) => parsers::comment_to_bytes(self.encoding, description.as_slice(), text.as_slice()),
-            PictureContent(ref picture) => parsers::picture_to_bytes(self.encoding, picture),
+            PictureContent(ref picture) => {
+                if self.version == 2 {
+                    parsers::picture_to_bytes_v2(self.encoding, picture)
+                } else {
+                    parsers::picture_to_bytes_v3(self.encoding, picture)
+                }
+            },
             UnknownContent(ref data) => data.clone()
         }
     }
+    // }}}
 
+    // Parsing {{{
     /// Parses the provided data and sets the `contents` field. If the compression flag is set to
     /// true then decompression will be performed.
     ///
@@ -556,11 +640,12 @@ impl Frame {
         }
 
         let result = match self.id.as_slice() {
-            "APIC" => try!(parsers::parse_apic(choose_data!(decompressed, data))),
-            "TXXX" => try!(parsers::parse_txxx(choose_data!(decompressed, data))),
-            "WXXX" => try!(parsers::parse_wxxx(choose_data!(decompressed, data))),
-            "COMM" => try!(parsers::parse_comm(choose_data!(decompressed, data))),
-            "USLT" => try!(parsers::parse_uslt(choose_data!(decompressed, data))),
+            "APIC" => try!(parsers::parse_apic_v3(choose_data!(decompressed, data))),
+            "PIC" => try!(parsers::parse_apic_v2(choose_data!(decompressed, data))),
+            "TXXX" | "TXX" => try!(parsers::parse_txxx(choose_data!(decompressed, data))),
+            "WXXX" | "WXX" => try!(parsers::parse_wxxx(choose_data!(decompressed, data))),
+            "COMM" | "COM" => try!(parsers::parse_comm(choose_data!(decompressed, data))),
+            "USLT" | "ULT" => try!(parsers::parse_uslt(choose_data!(decompressed, data))),
             _ => {
                 let mut contents = None;
                 if self.id.as_slice().len() > 0 {
@@ -572,7 +657,7 @@ impl Frame {
                 }
                
                 if contents.is_none() {
-                    contents = Some(ParserResult::new(self.encoding, UnknownContent(choose_data!(decompressed, data).to_vec())));
+                    contents = Some(ParserResult::new(encoding::UTF16, UnknownContent(choose_data!(decompressed, data).to_vec())));
                 }
 
                 contents.unwrap()
@@ -590,6 +675,7 @@ impl Frame {
         let data = self.contents_to_bytes();
         self.parse_data(data.as_slice())
     }
+    // }}}
 
     /// Returns a string representing the parsed content.
     ///
@@ -660,6 +746,29 @@ mod tests {
         flags.unsynchronization = true;
         flags.data_length_indicator = true;
         assert_eq!(flags.to_bytes(0x4), vec!(0x70, 0x4F));
+    }
+
+    #[test]
+    fn test_to_bytes_v2() {
+        let id = "TAL";
+        let text = "album";
+        let encoding = encoding::UTF16;
+
+        let mut frame = Frame::new(id);
+
+        let mut data = Vec::new();
+        data.push(encoding as u8);
+        data.extend(util::string_to_utf16(text).into_iter());
+
+        frame.parse_data(data.as_slice()).unwrap();
+
+        let mut bytes = Vec::new();
+        bytes.extend(String::from_str(id).into_bytes().into_iter());
+        bytes.push_all(util::u32_to_bytes(data.len() as u32).slice_from(1));
+        bytes.extend(data.into_iter());
+
+        assert_eq!(frame.to_bytes_v2(), bytes);
+        assert_eq!(frame.to_bytes(2), bytes);
     }
 
     #[test]

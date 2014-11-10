@@ -14,27 +14,27 @@ git = "https://github.com/jamesrhurst/rust-id3"
 ```
 
 ```rust
-extern crate id3;
-use id3::{AudioTag, ID3Tag};
+use id3::AudioTag;
 
-fn main() {
-	let tag = AudioTag::load("music.mp3");
+let mut tag = AudioTag::load(&Path::new("music.mp3")).unwrap();
 
-	// Some things modifying the tag
+// print the artist the hard way
+println!("{}", tag.get_frame_by_id("TALB").unwrap().contents.text());
 
-	tag.save();
-}
+// or print it the easy way
+println!("{}", tag.artist().unwrap());
+
+tag.save().unwrap();
 ```
 
 ##Supported ID3 Versions
 
-  * ID3v2.2 reading
+  * ID3v2.2 reading/writing
   * ID3v2.3 reading/writing
   * ID3v2.4 reading/writing
 
 ##Unsupported Features
 
-  * ID3v2.2 writing (currently working on this)
   * ID3v1 
   * Unsynchronization
   * Grouping identity

@@ -5,3 +5,9 @@ authors = ["James Hurst <jamesrhurst@users.noreply.github.com>"]
 
 [dependencies.audiotag]
 git = "https://github.com/jamesrhurst/rust-audiotag.git"
+
+[dependencies.phf]
+git = "https://github.com/sfackler/rust-phf.git"
+
+[dependencies.phf_mac]
+git = "https://github.com/sfackler/rust-phf.git"
