@@ -10,7 +10,7 @@ static INVALID: &'static str = "invalid";
 // UTF8 {{{
 #[test]
 fn utf8() {
-    let mut tag = ID3Tag::new();
+    let mut tag = ID3Tag::with_version(4);
 
     tag.set_track_enc(TRACK, encoding::UTF8);
     tag.set_total_tracks_enc(TOTAL, encoding::UTF8);
@@ -28,7 +28,7 @@ fn utf8() {
 
 #[test]
 fn utf8_only_track() {
-    let mut tag = ID3Tag::new();
+    let mut tag = ID3Tag::with_version(4);
 
     tag.set_track_enc(TRACK, encoding::UTF8);
     let frame = tag.get_frame_by_id(ID).unwrap();
@@ -46,9 +46,9 @@ fn utf8_only_track() {
 
 #[test]
 fn utf8_invalid() {
-    let mut tag = ID3Tag::new();
+    let mut tag = ID3Tag::with_version(4);
     
-    let mut frame = Frame::new(ID);
+    let mut frame = Frame::with_version(ID, 4);
     let mut data = Vec::new();
     data.push(encoding::UTF8 as u8);
     data.extend(format!("{}/{}", INVALID, TOTAL).into_bytes().into_iter());
@@ -59,7 +59,7 @@ fn utf8_invalid() {
 
     tag.remove_frames_by_id(ID);
 
-    let mut frame = Frame::new(ID);
+    let mut frame = Frame::with_version(ID, 4);
     let mut data = Vec::new();
     data.push(encoding::UTF8 as u8);
     data.extend(format!("{}/{}", TRACK, INVALID).into_bytes().into_iter());
@@ -73,7 +73,7 @@ fn utf8_invalid() {
 // UTF16 {{{
 #[test]
 fn utf16() {
-    let mut tag = ID3Tag::new();
+    let mut tag = ID3Tag::with_version(4);
 
     tag.set_track_enc(TRACK, encoding::UTF16);
     tag.set_total_tracks_enc(TOTAL, encoding::UTF16);
@@ -91,7 +91,7 @@ fn utf16() {
 
 #[test]
 fn utf16_only_track() {
-    let mut tag = ID3Tag::new();
+    let mut tag = ID3Tag::with_version(4);
 
     tag.set_track_enc(TRACK, encoding::UTF16);
     let frame = tag.get_frame_by_id(ID).unwrap();
@@ -108,9 +108,9 @@ fn utf16_only_track() {
 
 #[test]
 fn utf16_invalid() {
-    let mut tag = ID3Tag::new();
+    let mut tag = ID3Tag::with_version(4);
     
-    let mut frame = Frame::new(ID);
+    let mut frame = Frame::with_version(ID, 4);
     let mut data = Vec::new();
     data.push(encoding::UTF16 as u8);
     data.extend(id3::util::string_to_utf16(format!("{}/{}", INVALID, TOTAL).as_slice()).into_iter());
@@ -121,7 +121,7 @@ fn utf16_invalid() {
 
     tag.remove_frames_by_id(ID);
 
-    let mut frame = Frame::new(ID);
+    let mut frame = Frame::with_version(ID, 4);
     let mut data = Vec::new();
     data.push(encoding::UTF16 as u8);
     data.extend(id3::util::string_to_utf16(format!("{}/{}", TRACK, INVALID).as_slice()).into_iter());
@@ -135,7 +135,7 @@ fn utf16_invalid() {
 // UTF16BE {{{
 #[test]
 fn utf16be() {
-    let mut tag = ID3Tag::new();
+    let mut tag = ID3Tag::with_version(4);
 
     tag.set_track_enc(TRACK, encoding::UTF16BE);
     tag.set_total_tracks_enc(TOTAL, encoding::UTF16BE);
@@ -153,7 +153,7 @@ fn utf16be() {
 
 #[test]
 fn utf16be_only_track() {
-    let mut tag = ID3Tag::new();
+    let mut tag = ID3Tag::with_version(4);
 
     tag.set_track_enc(TRACK, encoding::UTF16BE);
     let frame = tag.get_frame_by_id(ID).unwrap();
@@ -170,9 +170,9 @@ fn utf16be_only_track() {
 
 #[test]
 fn utf16be_invalid() {
-    let mut tag = ID3Tag::new();
+    let mut tag = ID3Tag::with_version(4);
     
-    let mut frame = Frame::new(ID);
+    let mut frame = Frame::with_version(ID, 4);
     let mut data = Vec::new();
     data.push(encoding::UTF16BE as u8);
     data.extend(id3::util::string_to_utf16be(format!("{}/{}", INVALID, TOTAL).as_slice()).into_iter());
@@ -183,7 +183,7 @@ fn utf16be_invalid() {
 
     tag.remove_frames_by_id(ID);
 
-    let mut frame = Frame::new(ID);
+    let mut frame = Frame::with_version(ID, 4);
     let mut data = Vec::new();
     data.push(encoding::UTF16BE as u8);
     data.extend(id3::util::string_to_utf16be(format!("{}/{}", TRACK, INVALID).as_slice()).into_iter());

@@ -8,10 +8,12 @@ use std::rand::Rng;
 use encoding;
 
 /// Returns a random sequence of 16 bytes, intended to be used as a UUID.
+#[inline]
 pub fn uuid() -> Vec<u8> {
     rand::task_rng().gen_iter::<u8>().take(16).collect::<Vec<_>>()
 }
 /// Returns the synchsafe varaiant of a `u32` value.
+#[inline]
 pub fn synchsafe(n: u32) -> u32 {
     let mut x: u32 = n & 0x7F | (n & 0xFFFFFF80) << 1;
     x = x & 0x7FFF | (x & 0xFFFF8000) << 1;
@@ -20,11 +22,13 @@ pub fn synchsafe(n: u32) -> u32 {
 }
 
 /// Returns the unsynchsafe varaiant of a `u32` value.
+#[inline]
 pub fn unsynchsafe(n: u32) -> u32 {
     (n & 0xFF | (n & 0xFF00) >> 1 | (n & 0xFF0000) >> 2 | (n & 0xFF000000) >> 3)
 }
 
 /// Returns a vector representation of a `u32` value.
+#[inline]
 pub fn u32_to_bytes(n: u32) -> Vec<u8> {
     vec!(((n & 0xFF000000) >> 24) as u8, ((n & 0xFF0000) >> 16) as u8, ((n & 0xFF00) >> 8) as u8, (n & 0xFF) as u8)
 }
@@ -255,6 +259,7 @@ static ID_2_TO_3: phf::Map<&'static str, &'static str> = phf_map! {
 };
 
 /// Returns the coresponding ID3v2.3/ID3v2.4 ID given the ID3v2.2 ID. 
+#[inline]
 pub fn convert_id_2_to_3(id: &str) -> Option<&str> {
     ID_2_TO_3.find_equiv(id).map(|t| t.clone())
 }
@@ -330,6 +335,7 @@ static ID_3_TO_2: phf::Map<&'static str, &'static str> = phf_map! {
 };
 
 /// Returns the coresponding ID3v2.2 ID given the ID3v2.3/ID3v2.3 ID. 
+#[inline]
 pub fn convert_id_3_to_2(id: &str) -> Option<&str> {
     ID_3_TO_2.find_equiv(id).map(|t| t.clone())
 }
@@ -445,6 +451,7 @@ static FRAME_DESCRIPTIONS: phf::Map<&'static str, &'static str> = phf_map! {
 };
 
 /// Returns a string describing the frame type.
+#[inline]
 pub fn frame_description(id: &str) -> &str {
     match FRAME_DESCRIPTIONS.find_equiv(id).map(|t| t.clone()) {
         Some(desc) => desc,

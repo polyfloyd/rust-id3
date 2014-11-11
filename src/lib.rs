@@ -5,7 +5,7 @@
 //! ```no_run
 //! use id3::AudioTag;
 //!
-//! let mut tag = AudioTag::load(&Path::new("music.mp3")).unwrap();
+//! let mut tag = AudioTag::read_from_path(&Path::new("music.mp3")).unwrap();
 //!
 //! // print the artist the hard way
 //! println!("{}", tag.get_frame_by_id("TALB").unwrap().contents.text());
@@ -20,20 +20,21 @@
 //!
 //! ```no_run
 //! // you need to use AudioTag in order to use the trait features
-//! use id3::{ID3Tag, AudioTag, Frame, TextContent, encoding};
+//! use id3::{ID3Tag, AudioTag, Frame, TextContent};
+//! use id3::encoding::UTF8;
 //!
 //! let mut tag = ID3Tag::with_version(4);
 //! 
 //! // set the album the hard way
 //! let mut frame = Frame::with_version("TALB", 4);
-//! frame.encoding = encoding::UTF8;
+//! frame.set_encoding(UTF8);
 //! frame.contents = TextContent(String::from_str("album"));
 //! tag.add_frame(frame);
 //!
 //! // or set it the easy way
 //! tag.set_album("album");
 //!
-//! tag.write(&Path::new("music.mp3")).unwrap();
+//! tag.write_to_path(&Path::new("music.mp3")).unwrap();
 //! ```
 
 #![crate_name = "id3"]

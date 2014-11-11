@@ -16,7 +16,7 @@ git = "https://github.com/jamesrhurst/rust-id3"
 ```rust
 use id3::AudioTag;
 
-let mut tag = AudioTag::load(&Path::new("music.mp3")).unwrap();
+let mut tag = AudioTag::read_from_path(&Path::new("music.mp3")).unwrap();
 
 // print the artist the hard way
 println!("{}", tag.get_frame_by_id("TALB").unwrap().contents.text());

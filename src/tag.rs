@@ -1,7 +1,8 @@
 extern crate std;
 extern crate audiotag;
 
-use std::io::{File, SeekSet, SeekCur};
+use std::cmp::min;
+use std::io::{File, Open, Truncate, Write, SeekSet, SeekCur};
 use std::collections::HashMap;
 
 use self::audiotag::{AudioTag, TagError, TagResult, InvalidInputError, UnsupportedFeatureError};
@@ -10,25 +11,29 @@ use frame::{Frame, encoding, PictureContent, CommentContent, TextContent, Extend
 use picture::{Picture, picture_type};
 use util;
 
+static DEFAULT_FILE_DISCARD: [&'static str, ..11] = ["AENC", "ETCO", "EQUA", "MLLT", "POSS", "SYLT", "SYTC", "RVAD", "TENC", "TLEN", "TSIZ"];
+static PADDING_BYTES: u32 = 2048;
+
+
 /// An ID3 tag containing metadata frames. 
 pub struct ID3Tag {
-    /// The name of the path from which the tags were loaded.
+    /// The path, if any, that this file was loaded from.
     path: Option<Path>,
+    /// Indicates if the path that we are writing to is not the same as the path we read from.
+    path_changed: bool,
     /// The version of the tag. The first byte represents the major version number, while the
     /// second byte represents the revision number.
     version: [u8, ..2],
     /// The size of the tag when read from a file.
     size: u32,
-    /// The file offset of the last frame. 
-    offset: u64,
-    /// The file offset of the first modified frame.
-    modified_offset: u64,
     /// The ID3 header flags.
     flags: TagFlags,
     /// A vector of frames included in the tag.
     frames: Vec<Frame>,
-    /// A flag used to indicate if a rewrite is needed.
-    rewrite: bool
+    /// The offset of the end of the last frame that was read.
+    offset: u32,
+    /// The offset of the first modified frame.
+    modified_offset: u32
 }
 
 /// Flags used in the ID3 header.
@@ -48,6 +53,7 @@ pub struct TagFlags {
 // TagFlags {{{
 impl TagFlags {
     /// Creates a new `TagFlags` with all flags set to false.
+    #[inline]
     pub fn new() -> TagFlags {
         TagFlags { unsynchronization: false, extended_header: false, experimental: false, footer: false, compression: false }
     }
@@ -108,13 +114,18 @@ impl TagFlags {
 // Tag {{{
 impl ID3Tag {
     /// Creates a new ID3v2.3 tag with no frames. 
+    #[inline]
     pub fn new() -> ID3Tag {
-        ID3Tag { path: None, version: [3, 0], size: 0, offset: 0, modified_offset: 0, flags: TagFlags::new(), frames: Vec::new(), rewrite: false }
+        ID3Tag { 
+            path: None, path_changed: true, version: [3, 0], size: 0, flags: TagFlags::new(), 
+            frames: Vec::new(), offset: 0, modified_offset: 0
+        }
     }
 
     /// Creates a new ID3 tag with the specified version.
     ///
     /// ID3v2 versions 2 to 4 are supported. Passing any other version will cause a panic.
+    #[inline]
     pub fn with_version(version: u8) -> ID3Tag {
         if version < 2 || version > 4 {
             panic!("attempted to set unsupported version");
@@ -191,6 +202,7 @@ impl ID3Tag {
     /// let tag = ID3Tag::with_version(3);
     /// assert_eq!(tag.version(), 3);
     /// ```
+    #[inline]
     pub fn version(&self) -> u8 {
         self.version[0]
     }
@@ -224,6 +236,8 @@ impl ID3Tag {
                 remove_uuid.push(frame.uuid.clone());
             }
         }
+
+        self.modified_offset = 0;
             
         self.frames.retain(|frame: &Frame| !remove_uuid.contains(&frame.uuid));
     }
@@ -266,6 +280,7 @@ impl ID3Tag {
     ///
     /// assert_eq!(tag.get_frames().len(), 2);
     /// ```
+    #[inline]
     pub fn get_frames<'a>(&'a self) -> &'a Vec<Frame> {
         &self.frames
     }
@@ -354,6 +369,7 @@ impl ID3Tag {
     /// tag.add_text_frame("TCON", "Metal");
     /// assert_eq!(tag.get_frame_by_id("TCON").unwrap().contents.text().as_slice(), "Metal");
     /// ```
+    #[inline]
     pub fn add_text_frame(&mut self, id: &str, text: &str) {
         let encoding = self.default_encoding();
         self.add_text_frame_enc(id, text, encoding);
@@ -374,7 +390,7 @@ impl ID3Tag {
         self.remove_frames_by_id(id);
        
         let mut frame = Frame::with_version(id, self.version[0]);
-        frame.encoding = encoding;
+        frame.set_encoding(encoding);
         frame.contents = TextContent(String::from_str(text));
 
         self.frames.push(frame);
@@ -396,20 +412,15 @@ impl ID3Tag {
     /// assert_eq!(tag.get_frames().len(), 0);
     /// ```
     pub fn remove_frame_by_uuid(&mut self, uuid: &[u8]) {
-        let mut i = 0;
-        for f in self.frames.iter() {
-            if f.uuid.as_slice() == uuid {
-                break;
-            }
-            i += 1;
+        let mut modified_offset = self.modified_offset;
+        {
+            let set_modified_offset = |offset| {
+                modified_offset = min(modified_offset, offset);
+                false
+            };
+            self.frames.retain(|frame| frame.uuid.as_slice() != uuid || set_modified_offset(frame.offset));
         }
-
-        if i < self.frames.len() {
-            if self.frames[i].offset != 0 && self.frames[i].offset < self.modified_offset {
-                self.modified_offset = self.frames[i].offset;
-            }
-            self.frames.remove(i);
-        }
+        self.modified_offset = modified_offset;
     }
 
     /// Removes all frames with the specified identifier.
@@ -433,19 +444,15 @@ impl ID3Tag {
     /// assert_eq!(tag.get_frames().len(), 0);
     /// ```   
     pub fn remove_frames_by_id(&mut self, id: &str) {
-        let mut modified_offset: u64 = 0;
-        let set_modified_offset = |m: &mut u64, o: u64| {
-            if (*m == 0 || o < *m) && o != 0 {
-                *m = o;
-            }
-            false
-        };
-
-        self.frames.retain(|f: &Frame| f.id.as_slice() != id || set_modified_offset(&mut modified_offset, f.offset));
-
-        if modified_offset != 0 && modified_offset < self.modified_offset {
-            self.modified_offset = modified_offset;
+        let mut modified_offset = self.modified_offset;
+        {
+            let set_modified_offset = |offset| {
+                modified_offset = min(modified_offset, offset);
+                false
+            };
+            self.frames.retain(|frame| frame.id.as_slice() != id || set_modified_offset(frame.offset));
         }
+        self.modified_offset = modified_offset;
     }
 
     /// Returns the `TextContent` string for the frame with the specified identifier.
@@ -511,6 +518,7 @@ impl ID3Tag {
     /// assert!(tag.txxx().contains(&(String::from_str("key1"), String::from_str("value1"))));
     /// assert!(tag.txxx().contains(&(String::from_str("key2"), String::from_str("value2"))));
     /// ```
+    #[inline]
     pub fn add_txxx(&mut self, key: &str, value: &str) {
         let encoding = self.default_encoding();
         self.add_txxx_enc(key, value, encoding);
@@ -536,7 +544,7 @@ impl ID3Tag {
         self.remove_txxx(Some(key), None);
 
         let mut frame = Frame::with_version(self.txxx_id(), self.version[0]);
-        frame.encoding = encoding;
+        frame.set_encoding(encoding);
         frame.contents = ExtendedTextContent((String::from_str(key), String::from_str(value)));
         
         self.frames.push(frame);
@@ -571,20 +579,15 @@ impl ID3Tag {
     /// assert_eq!(tag.txxx().len(), 0);
     /// ```
     pub fn remove_txxx(&mut self, key: Option<&str>, value: Option<&str>) {
-        let mut modified_offset: u64 = 0;
-        let set_modified_offset = |m: &mut u64, o: u64| {
-            if (*m == 0 || o < *m) && o != 0 {
-                *m = o;
-            }
-        };
+        let mut modified_offset = self.modified_offset;
 
         let id = self.txxx_id();
-        self.frames.retain(|f: &Frame| {
+        self.frames.retain(|frame| {
             let mut key_match = false;
             let mut value_match = false;
 
-            if f.id.as_slice() == id {
-                match f.contents {
+            if frame.id.as_slice() == id {
+                match frame.contents {
                     ExtendedTextContent((ref k, ref v)) => {
                         match key {
                             Some(s) => key_match = s == k.as_slice(),
@@ -604,15 +607,13 @@ impl ID3Tag {
             }
 
             if key_match && value_match {
-                set_modified_offset(&mut modified_offset, f.offset);
+                modified_offset = min(modified_offset, frame.offset);
             }
 
             !(key_match && value_match) // true if we want to keep the item
         });
 
-        if modified_offset != 0 && modified_offset < self.modified_offset {
-            self.modified_offset = modified_offset;
-        }
+        self.modified_offset = modified_offset;
     }
 
     /// Returns a vector of references to the pictures in the tag.
@@ -658,6 +659,7 @@ impl ID3Tag {
     /// assert_eq!(tag.pictures().len(), 1);
     /// assert_eq!(tag.pictures()[0].mime_type.as_slice(), "image/png");
     /// ```
+    #[inline]
     pub fn add_picture(&mut self, mime_type: &str, picture_type: picture_type::PictureType, data: &[u8]) {
         self.add_picture_enc(mime_type, picture_type, "", data, encoding::Latin1);
     }
@@ -683,7 +685,7 @@ impl ID3Tag {
 
         let mut frame = Frame::with_version(self.picture_id(), self.version[0]);
 
-        frame.encoding = encoding;
+        frame.set_encoding(encoding);
         frame.contents = PictureContent(Picture { mime_type: String::from_str(mime_type), picture_type: picture_type, description: String::from_str(description), data: data.to_vec() } );
 
         self.frames.push(frame);
@@ -706,24 +708,18 @@ impl ID3Tag {
     /// assert_eq!(tag.pictures()[0].picture_type, Other);
     /// ```
     pub fn remove_picture_type(&mut self, picture_type: picture_type::PictureType) {
-        let mut modified_offset: u64 = 0;
-        let set_modified_offset = |m: &mut u64, o: u64| {
-            if (*m == 0 || o < *m) && o != 0 {
-                *m = o;
-            }
-            false
-        };
+        let mut modified_offset = self.modified_offset;
 
         let id = self.picture_id();
-        self.frames.retain(|f: &Frame| {
-            if f.id.as_slice() == id {
-                let pic = match f.contents {
+        self.frames.retain(|frame| {
+            if frame.id.as_slice() == id {
+                let pic = match frame.contents {
                     PictureContent(ref picture) => picture,
                     _ => return false
                 };
 
                 if pic.picture_type == picture_type {
-                   set_modified_offset(&mut modified_offset, f.offset);
+                    modified_offset = frame.offset;
                 }
 
                 return pic.picture_type != picture_type
@@ -732,9 +728,7 @@ impl ID3Tag {
             true
         });
 
-        if modified_offset != 0 && modified_offset < self.modified_offset {
-            self.modified_offset = modified_offset;
-        }
+        self.modified_offset = modified_offset;
     }
 
     /// Returns a vector of the user comment frames' (COMM) key/value pairs.
@@ -784,6 +778,7 @@ impl ID3Tag {
     /// assert!(tag.comments().contains(&(String::from_str("key1"), String::from_str("value1"))));
     /// assert!(tag.comments().contains(&(String::from_str("key2"), String::from_str("value2"))));
     /// ```
+    #[inline]
     pub fn add_comment(&mut self, description: &str, text: &str) {
         let encoding = self.default_encoding();
         self.add_comment_enc(description, text, encoding);
@@ -810,7 +805,7 @@ impl ID3Tag {
 
         let mut frame = Frame::with_version(self.comment_id(), self.version[0]);
 
-        frame.encoding = encoding;
+        frame.set_encoding(encoding);
         frame.contents = CommentContent((String::from_str(description), String::from_str(text)));
        
         self.frames.push(frame);
@@ -845,20 +840,15 @@ impl ID3Tag {
     /// assert_eq!(tag.comments().len(), 0);
     /// ```
     pub fn remove_comment(&mut self, key: Option<&str>, value: Option<&str>) {
-        let mut modified_offset: u64 = 0;
-        let set_modified_offset = |m: &mut u64, o: u64| {
-            if (*m == 0 || o < *m) && o != 0 {
-                *m = o;
-            }
-        };
+        let mut modified_offset = self.modified_offset;
 
         let id = self.comment_id();
-        self.frames.retain(|f: &Frame| {
+        self.frames.retain(|frame| {
             let mut key_match = false;
             let mut value_match = false;
 
-            if f.id.as_slice() == id {
-                match f.contents {
+            if frame.id.as_slice() == id {
+                match frame.contents {
                     CommentContent((ref k, ref v)) =>  {
                         match key {
                             Some(s) => key_match = s == k.as_slice(),
@@ -878,15 +868,13 @@ impl ID3Tag {
             }
 
             if key_match && value_match {
-                set_modified_offset(&mut modified_offset, f.offset);
+                modified_offset = frame.offset;
             }
 
             !(key_match && value_match) // true if we want to keep the item
         });
 
-        if modified_offset != 0 && modified_offset < self.modified_offset {
-            self.modified_offset = modified_offset;
-        }
+        self.modified_offset = modified_offset;
     }
 
     /// Sets the artist (TPE1) using the specified text encoding.
@@ -900,6 +888,7 @@ impl ID3Tag {
     /// tag.set_artist_enc("artist", UTF16);
     /// assert_eq!(tag.artist().unwrap().as_slice(), "artist");
     /// ```
+    #[inline]
     pub fn set_artist_enc(&mut self, artist: &str, encoding: encoding::Encoding) {
         let id = self.artist_id();
         self.add_text_frame_enc(id, artist, encoding);
@@ -916,6 +905,7 @@ impl ID3Tag {
     /// tag.set_album_artist_enc("album artist", UTF16);
     /// assert_eq!(tag.album_artist().unwrap().as_slice(), "album artist");
     /// ```
+    #[inline]
     pub fn set_album_artist_enc(&mut self, album_artist: &str, encoding: encoding::Encoding) {
         self.remove_frames_by_id("TSOP");
         let id = self.album_artist_id();
@@ -933,6 +923,7 @@ impl ID3Tag {
     /// tag.set_album_enc("album", UTF16);
     /// assert_eq!(tag.album().unwrap().as_slice(), "album");
     /// ```
+    #[inline]
     pub fn set_album_enc(&mut self, album: &str, encoding: encoding::Encoding) {
         let id = self.album_id();
         self.add_text_frame_enc(id, album, encoding);
@@ -949,6 +940,7 @@ impl ID3Tag {
     /// tag.set_title_enc("title", UTF16);
     /// assert_eq!(tag.title().unwrap().as_slice(), "title");
     /// ```
+    #[inline]
     pub fn set_title_enc(&mut self, title: &str, encoding: encoding::Encoding) {
         self.remove_frames_by_id("TSOT");
         let id = self.title_id();
@@ -966,6 +958,7 @@ impl ID3Tag {
     /// tag.set_genre_enc("genre", UTF16);
     /// assert_eq!(tag.genre().unwrap().as_slice(), "genre");
     /// ```
+    #[inline]
     pub fn set_genre_enc(&mut self, genre: &str, encoding: encoding::Encoding) {
         let id = self.genre_id();
         self.add_text_frame_enc(id, genre, encoding);
@@ -1016,6 +1009,7 @@ impl ID3Tag {
     /// tag.set_year(2014);
     /// assert_eq!(tag.year().unwrap(), 2014);
     /// ```
+    #[inline]
     pub fn set_year(&mut self, year: uint) {
         let id = self.year_id();
         self.add_text_frame_enc(id, format!("{}", year).as_slice(), encoding::Latin1);
@@ -1032,6 +1026,7 @@ impl ID3Tag {
     /// tag.set_year_enc(2014, UTF16);
     /// assert_eq!(tag.year().unwrap(), 2014);
     /// ```
+    #[inline]
     pub fn set_year_enc(&mut self, year: uint, encoding: encoding::Encoding) {
         let id = self.year_id();
         self.add_text_frame_enc(id, format!("{}", year).as_slice(), encoding);
@@ -1127,7 +1122,7 @@ impl ID3Tag {
 
         let mut frame = Frame::with_version(id, self.version[0]);
 
-        frame.encoding = encoding;
+        frame.set_encoding(encoding);
         frame.contents = LyricsContent(String::from_str(text));
         
         self.frames.push(frame);
@@ -1136,19 +1131,61 @@ impl ID3Tag {
 }
 impl AudioTag for ID3Tag {
     // Reading/Writing {{{
-    fn load(path: &Path) -> TagResult<ID3Tag> {
-        let mut tag = ID3Tag::new();
-        tag.path = Some(path.clone());
-
-        let mut file = try!(File::open(path));
-
-        let identifier = try!(file.read_exact(3));
-        if identifier.as_slice() != "ID3".as_bytes() {
-            debug!("no id3 tag found");
-            return Err(TagError::new(InvalidInputError, "file does not contain an id3 tag"))
+    fn skip_metadata<R: Reader + Seek>(reader: &mut R, _: Option<ID3Tag>) -> Vec<u8> {
+        macro_rules! try_io {
+            ($reader:ident, $action:expr) => {
+                match $action { 
+                    Ok(bytes) => bytes, 
+                    Err(_) => {
+                        match $reader.seek(0, SeekSet) {
+                            Ok(_) => {
+                                match $reader.read_to_end() {
+                                    Ok(bytes) => return bytes,
+                                    Err(_) => return Vec::new()
+                                }
+                            },
+                            Err(_) => return Vec::new()
+                        }
+                    }
+                }
+            }
         }
 
-        try!(file.read(tag.version));
+        let ident = try_io!(reader, reader.read_exact(3));
+        if ident.as_slice() == b"ID3" {
+            try_io!(reader, reader.seek(3, SeekCur));
+            let offset = 10 + util::unsynchsafe(try_io!(reader, reader.read_be_u32()));   
+            try_io!(reader, reader.seek(offset as i64, SeekSet));
+        } else {
+            try_io!(reader, reader.seek(0, SeekSet));
+        }
+
+        try_io!(reader, reader.read_to_end())
+    }
+
+    fn is_candidate(reader: &mut Reader, _: Option<ID3Tag>) -> bool {
+        macro_rules! try_or_false {
+            ($action:expr) => {
+                match $action { 
+                    Ok(result) => result, 
+                    Err(_) => return false 
+                }
+            }
+        }
+
+        (try_or_false!(reader.read_exact(3))).as_slice() == b"ID3"
+    }
+
+    fn read_from(reader: &mut Reader) -> TagResult<ID3Tag> {
+        let mut tag = ID3Tag::new();
+
+        let identifier = try!(reader.read_exact(3));
+        if identifier.as_slice() != b"ID3" {
+            debug!("no id3 tag found");
+            return Err(TagError::new(InvalidInputError, "buffer does not contain an id3 tag"))
+        }
+
+        try!(reader.read(tag.version));
 
         debug!("tag version {}", tag.version[0]);
 
@@ -1156,7 +1193,7 @@ impl AudioTag for ID3Tag {
             return Err(TagError::new(InvalidInputError, "unsupported id3 tag version"));
         }
 
-        tag.flags = TagFlags::from_byte(try!(file.read_byte()), tag.version[0]);
+        tag.flags = TagFlags::from_byte(try!(reader.read_byte()), tag.version[0]);
 
         if tag.flags.unsynchronization {
             debug!("unsynchronization is unsupported");
@@ -1166,16 +1203,20 @@ impl AudioTag for ID3Tag {
             return Err(TagError::new(UnsupportedFeatureError, "id3v2.2 compression is not supported"));
         }
 
-        tag.size = util::unsynchsafe(try!(file.read_be_u32()));
+        tag.size = util::unsynchsafe(try!(reader.read_be_u32()));
+        
+        let mut offset = 10;
 
         // TODO actually use the extended header data
         if tag.flags.extended_header {
-            let ext_size = util::unsynchsafe(try!(file.read_be_u32()));
-            try!(file.seek(ext_size as i64, SeekCur));
+            let ext_size = util::unsynchsafe(try!(reader.read_be_u32()));
+            offset += 4;
+            let _ = try!(reader.read_exact(ext_size as uint));
+            offset += ext_size;
         }
 
-        while try!(file.tell()) < tag.size as u64 + 10 {
-            let frame = match Frame::read(tag.version[0], &mut file) {
+        while offset < tag.size + 10 {
+            let (bytes_read, mut frame) = match Frame::read_from(reader, tag.version[0]) {
                 Ok(opt) => match opt {
                     Some(frame) => frame,
                     None => break //padding
@@ -1191,204 +1232,216 @@ impl AudioTag for ID3Tag {
                 }
             };
 
+            frame.offset = offset;
             tag.frames.push(frame);
+
+            offset += bytes_read;
         }
 
-        tag.offset = try!(file.tell());
+        tag.offset = offset;
         tag.modified_offset = tag.offset;
 
-        return Ok(tag);
+        Ok(tag)
     }
 
-    fn save(&mut self) -> TagResult<()> {
-        let path = self.path.clone().unwrap();
-        self.write(&path)
-    }
-
-    fn skip_metadata(path: &Path) -> Vec<u8> {
-        macro_rules! try_io {
-            ($file:ident, $action:expr) => {
-                match $action { 
-                    Ok(bytes) => bytes, 
-                    Err(_) => {
-                        match $file.seek(0, SeekSet) {
-                            Ok(_) => {
-                                match $file.read_to_end() {
-                                    Ok(bytes) => return bytes,
-                                    Err(_) => return Vec::new()
-                                }
-                            },
-                            Err(_) => return Vec::new()
-                        }
-                    }
-                }
-            }
-        }
-
-        let mut file = match File::open(path) {
-            Ok(file) => file,
-            Err(_) => return Vec::new()
-        };
-
-        let ident = try_io!(file, file.read_exact(3));
-        if ident.as_slice() == b"ID3" {
-            try_io!(file, file.seek(3, SeekCur));
-            let offset = 10 + util::unsynchsafe(try_io!(file, file.read_be_u32()));   
-            try_io!(file, file.seek(offset as i64, SeekSet));
-        } else {
-            try_io!(file, file.seek(0, SeekSet));
-        }
-
-        try_io!(file, file.read_to_end())
-    }
-
-    fn is_candidate(path: &Path, _: Option<ID3Tag>) -> bool {
-        macro_rules! try_or_false {
-            ($action:expr) => {
-                match $action { 
-                    Ok(result) => result, 
-                    Err(_) => return false 
-                }
-            }
-        }
-
-        (try_or_false!((try_or_false!(File::open(path))).read_exact(3))).as_slice() == b"ID3"
-    }
-
-    fn write(&mut self, path: &Path) -> TagResult<()> {
-        // TODO which should be discarded for ID3v2.2
-        static DEFAULT_FILE_DISCARD: [&'static str, ..11] = ["AENC", "ETCO", "EQUA", "MLLT", "POSS", "SYLT", "SYTC", "RVAD", "TENC", "TLEN", "TSIZ"];
-
-        let file_changed = self.path.is_none() || self.path.clone().unwrap() != *path;
-
-        let mut rewrite = false;
-        if self.rewrite || file_changed || self.flags.extended_header {
-            self.flags.extended_header = false; // don't support writing extended header
-            rewrite = true;
-        }
-
-        debug!("perform a rewrite? {}", rewrite);
-
-        self.path = Some(path.clone());
-
+    fn write_to(&mut self, writer: &mut Writer) -> TagResult<()> {
+        let path_changed = self.path_changed;
+        let version = self.version[0];
         let mut data_cache: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
+        let mut size = 0;
 
-        let mut new_size = 0;
+        // remove frames which have the flags indicating they should be removed and cache the data
+        // for frames we are keeping while we are doing that
+        self.frames.retain(|frame| {
+            let remove = frame.offset != 0 && (frame.tag_alter_preservation() || (path_changed && (frame.file_alter_preservation() || DEFAULT_FILE_DISCARD.contains(&frame.id.as_slice()))));
+            if !remove {
+                let data = frame.to_bytes(version);
+                size += data.len() as u32;
+                data_cache.insert(frame.uuid.clone(), data);
+            }
+
+            !remove
+        });
+
+        self.size = size + PADDING_BYTES;
+
+        try!(writer.write(b"ID3"));
+        try!(writer.write(self.version)); 
+        try!(writer.write_u8(self.flags.to_byte(self.version[0])));
+        try!(writer.write_be_u32(util::synchsafe(self.size)));
+
+        let mut bytes_written = 10;
+
         for frame in self.frames.iter_mut() {
-            let data = frame.to_bytes(self.version[0]);
-            new_size += data.len() as u32; 
-            data_cache.insert(frame.uuid.clone(), data);
+            debug!("writing {}", frame.id);
+
+            frame.offset = bytes_written;
+
+            bytes_written += match data_cache.get(&frame.uuid) {
+                Some(data) => { 
+                    try!(writer.write(data.as_slice()));
+                    data.len() as u32
+                },
+                None => {
+                    let data = frame.to_bytes(self.version[0]);
+                    try!(writer.write(data.as_slice()));
+                    data.len() as u32
+                }
+            }
         }
 
-        if new_size > self.size {
-            rewrite = true;
-        }
+        self.offset = bytes_written;
+        self.modified_offset = self.offset;
 
-        let padding_bytes = 2048;
-        new_size += padding_bytes;
-
-        if rewrite {
-            self.size = new_size;
-
-            let data = AudioTag::skip_metadata(path);
-
-            let mut file = try!(File::open_mode(path, std::io::Truncate, std::io::Write));
-
-            try!(file.write(b"ID3"));
-            try!(file.write(self.version)); 
-            try!(file.write_u8(self.flags.to_byte(self.version[0])));
-            try!(file.write_be_u32(util::synchsafe(self.size)));
-
-            let mut remove_uuid = Vec::new();
-            for frame in self.frames.iter_mut() {
-                // discard the frame if it is not new, and the flags/id say it should be discarded
-                if frame.offset != 0 && (frame.flags.tag_alter_preservation || (file_changed && (frame.flags.file_alter_preservation || DEFAULT_FILE_DISCARD.contains(&frame.id.as_slice())))) {
-                    debug!("dicarding {} since tag/file changed", frame.id);
-                    remove_uuid.push(frame.uuid.clone());
-                } else {
-                    frame.offset = try!(file.tell());
-                    debug!("writing {}", frame.id);
-                    match data_cache.get(&frame.uuid) {
-                        Some(data) => try!(file.write(data.as_slice())),
-                        None => try!(file.write(frame.to_bytes(self.version[0]).as_slice()))
-                    }
-                }
-            }
-
-            self.frames.retain(|frame: &Frame| !remove_uuid.contains(&frame.uuid));
-
-            self.offset = try!(file.tell());
-            self.modified_offset = self.offset;
-
-            // write padding
-            for _ in range(0, padding_bytes) {
-                try!(file.write_u8(0x0));
-            }
-
-            // write the remaining data
-            try!(file.write(data.as_slice()));
-        } else {
-            let mut file = try!(File::open_mode(path, std::io::Open, std::io::Write));
-
-            try!(file.seek(self.modified_offset as i64, SeekSet));
-            let mut remove_uuid = Vec::new();
-            for frame in self.frames.iter_mut() {
-                // discard the frame if it is not new, and the flags say it should be discarded
-                if frame.offset != 0 && frame.flags.tag_alter_preservation {
-                    debug!("dicarding {} since tag changed", frame.id);
-                    remove_uuid.push(frame.uuid.clone());
-                } else if frame.offset == 0 || frame.offset > self.modified_offset {
-                    debug!("writing {}", frame.id);
-                    frame.offset = try!(file.tell());
-                    try!(file.write(frame.to_bytes(self.version[0]).as_slice()));
-                }
-            }
-
-            self.frames.retain(|frame: &Frame| !remove_uuid.contains(&frame.uuid));
-
-            let old_offset = self.offset;
-            self.offset = try!(file.tell());
-            self.modified_offset = self.offset;
-
-            if self.offset < old_offset {
-                for _ in range(self.offset, old_offset) {
-                    try!(file.write_u8(0x0));
-                }
-            }
+        // write padding
+        for _ in range(0, PADDING_BYTES) {
+            try!(writer.write_u8(0));
         }
 
         Ok(())
     }
+
+    fn read_from_path(path: &Path) -> TagResult<ID3Tag> {
+        let mut file = try!(File::open(path));
+        let mut tag = try!(AudioTag::read_from(&mut file));
+        tag.path = Some(path.clone());
+        tag.path_changed = false;
+        Ok(tag)
+    }
+
+    fn write_to_path(&mut self, path: &Path) -> TagResult<()> {
+        let data_opt = {
+            match File::open(path) {
+                Ok(mut file) => Some(AudioTag::skip_metadata(&mut file, None::<ID3Tag>)),
+                Err(_) => None
+            }
+        };
+
+        self.path_changed = self.path.is_none() || self.path.as_ref().unwrap() != path;
+
+        let mut file = try!(File::open_mode(path, Truncate, Write));
+        self.write_to(&mut file).unwrap();
+        
+        match data_opt {
+            Some(data) => file.write(data.as_slice()).unwrap(),
+            None => {}
+        }
+
+        self.path = Some(path.clone());
+        self.path_changed = false;
+
+        Ok(())
+    }
+
+    fn save(&mut self) -> TagResult<()> {
+        if self.path.is_none() {
+            panic!("attempted to save file which was not read from a path");
+        }
+
+        // remove any old frames that have the tag_alter_presevation frames and also cache the
+        // frame data while we are doing that
+        let mut data_cache: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
+        let version = self.version[0];
+        let mut size = 0;
+        let mut modified_offset = self.modified_offset;
+        
+        self.frames.retain(|frame| {
+            let remove = frame.offset != 0 && frame.tag_alter_preservation();
+            if remove {
+                modified_offset = min(modified_offset, frame.offset);
+            } else {
+                let data = frame.to_bytes(version);
+                size += data.len() as u32;
+                data_cache.insert(frame.uuid.clone(), data);
+            }
+
+            !remove
+        });
+
+        self.modified_offset = modified_offset;
+
+        debug!("modified offset: {}", self.modified_offset); 
+       
+        if size <= self.size && self.modified_offset >= 10 {
+            debug!("writing using padding");
+
+            self.size = size;
+       
+            let mut writer = try!(File::open_mode(self.path.as_ref().unwrap(), Open, Write));
+
+            try!(writer.seek(6, SeekSet));
+            try!(writer.write_be_u32(util::synchsafe(self.size)));
+            
+            let mut offset = self.modified_offset;
+            try!(writer.seek(offset as i64, SeekSet));
+
+            for frame in self.frames.iter_mut() {
+                debug!("writing {}", frame.id);
+
+                if frame.offset == 0 || frame.offset > self.modified_offset {
+                    frame.offset = offset;
+
+                    offset += match data_cache.get(&frame.uuid) {
+                        Some(data) => { 
+                            try!(writer.write(data.as_slice()));
+                            data.len() as u32
+                        },
+                        None => {
+                            let data = frame.to_bytes(self.version[0]);
+                            try!(writer.write(data.as_slice()));
+                            data.len() as u32
+                        }
+                    }
+                }
+            }
+
+            self.offset = offset;
+            self.modified_offset = self.offset;
+
+            Ok(())
+        } else {
+            debug!("rewriting file");
+            let path = self.path.clone().unwrap();
+            self.write_to_path(&path)
+        }
+    }
     //}}}
     
+    #[inline]
     fn artist(&self) -> Option<String> {
         self.text_for_frame_id(self.artist_id())
     }
 
+    #[inline]
     fn set_artist(&mut self, artist: &str) {
         let encoding = self.default_encoding();
         self.set_artist_enc(artist, encoding);
     }
 
+    #[inline]
     fn remove_artist(&mut self) {
         let id = self.artist_id();
         self.remove_frames_by_id(id);
     }
 
+    #[inline]
     fn album_artist(&self) -> Option<String> {
         self.text_for_frame_id(self.album_artist_id())
     }
 
+    #[inline]
     fn set_album_artist(&mut self, album_artist: &str) {
         let encoding = self.default_encoding();
         self.set_album_artist_enc(album_artist, encoding);
     }
 
+    #[inline]
     fn remove_album_artist(&mut self) {
         let id = self.album_artist_id();
         self.remove_frames_by_id(id);
     }
 
+    #[inline]
     fn album(&self) -> Option<String> {
         self.text_for_frame_id(self.album_id())
     }
@@ -1398,57 +1451,69 @@ impl AudioTag for ID3Tag {
         self.set_album_enc(album, encoding);
     }
 
+    #[inline]
     fn remove_album(&mut self) {
         self.remove_frames_by_id("TSOP");
         let id = self.album_id();
         self.remove_frames_by_id(id);
     }
 
+    #[inline]
     fn title(&self) -> Option<String> {
         self.text_for_frame_id(self.title_id())
     }
 
+    #[inline]
     fn set_title(&mut self, title: &str) {
         let encoding = self.default_encoding();
         self.set_title_enc(title, encoding);
     }
 
+    #[inline]
     fn remove_title(&mut self) {
         let id = self.title_id();
         self.remove_frames_by_id(id);
     }
 
+    #[inline]
     fn genre(&self) -> Option<String> {
         self.text_for_frame_id(self.genre_id())
     }
 
+    #[inline]
     fn set_genre(&mut self, genre: &str) {
         let encoding = self.default_encoding();
         self.set_genre_enc(genre, encoding);
     }
 
+    #[inline]
     fn remove_genre(&mut self) {
         let id = self.genre_id();
         self.remove_frames_by_id(id);
     }
 
+    #[inline]
     fn track(&self) -> Option<u32> {
         self.track_pair().and_then(|(track, _)| Some(track))
     }
 
+    #[inline]
     fn set_track(&mut self, track: u32) {
         self.set_track_enc(track, encoding::Latin1);
     }
 
+    #[inline]
     fn remove_track(&mut self) {
         let id = self.track_id();
         self.remove_frames_by_id(id);
     }
 
+    #[inline]
     fn total_tracks(&self) -> Option<u32> {
         self.track_pair().and_then(|(_, total_tracks)| total_tracks)
     }
 
+    #[inline]
     fn set_total_tracks(&mut self, total_tracks: u32) {
         self.set_total_tracks_enc(total_tracks, encoding::Latin1);
     }
@@ -1471,21 +1536,25 @@ impl AudioTag for ID3Tag {
         }
     }
 
+    #[inline]
     fn set_lyrics(&mut self, text: &str) {
         let encoding = self.default_encoding();
         self.set_lyrics_enc(text, encoding);
     }
 
+    #[inline]
     fn remove_lyrics(&mut self) {
         let id = self.lyrics_id();
         self.remove_frames_by_id(id);
     }
 
+    #[inline]
     fn set_picture(&mut self, mime_type: &str, data: &[u8]) {
         self.remove_picture();
         self.add_picture(mime_type, picture_type::Other, data);
     }
 
+    #[inline]
     fn remove_picture(&mut self) {
         let id = self.picture_id();
         self.remove_frames_by_id(id);
