@@ -53,9 +53,9 @@ impl PartialEq for Frame {
 impl Frame {
     /// Creates a new ID3v2.3 frame with the specified identifier.
     #[inline]
-    pub fn new(id: &str) -> Frame {
+    pub fn new(id: String) -> Frame {
         Frame { 
-            uuid: util::uuid(), id: id.into_string(), version: 3, encoding: encoding::UTF16, 
+            uuid: util::uuid(), id: id, version: 3, encoding: encoding::UTF16, 
             flags: FrameFlags::new(), contents: UnknownContent(Vec::new()), offset: 0 
         }
     }
@@ -66,10 +66,10 @@ impl Frame {
     /// ```
     /// use id3::Frame;
     ///
-    /// let frame = Frame::with_version("TALB", 4);
+    /// let frame = Frame::with_version("TALB".into_string(), 4);
     /// assert_eq!(frame.version(), 4);
     /// ```
-    pub fn with_version(id: &str, version: u8) -> Frame {
+    pub fn with_version(id: String, version: u8) -> Frame {
         let mut frame = Frame::new(id);
         frame.version = version;
         frame
@@ -147,7 +147,7 @@ impl Frame {
     /// ```
     /// use id3::Frame;
     ///
-    /// let frame = Frame::with_version("USLT", 4);
+    /// let frame = Frame::with_version("USLT".into_string(), 4);
     /// assert_eq!(frame.version(), 4)
     /// ```
     #[inline]
@@ -207,7 +207,7 @@ impl Frame {
     /// ```
     /// use id3::Frame;
     ///
-    /// let mut frame = Frame::new("TYER");
+    /// let mut frame = Frame::new("TYER".into_string());
     /// let prev_uuid = frame.uuid.clone();
     /// frame.generate_uuid();
     /// assert!(prev_uuid != frame.uuid);
@@ -295,11 +295,11 @@ impl Frame {
     /// ```
     /// use id3::{Frame, ExtendedTextContent, TextContent};
     ///
-    /// let mut title_frame = Frame::new("TIT2");
+    /// let mut title_frame = Frame::new("TIT2".into_string());
     /// title_frame.contents = TextContent("title".into_string());
     /// assert_eq!(title_frame.text().unwrap().as_slice(), "title");
     ///
-    /// let mut txxx_frame = Frame::new("TXXX");
+    /// let mut txxx_frame = Frame::new("TXXX".into_string());
     /// txxx_frame.contents = ExtendedTextContent(("key".into_string(), "value".into_string())); 
     /// assert_eq!(txxx_frame.text().unwrap().as_slice(), "key: value");
     /// ```
@@ -364,7 +364,7 @@ mod tests {
         let text = "album";
         let encoding = encoding::UTF16;
 
-        let mut frame = Frame::with_version(id, 2);
+        let mut frame = Frame::with_version(id.into_string(), 2);
 
         let mut data = Vec::new();
         data.push(encoding as u8);
@@ -388,7 +388,7 @@ mod tests {
         let text = "album";
         let encoding = encoding::UTF16;
 
-        let mut frame = Frame::with_version(id, 4);
+        let mut frame = Frame::with_version(id.into_string(), 4);
 
         let mut data = Vec::new();
         data.push(encoding as u8);
@@ -413,7 +413,7 @@ mod tests {
         let text = "album";
         let encoding = encoding::UTF16;
 
-        let mut frame = Frame::with_version(id, 4);
+        let mut frame = Frame::with_version(id.into_string(), 4);
 
         frame.flags.tag_alter_preservation = true;
         frame.flags.file_alter_preservation = true; 

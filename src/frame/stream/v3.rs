@@ -9,7 +9,7 @@ use util;
 pub struct FrameV3;
 impl FrameStream for FrameV3 {
     fn read(reader: &mut Reader, _: Option<FrameV3>) -> TagResult<Option<(u32, Frame)>> {
-        let mut frame = Frame::with_version("", 3);
+        let mut frame = Frame::with_version(String::new(), 3);
 
         frame.id = id_or_padding!(reader, 4);
         debug!("reading {}", frame.id); 

@@ -26,7 +26,7 @@
 //! let mut tag = ID3Tag::with_version(4);
 //! 
 //! // set the album the hard way
-//! let mut frame = Frame::with_version("TALB", 4);
+//! let mut frame = Frame::with_version("TALB".into_string(), 4);
 //! frame.set_encoding(UTF8);
 //! frame.contents = TextContent("album".into_string());
 //! tag.add_frame(frame);
