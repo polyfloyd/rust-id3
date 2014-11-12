@@ -32,7 +32,7 @@
 //! tag.add_frame(frame);
 //!
 //! // or set it the easy way
-//! tag.set_album("album");
+//! tag.set_album("album".into_string());
 //!
 //! tag.write_to_path(&Path::new("music.mp3")).unwrap();
 //! ```
