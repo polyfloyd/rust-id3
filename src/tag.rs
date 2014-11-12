@@ -391,7 +391,7 @@ impl ID3Tag {
        
         let mut frame = Frame::with_version(id, self.version[0]);
         frame.set_encoding(encoding);
-        frame.contents = TextContent(String::from_str(text));
+        frame.contents = TextContent(text.into_string());
 
         self.frames.push(frame);
     }
@@ -478,18 +478,16 @@ impl ID3Tag {
     /// let mut tag = ID3Tag::new();
     ///
     /// let mut frame = Frame::new("TXXX");
-    /// frame.contents = ExtendedTextContent((String::from_str("key1"),
-    ///     String::from_str("value1")));
+    /// frame.contents = ExtendedTextContent(("key1".into_string(), "value1".into_string()));
     /// tag.add_frame(frame);
     ///
     /// let mut frame = Frame::new("TXXX");
-    /// frame.contents = ExtendedTextContent((String::from_str("key2"), 
-    ///     String::from_str("value2")));
+    /// frame.contents = ExtendedTextContent(("key2".into_string(), "value2".into_string())); 
     /// tag.add_frame(frame);
     ///
     /// assert_eq!(tag.txxx().len(), 2);
-    /// assert!(tag.txxx().contains(&(String::from_str("key1"), String::from_str("value1"))));
-    /// assert!(tag.txxx().contains(&(String::from_str("key2"), String::from_str("value2"))));
+    /// assert!(tag.txxx().contains(&("key1".into_string(), "value1".into_string())));
+    /// assert!(tag.txxx().contains(&("key2".into_string(), "value2".into_string())));
     /// ```
     pub fn txxx(&self) -> Vec<(String, String)> {
         let mut out = Vec::new();
@@ -515,8 +513,8 @@ impl ID3Tag {
     /// tag.add_txxx("key2", "value2");
     ///
     /// assert_eq!(tag.txxx().len(), 2);
-    /// assert!(tag.txxx().contains(&(String::from_str("key1"), String::from_str("value1"))));
-    /// assert!(tag.txxx().contains(&(String::from_str("key2"), String::from_str("value2"))));
+    /// assert!(tag.txxx().contains(&("key1".into_string(), "value1".into_string())));
+    /// assert!(tag.txxx().contains(&("key2".into_string(), "value2".into_string())));
     /// ```
     #[inline]
     pub fn add_txxx(&mut self, key: &str, value: &str) {
@@ -537,15 +535,15 @@ impl ID3Tag {
     /// tag.add_txxx_enc("key2", "value2", UTF16);
     ///
     /// assert_eq!(tag.txxx().len(), 2);
-    /// assert!(tag.txxx().contains(&(String::from_str("key1"), String::from_str("value1"))));
-    /// assert!(tag.txxx().contains(&(String::from_str("key2"), String::from_str("value2"))));
+    /// assert!(tag.txxx().contains(&("key1".into_string(), "value1".into_string())));
+    /// assert!(tag.txxx().contains(&("key2".into_string(), "value2".into_string())));
     /// ```
     pub fn add_txxx_enc(&mut self, key: &str, value: &str, encoding: encoding::Encoding) {
         self.remove_txxx(Some(key), None);
 
         let mut frame = Frame::with_version(self.txxx_id(), self.version[0]);
         frame.set_encoding(encoding);
-        frame.contents = ExtendedTextContent((String::from_str(key), String::from_str(value)));
+        frame.contents = ExtendedTextContent((key.into_string(), value.into_string()));
         
         self.frames.push(frame);
     }
@@ -686,7 +684,7 @@ impl ID3Tag {
         let mut frame = Frame::with_version(self.picture_id(), self.version[0]);
 
         frame.set_encoding(encoding);
-        frame.contents = PictureContent(Picture { mime_type: String::from_str(mime_type), picture_type: picture_type, description: String::from_str(description), data: data.to_vec() } );
+        frame.contents = PictureContent(Picture { mime_type: mime_type.into_string(), picture_type: picture_type, description: description.into_string(), data: data.to_vec() } );
 
         self.frames.push(frame);
     }
@@ -740,16 +738,16 @@ impl ID3Tag {
     /// let mut tag = ID3Tag::new();
     ///
     /// let mut frame = Frame::new("COMM");
-    /// frame.contents = CommentContent((String::from_str("key1"), String::from_str("value1")));
+    /// frame.contents = CommentContent(("key1".into_string(), "value1".into_string()));
     /// tag.add_frame(frame);
     ///
     /// let mut frame = Frame::new("COMM");
-    /// frame.contents = CommentContent((String::from_str("key2"), String::from_str("value2")));
+    /// frame.contents = CommentContent(("key2".into_string(), "value2".into_string()));
     /// tag.add_frame(frame);
     ///
     /// assert_eq!(tag.comments().len(), 2);
-    /// assert!(tag.comments().contains(&(String::from_str("key1"), String::from_str("value1"))));
-    /// assert!(tag.comments().contains(&(String::from_str("key2"), String::from_str("value2"))));
+    /// assert!(tag.comments().contains(&("key1".into_string(), "value1".into_string())));
+    /// assert!(tag.comments().contains(&("key2".into_string(), "value2".into_string())));
     /// ```
     pub fn comments(&self) -> Vec<(String, String)> {
         let mut out = Vec::new();
@@ -775,8 +773,8 @@ impl ID3Tag {
     /// tag.add_comment("key2", "value2");
     ///
     /// assert_eq!(tag.comments().len(), 2);
-    /// assert!(tag.comments().contains(&(String::from_str("key1"), String::from_str("value1"))));
-    /// assert!(tag.comments().contains(&(String::from_str("key2"), String::from_str("value2"))));
+    /// assert!(tag.comments().contains(&("key1".into_string(), "value1".into_string())));
+    /// assert!(tag.comments().contains(&("key2".into_string(), "value2".into_string())));
     /// ```
     #[inline]
     pub fn add_comment(&mut self, description: &str, text: &str) {
@@ -797,8 +795,8 @@ impl ID3Tag {
     /// tag.add_comment_enc("key2", "value2", UTF16);
     ///
     /// assert_eq!(tag.comments().len(), 2);
-    /// assert!(tag.comments().contains(&(String::from_str("key1"), String::from_str("value1"))));
-    /// assert!(tag.comments().contains(&(String::from_str("key2"), String::from_str("value2"))));
+    /// assert!(tag.comments().contains(&("key1".into_string(), "value1".into_string())));
+    /// assert!(tag.comments().contains(&("key2".into_string(), "value2".into_string())));
     /// ```
     pub fn add_comment_enc(&mut self, description: &str, text: &str, encoding: encoding::Encoding) {
         self.remove_comment(Some(description), None);
@@ -806,7 +804,7 @@ impl ID3Tag {
         let mut frame = Frame::with_version(self.comment_id(), self.version[0]);
 
         frame.set_encoding(encoding);
-        frame.contents = CommentContent((String::from_str(description), String::from_str(text)));
+        frame.contents = CommentContent((description.into_string(), text.into_string()));
        
         self.frames.push(frame);
     }
@@ -975,14 +973,14 @@ impl ID3Tag {
     /// assert!(tag.year().is_none());
     ///
     /// let mut frame_valid = Frame::new("TYER");
-    /// frame_valid.contents = TextContent(String::from_str("2014"));
+    /// frame_valid.contents = TextContent("2014".into_string());
     /// tag.add_frame(frame_valid);
     /// assert_eq!(tag.year().unwrap(), 2014);
     ///
     /// tag.remove_frames_by_id("TYER");
     ///
     /// let mut frame_invalid = Frame::new("TYER");
-    /// frame_invalid.contents = TextContent(String::from_str("nope"));
+    /// frame_invalid.contents = TextContent("nope".into_string());
     /// tag.add_frame(frame_invalid);
     /// assert!(tag.year().is_none());
     /// ```
@@ -1123,7 +1121,7 @@ impl ID3Tag {
         let mut frame = Frame::with_version(id, self.version[0]);
 
         frame.set_encoding(encoding);
-        frame.contents = LyricsContent((String::new(), String::from_str(text)));
+        frame.contents = LyricsContent((String::new(), text.into_string()));
         
         self.frames.push(frame);
     }

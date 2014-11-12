@@ -28,7 +28,7 @@
 //! // set the album the hard way
 //! let mut frame = Frame::with_version("TALB", 4);
 //! frame.set_encoding(UTF8);
-//! frame.contents = TextContent(String::from_str("album"));
+//! frame.contents = TextContent("album".into_string());
 //! tag.add_frame(frame);
 //!
 //! // or set it the easy way

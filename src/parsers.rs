@@ -327,8 +327,8 @@ fn parse_apic_v2(data: &[u8]) -> TagResult<DecoderResult> {
     };
 
     picture.mime_type = match format.as_slice() {
-        "PNG" => String::from_str("image/png"),
-        "JPG" => String::from_str("image/jpeg"),
+        "PNG" => "image/png".into_string(),
+        "JPG" => "image/jpeg".into_string(),
         other => {
             debug!("can't determine MIME type for `{}`", other);
             return Err(TagError::new(UnsupportedFeatureError, "can't determine MIME type for image format"))
@@ -495,7 +495,7 @@ mod tests {
 
     fn bytes_for_encoding(text: &str, encoding: encoding::Encoding) -> Vec<u8> {
         match encoding {
-            encoding::Latin1 | encoding::UTF8 => String::from_str(text).into_bytes(),
+            encoding::Latin1 | encoding::UTF8 => text.as_bytes().to_vec(),
             encoding::UTF16 => util::string_to_utf16(text),
             encoding::UTF16BE => util::string_to_utf16be(text)
         }
@@ -522,9 +522,9 @@ mod tests {
                 let picture_data = vec!(0xF9, 0x90, 0x3A, 0x02, 0xBD);
 
                 let mut picture = Picture::new();
-                picture.mime_type = String::from_str(mime_type);
+                picture.mime_type = mime_type.into_string();
                 picture.picture_type = picture_type;
-                picture.description = String::from_str(description);
+                picture.description = description.into_string();
                 picture.data = picture_data.clone();
 
                 for encoding in vec!(encoding::Latin1, encoding::UTF16).into_iter() {
@@ -555,9 +555,9 @@ mod tests {
                 let picture_data = vec!(0xF9, 0x90, 0x3A, 0x02, 0xBD);
 
                 let mut picture = Picture::new();
-                picture.mime_type = String::from_str(mime_type);
+                picture.mime_type = mime_type.into_string();
                 picture.picture_type = picture_type;
-                picture.description = String::from_str(description);
+                picture.description = description.into_string();
                 picture.data = picture_data.clone();
 
                 for encoding in vec!(encoding::UTF8, encoding::UTF16, encoding::UTF16BE).into_iter() {
@@ -594,7 +594,7 @@ mod tests {
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(bytes_for_encoding(comment, encoding).into_iter());
 
-                    let pair = (String::from_str(description), String::from_str(comment));
+                    let pair = (description.into_string(), comment.into_string());
                     assert_eq!(*parsers::decode(DecoderRequest { id: "COMM", data: data.as_slice() } ).unwrap().contents.comment(), pair);
                 
                     assert_eq!(parsers::encode(EncoderRequest { encoding: encoding, contents: &CommentContent(pair), version: 3 }), data);
@@ -629,7 +629,7 @@ mod tests {
                 data.extend(bytes_for_encoding(text, encoding).into_iter());
                 assert_eq!(parsers::decode(DecoderRequest { id: "TALB", data: data.as_slice() } ).unwrap().contents.text().as_slice(), text);
 
-                assert_eq!(parsers::encode(EncoderRequest { encoding: encoding, contents: &TextContent(String::from_str(text)), version: 3 } ), data);
+                assert_eq!(parsers::encode(EncoderRequest { encoding: encoding, contents: &TextContent(text.into_string()), version: 3 } ), data);
             }
         }
     }
@@ -649,7 +649,7 @@ mod tests {
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(bytes_for_encoding(value, encoding).into_iter());
 
-                    let pair = (String::from_str(key), String::from_str(value));
+                    let pair = (key.into_string(), value.into_string());
                     assert_eq!(*parsers::decode(DecoderRequest { id: "TXXX", data: data.as_slice() } ).unwrap().contents.extended_text(), pair);
 
                     assert_eq!(parsers::encode(EncoderRequest { encoding: encoding, contents: &ExtendedTextContent(pair), version: 3 } ), data);
@@ -674,10 +674,10 @@ mod tests {
     fn test_weblink() {
         for link in vec!("", "http://www.rust-lang.org/").into_iter() {
             println!("`{}`", link);
-            let data = String::from_str(link).into_bytes();
+            let data = link.as_bytes().to_vec();
             assert_eq!(parsers::decode(DecoderRequest { id: "WOAF", data: data.as_slice() } ).unwrap().contents.link().as_slice(), link);
 
-            assert_eq!(parsers::encode(EncoderRequest { encoding: encoding::Latin1, contents: &LinkContent(String::from_str(link)), version: 3 } ), data);
+            assert_eq!(parsers::encode(EncoderRequest { encoding: encoding::Latin1, contents: &LinkContent(link.into_string()), version: 3 } ), data);
         }
     }
 
@@ -696,7 +696,7 @@ mod tests {
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(bytes_for_encoding(link, encoding).into_iter());
 
-                    let pair = (String::from_str(description), String::from_str(link));
+                    let pair = (description.into_string(), link.into_string());
                     assert_eq!(*parsers::decode(DecoderRequest { id: "WXXX", data: data.as_slice() } ).unwrap().contents.extended_link(), pair);
 
                     assert_eq!(parsers::encode(EncoderRequest { encoding: encoding, contents: &ExtendedLinkContent(pair), version: 3 } ), data);
@@ -733,7 +733,7 @@ mod tests {
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(bytes_for_encoding(lyrics, encoding).into_iter());
 
-                    let pair = (String::from_str(description), String::from_str(lyrics));
+                    let pair = (description.into_string(), lyrics.into_string());
                     assert_eq!(*parsers::decode(DecoderRequest { id: "USLT", data: data.as_slice() } ).unwrap().contents.lyrics(), pair);
 
                     assert_eq!(parsers::encode(EncoderRequest { encoding: encoding, contents: &LyricsContent(pair), version: 3 } ), data);

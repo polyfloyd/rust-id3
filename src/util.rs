@@ -469,7 +469,7 @@ mod tests {
     fn test_strings() {
         let text: &str = "śốмễ śŧŗỉňĝ";
 
-        let mut utf8 = String::from_str(text).into_bytes();
+        let mut utf8 = text.as_bytes().to_vec();
         utf8.push(0);
         assert_eq!(util::string_from_utf8(utf8.as_slice()).unwrap().as_slice(), text);
 

@@ -55,7 +55,7 @@ impl Frame {
     #[inline]
     pub fn new(id: &str) -> Frame {
         Frame { 
-            uuid: util::uuid(), id: String::from_str(id), version: 3, encoding: encoding::UTF16, 
+            uuid: util::uuid(), id: id.into_string(), version: 3, encoding: encoding::UTF16, 
             flags: FrameFlags::new(), contents: UnknownContent(Vec::new()), offset: 0 
         }
     }
@@ -168,7 +168,7 @@ impl Frame {
         if (self.version == 3 || self.version == 4) && version == 2 {
             // attempt to convert the id
             self.id = match util::convert_id_3_to_2(self.id.as_slice()) {
-                Some(id) => String::from_str(id),
+                Some(id) => id.into_string(),
                 None => {
                     debug!("no ID3v2.3 to ID3v2.3 mapping for {}", self.id);
                     return false;
@@ -177,7 +177,7 @@ impl Frame {
         } else if self.version == 2 && (version == 3 || version == 4) {
             // attempt to convert the id
             self.id = match util::convert_id_2_to_3(self.id.as_slice()) {
-                Some(id) => String::from_str(id),
+                Some(id) => id.into_string(),
                 None => {
                     debug!("no ID3v2.2 to ID3v2.3 mapping for {}", self.id);
                     return false;
@@ -296,12 +296,11 @@ impl Frame {
     /// use id3::{Frame, ExtendedTextContent, TextContent};
     ///
     /// let mut title_frame = Frame::new("TIT2");
-    /// title_frame.contents = TextContent(String::from_str("title"));
+    /// title_frame.contents = TextContent("title".into_string());
     /// assert_eq!(title_frame.text().unwrap().as_slice(), "title");
     ///
     /// let mut txxx_frame = Frame::new("TXXX");
-    /// txxx_frame.contents = ExtendedTextContent((String::from_str("key"), 
-    /// String::from_str("value")));
+    /// txxx_frame.contents = ExtendedTextContent(("key".into_string(), "value".into_string())); 
     /// assert_eq!(txxx_frame.text().unwrap().as_slice(), "key: value");
     /// ```
     pub fn text(&self) -> Option<String> {

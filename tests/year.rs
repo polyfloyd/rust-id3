@@ -20,7 +20,7 @@ fn utf8() {
 
     let mut data: Vec<u8> = Vec::new();
     data.push(encoding::UTF8 as u8);
-    data.extend(String::from_str(YEARSTR).into_bytes().into_iter());
+    data.push_all(YEARSTR.as_bytes());
     assert_eq!(frame.contents_to_bytes(), data);
 }
 
@@ -30,7 +30,7 @@ fn utf8_invalid() {
     let mut frame = Frame::with_version(ID, 4);
     let mut data = Vec::new();
     data.push(encoding::UTF8 as u8);
-    data.extend(String::from_str(INVALID).into_bytes().into_iter());
+    data.push_all(INVALID.as_bytes());
     frame.parse_data(data.as_slice()).unwrap();
     tag.add_frame(frame);
     assert!(tag.year().is_none());
