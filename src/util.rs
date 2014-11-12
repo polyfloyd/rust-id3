@@ -33,26 +33,37 @@ pub fn u32_to_bytes(n: u32) -> Vec<u8> {
     vec!(((n & 0xFF000000) >> 24) as u8, ((n & 0xFF0000) >> 16) as u8, ((n & 0xFF00) >> 8) as u8, (n & 0xFF) as u8)
 }
 
+/// Returns a string created from the vector using the specified encoding.
+/// Returns `None` if the vector is not a valid string of the specified
+/// encoding type.
+#[inline]
+pub fn string_from_encoding(encoding: encoding::Encoding, data: &[u8]) -> Option<String> {
+    match encoding {
+        encoding::Latin1 | encoding::UTF8 => string_from_utf8(data),
+        encoding::UTF16 => string_from_utf16(data),
+        encoding::UTF16BE => string_from_utf16be(data) 
+    }
+}
+
 /// Returns a string created from the vector using UTF-8 encoding, removing a trailing null byte
 /// if present.
-/// Returns `Err` with the original vector if the vector is not a valid UTF-8 string.
-pub fn string_from_utf8(data: Vec<u8>) -> Result<String, Vec<u8>> {
-    let mut new_data = data;
-    if new_data.len() > 0 && new_data.as_slice()[new_data.len() - 1] == 0 {
-        new_data = new_data.as_slice().slice_to(new_data.len() - 1).to_vec();
+/// Returns `None` if the vector is not a valid UTF-8 string.
+pub fn string_from_utf8(data: &[u8]) -> Option<String> {
+    if data.len() > 0 && data[data.len() - 1] == 0 {
+        String::from_utf8(data.slice_to(data.len() - 1).to_vec()).ok()
+    } else {
+        String::from_utf8(data.to_vec()).ok()
     }
-   
-    String::from_utf8(new_data)
 }
 
 /// Returns a string created from the vector using UTF-16 (with byte order mark) encoding.
-/// Returns `Err` with the original vector if the vector is not a valid UTF-16 string.
-pub fn string_from_utf16(data: Vec<u8>) -> Result<String, Vec<u8>> {
+/// Returns `None` if the vector is not a valid UTF-16 string.
+pub fn string_from_utf16(data: &[u8]) -> Option<String> {
     if data.len() < 2 || data.len() % 2 != 0 { 
-        return Err(data);
+        return None;
     }
 
-    let no_bom = data.slice(2, data.len()).to_vec();
+    let no_bom = data.slice(2, data.len());
 
     if data[0] == 0xFF && data[1] == 0xFE { // little endian
         string_from_utf16le(no_bom)
@@ -62,10 +73,10 @@ pub fn string_from_utf16(data: Vec<u8>) -> Result<String, Vec<u8>> {
 }
 
 /// Returns a string created from the vector using UTF-16LE encoding.
-/// Returns `Err` with the original vector if the vector is not a valid UTF-16LE string.
-pub fn string_from_utf16le(data: Vec<u8>) -> Result<String, Vec<u8>> {
+/// Returns `None` if the vector is not a valid UTF-16LE string.
+pub fn string_from_utf16le(data: &[u8]) -> Option<String> {
     if data.len() % 2 != 0 { 
-        return Err(data);
+        return None;
     }
 
     let mut buf: Vec<u16> = Vec::with_capacity(data.len() / 2);
@@ -75,17 +86,14 @@ pub fn string_from_utf16le(data: Vec<u8>) -> Result<String, Vec<u8>> {
         buf.push(data[i] as u16 | data[i + 1] as u16 << 8);
     }
 
-    match String::from_utf16(buf.as_slice()) {
-        Some(string) => Ok(string),
-        None => Err(data)
-    }
+    String::from_utf16(buf.as_slice())
 }
 
 /// Returns a string created from the vector using UTF-16BE encoding.
-/// Returns `Err` with the original vector if the vector is not a valid UTF-16BE string.
-pub fn string_from_utf16be(data: Vec<u8>) -> Result<String, Vec<u8>> {
+/// Returns `None` if the vector is not a valid UTF-16BE string.
+pub fn string_from_utf16be(data: &[u8]) -> Option<String> {
     if data.len() % 2 != 0 { 
-        return Err(data);
+        return None;
     }
 
     let mut buf: Vec<u16> = Vec::with_capacity(data.len() / 2);
@@ -95,10 +103,7 @@ pub fn string_from_utf16be(data: Vec<u8>) -> Result<String, Vec<u8>> {
         buf.push(data[i] as u16 << 8 | data[i + 1] as u16);
     }
 
-    match String::from_utf16(buf.as_slice()) {
-        Some(string) => Ok(string),
-        None => Err(data)
-    }
+    String::from_utf16(buf.as_slice())
 }
 
 /// Returns a UTF-16 (with LE byte order mark) vector representation of the string.
@@ -129,17 +134,6 @@ pub fn string_to_utf16le(text: &str) -> Vec<u8> {
     }
 
     out
-}
-
-/// Returns a string created from the vector using the specified encoding.
-/// Returns `Err` with the original vector if the vector is not a valid string of the specified
-/// encoding type.
-pub fn string_from_encoding(encoding: encoding::Encoding, data: Vec<u8>) -> Result<String, Vec<u8>> {
-    match encoding {
-        encoding::Latin1 | encoding::UTF8 => string_from_utf8(data),
-        encoding::UTF16 => string_from_utf16(data),
-        encoding::UTF16BE => string_from_utf16be(data) 
-    }
 }
 
 /// Returns the index of the first delimiter for the specified encoding.
@@ -477,7 +471,7 @@ mod tests {
 
         let mut utf8 = String::from_str(text).into_bytes();
         utf8.push(0);
-        assert_eq!(util::string_from_utf8(utf8).unwrap().as_slice(), text);
+        assert_eq!(util::string_from_utf8(utf8.as_slice()).unwrap().as_slice(), text);
 
         // should use little endian BOM
         assert_eq!(util::string_to_utf16(text).as_slice(), b"\xFF\xFE\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01");
@@ -485,18 +479,18 @@ mod tests {
         assert_eq!(util::string_to_utf16be(text).as_slice(), b"\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D");
         assert_eq!(util::string_to_utf16le(text).as_slice(), b"\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01");
 
-        assert_eq!(util::string_from_encoding(encoding::UTF16BE, b"\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D".to_vec()).unwrap().as_slice(), text);
-        assert_eq!(util::string_from_utf16be(b"\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D".to_vec()).unwrap().as_slice(), text);
+        assert_eq!(util::string_from_encoding(encoding::UTF16BE, b"\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D").unwrap().as_slice(), text);
+        assert_eq!(util::string_from_utf16be(b"\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D").unwrap().as_slice(), text);
 
-        assert_eq!(util::string_from_utf16le(b"\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01".to_vec()).unwrap().as_slice(), text);
+        assert_eq!(util::string_from_utf16le(b"\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01").unwrap().as_slice(), text);
 
         // big endian BOM
-        assert_eq!(util::string_from_encoding(encoding::UTF16, b"\xFE\xFF\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D".to_vec()).unwrap().as_slice(), text);
-        assert_eq!(util::string_from_utf16(b"\xFE\xFF\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D".to_vec()).unwrap().as_slice(), text);
+        assert_eq!(util::string_from_encoding(encoding::UTF16, b"\xFE\xFF\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D").unwrap().as_slice(), text);
+        assert_eq!(util::string_from_utf16(b"\xFE\xFF\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D").unwrap().as_slice(), text);
 
         // little endian BOM 
-        assert_eq!(util::string_from_encoding(encoding::UTF16, b"\xFF\xFE\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01".to_vec()).unwrap().as_slice(), text);
-        assert_eq!(util::string_from_utf16(b"\xFF\xFE\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01".to_vec()).unwrap().as_slice(), text);
+        assert_eq!(util::string_from_encoding(encoding::UTF16, b"\xFF\xFE\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01").unwrap().as_slice(), text);
+        assert_eq!(util::string_from_utf16(b"\xFF\xFE\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01").unwrap().as_slice(), text);
     }
 
     #[test]

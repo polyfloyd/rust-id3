@@ -24,10 +24,16 @@ macro_rules! try_encoding {
 }
 
 macro_rules! try_string {
+    ($data:ident) => {
+        match String::from_utf8($data) {
+            Ok(string) => string,
+            Err(bytes) => return Err(TagError::new(audiotag::StringDecodingError(bytes), "string is not valid utf8"))
+        }
+    };
     ($enc:expr, $data:expr) => {
         match util::string_from_encoding($enc, $data) {
-            Ok(string) => string,
-            Err(bytes) => return Err(TagError::new(audiotag::StringDecodingError(bytes), match $enc {
+            Some(string) => string,
+            None => return Err(TagError::new(audiotag::StringDecodingError($data.to_vec()), match $enc {
                 ::frame::encoding::Latin1 | ::frame::encoding::UTF8 => "string is not valid utf8",
                 ::frame::encoding::UTF16 => "string is not valid utf16",
                 ::frame::encoding::UTF16BE => "string is not valid utf16-be"

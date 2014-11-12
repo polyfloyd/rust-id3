@@ -2,7 +2,7 @@ extern crate std;
 extern crate audiotag;
 
 use std::cmp::min;
-use std::io::{File, Open, Truncate, Write, SeekSet, SeekCur};
+use std::io::{MemWriter, File, Open, Truncate, Write, SeekSet, SeekCur};
 use std::collections::HashMap;
 
 use self::audiotag::{AudioTag, TagError, TagResult, InvalidInputError, UnsupportedFeatureError};
@@ -1123,7 +1123,7 @@ impl ID3Tag {
         let mut frame = Frame::with_version(id, self.version[0]);
 
         frame.set_encoding(encoding);
-        frame.contents = LyricsContent(String::from_str(text));
+        frame.contents = LyricsContent((String::new(), String::from_str(text)));
         
         self.frames.push(frame);
     }
@@ -1246,22 +1246,18 @@ impl AudioTag for ID3Tag {
 
     fn write_to(&mut self, writer: &mut Writer) -> TagResult<()> {
         let path_changed = self.path_changed;
-        let version = self.version[0];
+        
+        // remove frames which have the flags indicating they should be removed 
+        self.frames.retain(|frame| !(frame.offset != 0 && (frame.tag_alter_preservation() || (path_changed && (frame.file_alter_preservation() || DEFAULT_FILE_DISCARD.contains(&frame.id.as_slice()))))));
+            
         let mut data_cache: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
         let mut size = 0;
 
-        // remove frames which have the flags indicating they should be removed and cache the data
-        // for frames we are keeping while we are doing that
-        self.frames.retain(|frame| {
-            let remove = frame.offset != 0 && (frame.tag_alter_preservation() || (path_changed && (frame.file_alter_preservation() || DEFAULT_FILE_DISCARD.contains(&frame.id.as_slice()))));
-            if !remove {
-                let data = frame.to_bytes(version);
-                size += data.len() as u32;
-                data_cache.insert(frame.uuid.clone(), data);
-            }
-
-            !remove
-        });
+        for frame in self.frames.iter() {
+            let mut frame_writer = MemWriter::new();
+            size += try!(frame.write_to(&mut frame_writer));
+            data_cache.insert(frame.uuid.clone(), frame_writer.unwrap());
+        }
 
         self.size = size + PADDING_BYTES;
 
@@ -1282,11 +1278,7 @@ impl AudioTag for ID3Tag {
                     try!(writer.write(data.as_slice()));
                     data.len() as u32
                 },
-                None => {
-                    let data = frame.to_bytes(self.version[0]);
-                    try!(writer.write(data.as_slice()));
-                    data.len() as u32
-                }
+                None => try!(frame.write_to(writer))
             }
         }
 
@@ -1338,27 +1330,25 @@ impl AudioTag for ID3Tag {
             panic!("attempted to save file which was not read from a path");
         }
 
-        // remove any old frames that have the tag_alter_presevation frames and also cache the
-        // frame data while we are doing that
-        let mut data_cache: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
-        let version = self.version[0];
-        let mut size = 0;
+        // remove any old frames that have the tag_alter_presevation flag
         let mut modified_offset = self.modified_offset;
-        
-        self.frames.retain(|frame| {
-            let remove = frame.offset != 0 && frame.tag_alter_preservation();
-            if remove {
-                modified_offset = min(modified_offset, frame.offset);
-            } else {
-                let data = frame.to_bytes(version);
-                size += data.len() as u32;
-                data_cache.insert(frame.uuid.clone(), data);
-            }
-
-            !remove
-        });
-
+        {
+            let set_modified_offset = |offset| {
+                    modified_offset = min(modified_offset, offset);
+                    false
+                };       
+            self.frames.retain(|frame| frame.offset == 0 || !frame.tag_alter_preservation() || set_modified_offset(frame.offset));
+        }
         self.modified_offset = modified_offset;
+
+        let mut data_cache: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
+        let mut size = 0;
+
+        for frame in self.frames.iter() {
+            let mut frame_writer = MemWriter::new();
+            size += try!(frame.write_to(&mut frame_writer));
+            data_cache.insert(frame.uuid.clone(), frame_writer.unwrap());
+        }
 
         debug!("modified offset: {}", self.modified_offset); 
        
@@ -1386,11 +1376,7 @@ impl AudioTag for ID3Tag {
                             try!(writer.write(data.as_slice()));
                             data.len() as u32
                         },
-                        None => {
-                            let data = frame.to_bytes(self.version[0]);
-                            try!(writer.write(data.as_slice()));
-                            data.len() as u32
-                        }
+                        None => try!(frame.write_to(&mut writer))
                     }
                 }
             }
@@ -1529,7 +1515,7 @@ impl AudioTag for ID3Tag {
     fn lyrics(&self) -> Option<String> {
         match self.get_frame_by_id(self.lyrics_id()) {
             Some(frame) => match frame.contents {
-                LyricsContent(ref text) => Some(text.clone()),
+                LyricsContent((_, ref text)) => Some(text.clone()),
                 _ => None
             },
             None => None
