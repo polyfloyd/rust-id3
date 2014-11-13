@@ -228,6 +228,10 @@ impl ID3Tag {
             panic!("attempted to set unsupported version");
         }
 
+        if self.version[0] == version {
+            return;
+        }
+
         self.version = [version, 0];
         
         let mut remove_uuid = Vec::new();
@@ -414,8 +418,10 @@ impl ID3Tag {
     pub fn remove_frame_by_uuid(&mut self, uuid: &[u8]) {
         let mut modified_offset = self.modified_offset;
         {
-            let set_modified_offset = |offset| {
-                modified_offset = min(modified_offset, offset);
+            let set_modified_offset = |offset: u32| {
+                if offset != 0 {
+                    modified_offset = min(modified_offset, offset);
+                }
                 false
             };
             self.frames.retain(|frame| frame.uuid.as_slice() != uuid || set_modified_offset(frame.offset));
@@ -446,8 +452,10 @@ impl ID3Tag {
     pub fn remove_frames_by_id(&mut self, id: &str) {
         let mut modified_offset = self.modified_offset;
         {
-            let set_modified_offset = |offset| {
-                modified_offset = min(modified_offset, offset);
+            let set_modified_offset = |offset: u32| {
+                if offset != 0 {
+                    modified_offset = min(modified_offset, offset);
+                }
                 false
             };
             self.frames.retain(|frame| frame.id.as_slice() != id || set_modified_offset(frame.offset));
@@ -604,7 +612,7 @@ impl ID3Tag {
                 }
             }
 
-            if key_match && value_match {
+            if key_match && value_match && frame.offset != 0 {
                 modified_offset = min(modified_offset, frame.offset);
             }
 
@@ -716,8 +724,8 @@ impl ID3Tag {
                     _ => return false
                 };
 
-                if pic.picture_type == picture_type {
-                    modified_offset = frame.offset;
+                if pic.picture_type == picture_type && frame.offset != 0 {
+                    modified_offset = min(modified_offset, frame.offset);
                 }
 
                 return pic.picture_type != picture_type
@@ -865,7 +873,7 @@ impl ID3Tag {
                 }
             }
 
-            if key_match && value_match {
+            if key_match && value_match && frame.offset != 0 {
                 modified_offset = frame.offset;
             }
 
@@ -1331,10 +1339,12 @@ impl AudioTag for ID3Tag {
         // remove any old frames that have the tag_alter_presevation flag
         let mut modified_offset = self.modified_offset;
         {
-            let set_modified_offset = |offset| {
+            let set_modified_offset = |offset: u32| {
+                if offset != 0 {
                     modified_offset = min(modified_offset, offset);
-                    false
-                };       
+                }
+                false
+            };       
             self.frames.retain(|frame| frame.offset == 0 || !frame.tag_alter_preservation() || set_modified_offset(frame.offset));
         }
         self.modified_offset = modified_offset;
