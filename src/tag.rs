@@ -1363,22 +1363,15 @@ impl AudioTag for ID3Tag {
         if size <= self.size && self.modified_offset >= 10 {
             debug!("writing using padding");
 
-            self.size = size;
-       
             let mut writer = try!(File::open_mode(self.path.as_ref().unwrap(), Open, Write));
 
-            try!(writer.seek(6, SeekSet));
-            try!(writer.write_be_u32(util::synchsafe(self.size)));
-            
             let mut offset = self.modified_offset;
             try!(writer.seek(offset as i64, SeekSet));
 
             for frame in self.frames.iter_mut() {
-                debug!("writing {}", frame.id);
-
                 if frame.offset == 0 || frame.offset > self.modified_offset {
+                    debug!("writing {}", frame.id);
                     frame.offset = offset;
-
                     offset += match data_cache.get(&frame.uuid) {
                         Some(data) => { 
                             try!(writer.write(data.as_slice()));
@@ -1386,6 +1379,12 @@ impl AudioTag for ID3Tag {
                         },
                         None => try!(frame.write_to(&mut writer))
                     }
+                }
+            }
+
+            if self.offset > offset {
+                for _ in range(offset, self.offset) {
+                    try!(writer.write_u8(0));
                 }
             }
 
