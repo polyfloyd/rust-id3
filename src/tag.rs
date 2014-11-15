@@ -224,7 +224,7 @@ impl ID3Tag {
         }
 
         if tag_v1.year.is_some() {
-            let mut frame = Frame::with_version(tag.year_id().into_string(), tag.version());
+            let mut frame = Frame::with_version(tag.year_id(), tag.version());
             frame.contents = TextContent(tag_v1.year.unwrap());
             tag.add_frame(frame);
         }
@@ -343,8 +343,8 @@ impl ID3Tag {
     ///
     /// let mut tag = ID3Tag::new();
     ///
-    /// tag.add_frame(Frame::new("TPE1".into_string()));
-    /// tag.add_frame(Frame::new("APIC".into_string()));
+    /// tag.add_frame(Frame::new("TPE1"));
+    /// tag.add_frame(Frame::new("APIC"));
     ///
     /// assert_eq!(tag.get_frames().len(), 2);
     /// ```
@@ -361,7 +361,7 @@ impl ID3Tag {
     ///
     /// let mut tag = ID3Tag::new();
     ///
-    /// tag.add_frame(Frame::new("TIT2".into_string()));
+    /// tag.add_frame(Frame::new("TIT2"));
     ///
     /// assert!(tag.get_frame_by_id("TIT2").is_some());
     /// assert!(tag.get_frame_by_id("TCON").is_none());
@@ -384,9 +384,9 @@ impl ID3Tag {
     ///
     /// let mut tag = ID3Tag::new();
     ///
-    /// tag.add_frame(Frame::new("TXXX".into_string()));
-    /// tag.add_frame(Frame::new("TXXX".into_string()));
-    /// tag.add_frame(Frame::new("TALB".into_string()));
+    /// tag.add_frame(Frame::new("TXXX"));
+    /// tag.add_frame(Frame::new("TXXX"));
+    /// tag.add_frame(Frame::new("TALB"));
     ///
     /// assert_eq!(tag.get_frames_by_id("TXXX").len(), 2);
     /// assert_eq!(tag.get_frames_by_id("TALB").len(), 1);
@@ -414,7 +414,7 @@ impl ID3Tag {
     /// use id3::{ID3Tag, Frame};
     ///
     /// let mut tag = ID3Tag::new();
-    /// tag.add_frame(Frame::new("TALB".into_string()));
+    /// tag.add_frame(Frame::new("TALB"));
     /// assert_eq!(tag.get_frames()[0].id.as_slice(), "TALB");
     /// ```
     pub fn add_frame(&mut self, mut frame: Frame) -> bool {
@@ -434,11 +434,11 @@ impl ID3Tag {
     /// use id3::ID3Tag;
     ///
     /// let mut tag = ID3Tag::new();
-    /// tag.add_text_frame("TCON".into_string(), "Metal".into_string());
+    /// tag.add_text_frame("TCON", "Metal");
     /// assert_eq!(tag.get_frame_by_id("TCON").unwrap().contents.text().as_slice(), "Metal");
     /// ```
     #[inline]
-    pub fn add_text_frame(&mut self, id: String, text: String) {
+    pub fn add_text_frame<K: StrAllocating, V: StrAllocating>(&mut self, id: K, text: V) {
         let encoding = self.default_encoding();
         self.add_text_frame_enc(id, text, encoding);
     }
@@ -451,15 +451,17 @@ impl ID3Tag {
     /// use id3::encoding::UTF16;
     ///
     /// let mut tag = ID3Tag::new();
-    /// tag.add_text_frame_enc("TRCK".into_string(), "1/13".into_string(), UTF16);
+    /// tag.add_text_frame_enc("TRCK", "1/13", UTF16);
     /// assert_eq!(tag.get_frame_by_id("TRCK").unwrap().contents.text().as_slice(), "1/13");
     /// ```
-    pub fn add_text_frame_enc(&mut self, id: String, text: String, encoding: encoding::Encoding) {
+    pub fn add_text_frame_enc<K: StrAllocating, V: StrAllocating>(&mut self, id: K, text: V, encoding: encoding::Encoding) {
+        let id = id.into_string();
+
         self.remove_frames_by_id(id.as_slice());
        
         let mut frame = Frame::with_version(id, self.version[0]);
         frame.set_encoding(encoding);
-        frame.contents = TextContent(text);
+        frame.contents = TextContent(text.into_string());
 
         self.frames.push(frame);
     }
@@ -472,7 +474,7 @@ impl ID3Tag {
     ///
     /// let mut tag = ID3Tag::new();
     ///
-    /// tag.add_frame(Frame::new("TPE2".into_string()));
+    /// tag.add_frame(Frame::new("TPE2"));
     /// assert_eq!(tag.get_frames().len(), 1);
     ///
     /// let uuid = tag.get_frames()[0].uuid.clone();
@@ -501,9 +503,9 @@ impl ID3Tag {
     ///
     /// let mut tag = ID3Tag::new();
     ///
-    /// tag.add_frame(Frame::new("TXXX".into_string()));
-    /// tag.add_frame(Frame::new("TXXX".into_string()));
-    /// tag.add_frame(Frame::new("USLT".into_string()));
+    /// tag.add_frame(Frame::new("TXXX"));
+    /// tag.add_frame(Frame::new("TXXX"));
+    /// tag.add_frame(Frame::new("USLT"));
     ///
     /// assert_eq!(tag.get_frames().len(), 3);
     ///
@@ -549,11 +551,11 @@ impl ID3Tag {
     ///
     /// let mut tag = ID3Tag::new();
     ///
-    /// let mut frame = Frame::new("TXXX".into_string());
+    /// let mut frame = Frame::new("TXXX");
     /// frame.contents = ExtendedTextContent(("key1".into_string(), "value1".into_string()));
     /// tag.add_frame(frame);
     ///
-    /// let mut frame = Frame::new("TXXX".into_string());
+    /// let mut frame = Frame::new("TXXX");
     /// frame.contents = ExtendedTextContent(("key2".into_string(), "value2".into_string())); 
     /// tag.add_frame(frame);
     ///
@@ -581,15 +583,15 @@ impl ID3Tag {
     ///
     /// let mut tag = ID3Tag::new();
     ///
-    /// tag.add_txxx("key1".into_string(), "value1".into_string());
-    /// tag.add_txxx("key2".into_string(), "value2".into_string());
+    /// tag.add_txxx("key1", "value1");
+    /// tag.add_txxx("key2", "value2");
     ///
     /// assert_eq!(tag.txxx().len(), 2);
     /// assert!(tag.txxx().contains(&("key1".into_string(), "value1".into_string())));
     /// assert!(tag.txxx().contains(&("key2".into_string(), "value2".into_string())));
     /// ```
     #[inline]
-    pub fn add_txxx(&mut self, key: String, value: String) {
+    pub fn add_txxx<K: StrAllocating, V: StrAllocating>(&mut self, key: K, value: V) {
         let encoding = self.default_encoding();
         self.add_txxx_enc(key, value, encoding);
     }
@@ -603,19 +605,21 @@ impl ID3Tag {
     ///
     /// let mut tag = ID3Tag::new();
     ///
-    /// tag.add_txxx_enc("key1".into_string(), "value1".into_string(), UTF16);
-    /// tag.add_txxx_enc("key2".into_string(), "value2".into_string(), UTF16);
+    /// tag.add_txxx_enc("key1", "value1", UTF16);
+    /// tag.add_txxx_enc("key2", "value2", UTF16);
     ///
     /// assert_eq!(tag.txxx().len(), 2);
     /// assert!(tag.txxx().contains(&("key1".into_string(), "value1".into_string())));
     /// assert!(tag.txxx().contains(&("key2".into_string(), "value2".into_string())));
     /// ```
-    pub fn add_txxx_enc(&mut self, key: String, value: String, encoding: encoding::Encoding) {
+    pub fn add_txxx_enc<K: StrAllocating, V: StrAllocating>(&mut self, key: K, value: V, encoding: encoding::Encoding) {
+        let key = key.into_string();
+
         self.remove_txxx(Some(key.as_slice()), None);
 
-        let mut frame = Frame::with_version(self.txxx_id().into_string(), self.version[0]);
+        let mut frame = Frame::with_version(self.txxx_id(), self.version[0]);
         frame.set_encoding(encoding);
-        frame.contents = ExtendedTextContent((key, value));
+        frame.contents = ExtendedTextContent((key, value.into_string()));
         
         self.frames.push(frame);
     }
@@ -629,11 +633,11 @@ impl ID3Tag {
     ///
     /// let mut tag = ID3Tag::new();
     ///
-    /// tag.add_txxx("key1".into_string(), "value1".into_string());
-    /// tag.add_txxx("key2".into_string(), "value2".into_string());
-    /// tag.add_txxx("key3".into_string(), "value2".into_string());
-    /// tag.add_txxx("key4".into_string(), "value3".into_string());
-    /// tag.add_txxx("key5".into_string(), "value4".into_string());
+    /// tag.add_txxx("key1", "value1");
+    /// tag.add_txxx("key2", "value2");
+    /// tag.add_txxx("key3", "value2");
+    /// tag.add_txxx("key4", "value3");
+    /// tag.add_txxx("key5", "value4");
     /// assert_eq!(tag.txxx().len(), 5);
     ///
     /// tag.remove_txxx(Some("key1"), None);
@@ -694,11 +698,11 @@ impl ID3Tag {
     ///
     /// let mut tag = ID3Tag::new();
     /// 
-    /// let mut frame = Frame::new("APIC".into_string());
+    /// let mut frame = Frame::new("APIC");
     /// frame.contents = PictureContent(Picture::new());
     /// tag.add_frame(frame);
     ///
-    /// let mut frame = Frame::new("APIC".into_string());
+    /// let mut frame = Frame::new("APIC");
     /// frame.contents = PictureContent(Picture::new());
     /// tag.add_frame(frame);
     ///
@@ -724,14 +728,14 @@ impl ID3Tag {
     /// use id3::picture_type::Other;
     ///
     /// let mut tag = ID3Tag::new();
-    /// tag.add_picture("image/jpeg".into_string(), Other, vec!());
-    /// tag.add_picture("image/png".into_string(), Other, vec!());
+    /// tag.add_picture("image/jpeg", Other, vec!());
+    /// tag.add_picture("image/png", Other, vec!());
     /// assert_eq!(tag.pictures().len(), 1);
     /// assert_eq!(tag.pictures()[0].mime_type.as_slice(), "image/png");
     /// ```
     #[inline]
-    pub fn add_picture(&mut self, mime_type: String, picture_type: picture_type::PictureType, data: Vec<u8>) {
-        self.add_picture_enc(mime_type, picture_type, String::new(), data, encoding::Latin1);
+    pub fn add_picture<T: StrAllocating>(&mut self, mime_type: T, picture_type: picture_type::PictureType, data: Vec<u8>) {
+        self.add_picture_enc(mime_type, picture_type, "", data, encoding::Latin1);
     }
 
     /// Adds a picture frame (APIC) using the specified text encoding.
@@ -744,19 +748,18 @@ impl ID3Tag {
     /// use id3::encoding::UTF16;
     ///
     /// let mut tag = ID3Tag::new();
-    /// tag.add_picture_enc("image/jpeg".into_string(), Other, String::new(), vec!(), UTF16);
-    /// tag.add_picture_enc("image/png".into_string(), Other, String::new(), vec!(), UTF16);
+    /// tag.add_picture_enc("image/jpeg", Other, "", vec!(), UTF16);
+    /// tag.add_picture_enc("image/png", Other, "", vec!(), UTF16);
     /// assert_eq!(tag.pictures().len(), 1);
     /// assert_eq!(tag.pictures()[0].mime_type.as_slice(), "image/png");
     /// ```
-    pub fn add_picture_enc(&mut self, mime_type: String, picture_type: picture_type::PictureType, description: String, data: Vec<u8>, encoding: encoding::Encoding)
-    {
+    pub fn add_picture_enc<S: StrAllocating, T: StrAllocating>(&mut self, mime_type: S, picture_type: picture_type::PictureType, description: T, data: Vec<u8>, encoding: encoding::Encoding) {
         self.remove_picture_type(picture_type);
 
-        let mut frame = Frame::with_version(self.picture_id().into_string(), self.version[0]);
+        let mut frame = Frame::with_version(self.picture_id(), self.version[0]);
 
         frame.set_encoding(encoding);
-        frame.contents = PictureContent(Picture { mime_type: mime_type, picture_type: picture_type, description: description, data: data } );
+        frame.contents = PictureContent(Picture { mime_type: mime_type.into_string(), picture_type: picture_type, description: description.into_string(), data: data } );
 
         self.frames.push(frame);
     }
@@ -769,8 +772,8 @@ impl ID3Tag {
     /// use id3::picture_type::{CoverFront, Other};
     ///
     /// let mut tag = ID3Tag::new();
-    /// tag.add_picture("image/jpeg".into_string(), CoverFront, vec!());
-    /// tag.add_picture("image/png".into_string(), Other, vec!());
+    /// tag.add_picture("image/jpeg", CoverFront, vec!());
+    /// tag.add_picture("image/png", Other, vec!());
     /// assert_eq!(tag.pictures().len(), 2);
     ///
     /// tag.remove_picture_type(CoverFront);
@@ -809,11 +812,11 @@ impl ID3Tag {
     ///
     /// let mut tag = ID3Tag::new();
     ///
-    /// let mut frame = Frame::new("COMM".into_string());
+    /// let mut frame = Frame::new("COMM");
     /// frame.contents = CommentContent(("key1".into_string(), "value1".into_string()));
     /// tag.add_frame(frame);
     ///
-    /// let mut frame = Frame::new("COMM".into_string());
+    /// let mut frame = Frame::new("COMM");
     /// frame.contents = CommentContent(("key2".into_string(), "value2".into_string()));
     /// tag.add_frame(frame);
     ///
@@ -841,15 +844,15 @@ impl ID3Tag {
     ///
     /// let mut tag = ID3Tag::new();
     ///
-    /// tag.add_comment("key1".into_string(), "value1".into_string());
-    /// tag.add_comment("key2".into_string(), "value2".into_string());
+    /// tag.add_comment("key1", "value1");
+    /// tag.add_comment("key2", "value2");
     ///
     /// assert_eq!(tag.comments().len(), 2);
     /// assert!(tag.comments().contains(&("key1".into_string(), "value1".into_string())));
     /// assert!(tag.comments().contains(&("key2".into_string(), "value2".into_string())));
     /// ```
     #[inline]
-    pub fn add_comment(&mut self, description: String, text: String) {
+    pub fn add_comment<K: StrAllocating, V: StrAllocating>(&mut self, description: K, text: V) {
         let encoding = self.default_encoding();
         self.add_comment_enc(description, text, encoding);
     }
@@ -863,20 +866,22 @@ impl ID3Tag {
     ///
     /// let mut tag = ID3Tag::new();
     ///
-    /// tag.add_comment_enc("key1".into_string(), "value1".into_string(), UTF16);
-    /// tag.add_comment_enc("key2".into_string(), "value2".into_string(), UTF16);
+    /// tag.add_comment_enc("key1", "value1", UTF16);
+    /// tag.add_comment_enc("key2", "value2", UTF16);
     ///
     /// assert_eq!(tag.comments().len(), 2);
     /// assert!(tag.comments().contains(&("key1".into_string(), "value1".into_string())));
     /// assert!(tag.comments().contains(&("key2".into_string(), "value2".into_string())));
     /// ```
-    pub fn add_comment_enc(&mut self, description: String, text: String, encoding: encoding::Encoding) {
+    pub fn add_comment_enc<K: StrAllocating, V: StrAllocating>(&mut self, description: K, text: V, encoding: encoding::Encoding) {
+        let description = description.into_string();
+
         self.remove_comment(Some(description.as_slice()), None);
 
-        let mut frame = Frame::with_version(self.comment_id().into_string(), self.version[0]);
+        let mut frame = Frame::with_version(self.comment_id(), self.version[0]);
 
         frame.set_encoding(encoding);
-        frame.contents = CommentContent((description, text));
+        frame.contents = CommentContent((description, text.into_string()));
        
         self.frames.push(frame);
     }
@@ -890,11 +895,11 @@ impl ID3Tag {
     ///
     /// let mut tag = ID3Tag::new();
     ///
-    /// tag.add_comment("key1".into_string(), "value1".into_string());
-    /// tag.add_comment("key2".into_string(), "value2".into_string());
-    /// tag.add_comment("key3".into_string(), "value2".into_string());
-    /// tag.add_comment("key4".into_string(), "value3".into_string());
-    /// tag.add_comment("key5".into_string(), "value4".into_string());
+    /// tag.add_comment("key1", "value1");
+    /// tag.add_comment("key2", "value2");
+    /// tag.add_comment("key3", "value2");
+    /// tag.add_comment("key4", "value3");
+    /// tag.add_comment("key5", "value4");
     /// assert_eq!(tag.comments().len(), 5);
     ///
     /// tag.remove_comment(Some("key1"), None);
@@ -955,12 +960,12 @@ impl ID3Tag {
     /// use id3::encoding::UTF16;
     ///
     /// let mut tag = ID3Tag::new();
-    /// tag.set_artist_enc("artist".into_string(), UTF16);
+    /// tag.set_artist_enc("artist", UTF16);
     /// assert_eq!(tag.artist().unwrap().as_slice(), "artist");
     /// ```
     #[inline]
-    pub fn set_artist_enc(&mut self, artist: String, encoding: encoding::Encoding) {
-        let id = self.artist_id().into_string();
+    pub fn set_artist_enc<T: StrAllocating>(&mut self, artist: T, encoding: encoding::Encoding) {
+        let id = self.artist_id();
         self.add_text_frame_enc(id, artist, encoding);
     }
 
@@ -972,13 +977,13 @@ impl ID3Tag {
     /// use id3::encoding::UTF16;
     ///
     /// let mut tag = ID3Tag::new();
-    /// tag.set_album_artist_enc("album artist".into_string(), UTF16);
+    /// tag.set_album_artist_enc("album artist", UTF16);
     /// assert_eq!(tag.album_artist().unwrap().as_slice(), "album artist");
     /// ```
     #[inline]
-    pub fn set_album_artist_enc(&mut self, album_artist: String, encoding: encoding::Encoding) {
+    pub fn set_album_artist_enc<T: StrAllocating>(&mut self, album_artist: T, encoding: encoding::Encoding) {
         self.remove_frames_by_id("TSOP");
-        let id = self.album_artist_id().into_string();
+        let id = self.album_artist_id();
         self.add_text_frame_enc(id, album_artist, encoding);
     }
 
@@ -990,12 +995,12 @@ impl ID3Tag {
     /// use id3::encoding::UTF16;
     ///
     /// let mut tag = ID3Tag::new();
-    /// tag.set_album_enc("album".into_string(), UTF16);
+    /// tag.set_album_enc("album", UTF16);
     /// assert_eq!(tag.album().unwrap().as_slice(), "album");
     /// ```
     #[inline]
-    pub fn set_album_enc(&mut self, album: String, encoding: encoding::Encoding) {
-        let id = self.album_id().into_string();
+    pub fn set_album_enc<T: StrAllocating>(&mut self, album: T, encoding: encoding::Encoding) {
+        let id = self.album_id();
         self.add_text_frame_enc(id, album, encoding);
     }
 
@@ -1007,13 +1012,13 @@ impl ID3Tag {
     /// use id3::encoding::UTF16;
     ///
     /// let mut tag = ID3Tag::new();
-    /// tag.set_title_enc("title".into_string(), UTF16);
+    /// tag.set_title_enc("title", UTF16);
     /// assert_eq!(tag.title().unwrap().as_slice(), "title");
     /// ```
     #[inline]
-    pub fn set_title_enc(&mut self, title: String, encoding: encoding::Encoding) {
+    pub fn set_title_enc<T: StrAllocating>(&mut self, title: T, encoding: encoding::Encoding) {
         self.remove_frames_by_id("TSOT");
-        let id = self.title_id().into_string();
+        let id = self.title_id();
         self.add_text_frame_enc(id, title, encoding);
     }
 
@@ -1025,12 +1030,12 @@ impl ID3Tag {
     /// use id3::encoding::UTF16;
     ///
     /// let mut tag = ID3Tag::new();
-    /// tag.set_genre_enc("genre".into_string(), UTF16);
+    /// tag.set_genre_enc("genre", UTF16);
     /// assert_eq!(tag.genre().unwrap().as_slice(), "genre");
     /// ```
     #[inline]
-    pub fn set_genre_enc(&mut self, genre: String, encoding: encoding::Encoding) {
-        let id = self.genre_id().into_string();
+    pub fn set_genre_enc<T: StrAllocating>(&mut self, genre: T, encoding: encoding::Encoding) {
+        let id = self.genre_id();
         self.add_text_frame_enc(id, genre, encoding);
     }
 
@@ -1044,14 +1049,14 @@ impl ID3Tag {
     /// let mut tag = ID3Tag::new();
     /// assert!(tag.year().is_none());
     ///
-    /// let mut frame_valid = Frame::new("TYER".into_string());
+    /// let mut frame_valid = Frame::new("TYER");
     /// frame_valid.contents = TextContent("2014".into_string());
     /// tag.add_frame(frame_valid);
     /// assert_eq!(tag.year().unwrap(), 2014);
     ///
     /// tag.remove_frames_by_id("TYER");
     ///
-    /// let mut frame_invalid = Frame::new("TYER".into_string());
+    /// let mut frame_invalid = Frame::new("TYER");
     /// frame_invalid.contents = TextContent("nope".into_string());
     /// tag.add_frame(frame_invalid);
     /// assert!(tag.year().is_none());
@@ -1081,7 +1086,7 @@ impl ID3Tag {
     /// ```
     #[inline]
     pub fn set_year(&mut self, year: uint) {
-        let id = self.year_id().into_string();
+        let id = self.year_id();
         self.add_text_frame_enc(id, format!("{}", year), encoding::Latin1);
     }
 
@@ -1098,7 +1103,7 @@ impl ID3Tag {
     /// ```
     #[inline]
     pub fn set_year_enc(&mut self, year: uint, encoding: encoding::Encoding) {
-        let id = self.year_id().into_string();
+        let id = self.year_id();
         self.add_text_frame_enc(id, format!("{}", year), encoding);
     }
 
@@ -1148,7 +1153,7 @@ impl ID3Tag {
             None => format!("{}", track)
         };
 
-        let id = self.track_id().into_string();
+        let id = self.track_id();
         self.add_text_frame_enc(id, text, encoding);
     }
 
@@ -1170,7 +1175,7 @@ impl ID3Tag {
             None => format!("1/{}", total_tracks)
         };
 
-        let id = self.track_id().into_string();
+        let id = self.track_id();
         self.add_text_frame_enc(id, text, encoding);
     }
 
@@ -1183,17 +1188,17 @@ impl ID3Tag {
     /// use id3::encoding::UTF16;
     ///
     /// let mut tag = ID3Tag::new();
-    /// tag.set_lyrics_enc("description".into_string(), "lyrics".into_string(), UTF16);
+    /// tag.set_lyrics_enc("description", "lyrics", UTF16);
     /// assert_eq!(tag.lyrics().unwrap().as_slice(), "lyrics");
     /// ```
-    pub fn set_lyrics_enc(&mut self, description: String, text: String, encoding: encoding::Encoding) {
+    pub fn set_lyrics_enc<K: StrAllocating, V: StrAllocating>(&mut self, description: K, text: V, encoding: encoding::Encoding) {
         let id = self.lyrics_id();
         self.remove_frames_by_id(id);
 
-        let mut frame = Frame::with_version(id.into_string(), self.version[0]);
+        let mut frame = Frame::with_version(id, self.version[0]);
 
         frame.set_encoding(encoding);
-        frame.contents = LyricsContent((description, text));
+        frame.contents = LyricsContent((description.into_string(), text.into_string()));
         
         self.frames.push(frame);
     }
@@ -1492,7 +1497,7 @@ impl AudioTag for ID3Tag {
     }
 
     #[inline]
-    fn set_artist(&mut self, artist: String) {
+    fn set_artist<T: StrAllocating>(&mut self, artist: T) {
         let encoding = self.default_encoding();
         self.set_artist_enc(artist, encoding);
     }
@@ -1509,7 +1514,7 @@ impl AudioTag for ID3Tag {
     }
 
     #[inline]
-    fn set_album_artist(&mut self, album_artist: String) {
+    fn set_album_artist<T: StrAllocating>(&mut self, album_artist: T) {
         let encoding = self.default_encoding();
         self.set_album_artist_enc(album_artist, encoding);
     }
@@ -1525,7 +1530,7 @@ impl AudioTag for ID3Tag {
         self.text_for_frame_id(self.album_id())
     }
 
-    fn set_album(&mut self, album: String) {
+    fn set_album<T: StrAllocating>(&mut self, album: T) {
         let encoding = self.default_encoding();
         self.set_album_enc(album, encoding);
     }
@@ -1543,7 +1548,7 @@ impl AudioTag for ID3Tag {
     }
 
     #[inline]
-    fn set_title(&mut self, title: String) {
+    fn set_title<T: StrAllocating>(&mut self, title: T) {
         let encoding = self.default_encoding();
         self.set_title_enc(title, encoding);
     }
@@ -1560,7 +1565,7 @@ impl AudioTag for ID3Tag {
     }
 
     #[inline]
-    fn set_genre(&mut self, genre: String) {
+    fn set_genre<T: StrAllocating>(&mut self, genre: T) {
         let encoding = self.default_encoding();
         self.set_genre_enc(genre, encoding);
     }
@@ -1598,7 +1603,7 @@ impl AudioTag for ID3Tag {
     }
 
     fn remove_total_tracks(&mut self) {
-        let id = self.track_id().into_string();
+        let id = self.track_id();
         match self.track_pair() {
             Some((track, _)) => self.add_text_frame(id, format!("{}", track)),
             None => {}
@@ -1616,9 +1621,9 @@ impl AudioTag for ID3Tag {
     }
 
     #[inline]
-    fn set_lyrics(&mut self, text: String) {
+    fn set_lyrics<T: StrAllocating>(&mut self, text: T) {
         let encoding = self.default_encoding();
-        self.set_lyrics_enc(text, String::new(), encoding);
+        self.set_lyrics_enc(text, "", encoding);
     }
 
     #[inline]
@@ -1628,7 +1633,7 @@ impl AudioTag for ID3Tag {
     }
 
     #[inline]
-    fn set_picture(&mut self, mime_type: String, data: Vec<u8>) {
+    fn set_picture<T: StrAllocating>(&mut self, mime_type: T, data: Vec<u8>) {
         self.remove_picture();
         self.add_picture(mime_type, picture_type::Other, data);
     }

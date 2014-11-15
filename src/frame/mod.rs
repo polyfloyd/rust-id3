@@ -53,9 +53,9 @@ impl PartialEq for Frame {
 impl Frame {
     /// Creates a new ID3v2.3 frame with the specified identifier.
     #[inline]
-    pub fn new(id: String) -> Frame {
+    pub fn new<T: StrAllocating>(id: T) -> Frame {
         Frame { 
-            uuid: util::uuid(), id: id, version: 3, encoding: encoding::UTF16, 
+            uuid: util::uuid(), id: id.into_string(), version: 3, encoding: encoding::UTF16, 
             flags: FrameFlags::new(), contents: UnknownContent(Vec::new()), offset: 0 
         }
     }
@@ -69,7 +69,7 @@ impl Frame {
     /// let frame = Frame::with_version("TALB".into_string(), 4);
     /// assert_eq!(frame.version(), 4);
     /// ```
-    pub fn with_version(id: String, version: u8) -> Frame {
+    pub fn with_version<T: StrAllocating>(id: T, version: u8) -> Frame {
         let mut frame = Frame::new(id);
         frame.version = version;
         frame
