@@ -29,14 +29,19 @@ tag.save().unwrap();
 
 ##Supported ID3 Versions
 
+  * ID3v1 reading
   * ID3v2.2 reading/writing
   * ID3v2.3 reading/writing
   * ID3v2.4 reading/writing
 
 ##Unsupported Features
 
-  * ID3v1 
   * Unsynchronization
   * Grouping identity
   * Encryption
+
+##Contributors
+
+  * [Olivier Renaud](https://bitbucket.org/olivren) 
+    * Initial ID3v1 reading code 
 

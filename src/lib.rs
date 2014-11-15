@@ -71,6 +71,7 @@ mod macros;
 /// Utilities used for reading/writing ID3 tags.
 pub mod util;
 
+mod id3v1;
 mod tag;
 mod frame;
 mod parsers;

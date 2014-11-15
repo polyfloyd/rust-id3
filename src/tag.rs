@@ -7,13 +7,13 @@ use std::collections::HashMap;
 
 use self::audiotag::{AudioTag, TagError, TagResult, InvalidInputError, UnsupportedFeatureError};
 
+use id3v1;
 use frame::{Frame, encoding, PictureContent, CommentContent, TextContent, ExtendedTextContent, LyricsContent};
 use picture::{Picture, picture_type};
 use util;
 
 static DEFAULT_FILE_DISCARD: [&'static str, ..11] = ["AENC", "ETCO", "EQUA", "MLLT", "POSS", "SYLT", "SYTC", "RVAD", "TENC", "TLEN", "TSIZ"];
 static PADDING_BYTES: u32 = 2048;
-
 
 /// An ID3 tag containing metadata frames. 
 pub struct ID3Tag {
@@ -33,7 +33,9 @@ pub struct ID3Tag {
     /// The offset of the end of the last frame that was read.
     offset: u32,
     /// The offset of the first modified frame.
-    modified_offset: u32
+    modified_offset: u32,
+    /// Indicates if when writing, an ID3v1 tag should be removed.
+    remove_v1: bool
 }
 
 /// Flags used in the ID3 header.
@@ -118,7 +120,7 @@ impl ID3Tag {
     pub fn new() -> ID3Tag {
         ID3Tag { 
             path: None, path_changed: true, version: [3, 0], size: 0, flags: TagFlags::new(), 
-            frames: Vec::new(), offset: 0, modified_offset: 0
+            frames: Vec::new(), offset: 0, modified_offset: 0, remove_v1: false
         }
     }
 
@@ -134,7 +136,6 @@ impl ID3Tag {
         tag.version = [version, 0];
         tag
     }
-
 
     // Frame ID Querying {{{
     #[inline]
@@ -192,6 +193,69 @@ impl ID3Tag {
         if self.version[0] == 2 { "TXX" } else { "TXXX" }
     }
     // }}}
+
+    /// Returns true if the reader might contain a valid ID3v1 tag. This method is different than
+    /// AudioTag::is_candidate() since this methods requires the Seek trait.
+    pub fn is_candidate_v1<R: Reader + Seek>(reader: &mut R) -> bool {
+        match id3v1::probe_tag(reader) {
+            Ok(has_tag) => has_tag,
+            Err(_) => false
+        }
+    }
+
+    /// Attempts to read an ID3v1 tag from the reader. Since the structure of ID3v1 is so different
+    /// from ID3v2, the tag will be converted and stored internally as an ID3v2.3 tag.
+    pub fn read_from_v1<R: Reader + Seek>(reader: &mut R) -> TagResult<ID3Tag> {
+        let tag_v1 = try!(id3v1::read(reader));
+
+        let mut tag = ID3Tag::with_version(3);
+        tag.remove_v1 = true;
+
+        if tag_v1.title.is_some() {
+            tag.set_title(tag_v1.title.unwrap()); 
+        }
+
+        if tag_v1.artist.is_some() {
+            tag.set_artist(tag_v1.artist.unwrap());
+        }
+        
+        if tag_v1.album.is_some() {
+            tag.set_album(tag_v1.album.unwrap());
+        }
+
+        if tag_v1.year.is_some() {
+            let mut frame = Frame::with_version(tag.year_id().into_string(), tag.version());
+            frame.contents = TextContent(tag_v1.year.unwrap());
+            tag.add_frame(frame);
+        }
+
+        if tag_v1.comment.is_some() {
+            tag.add_comment(String::new(), tag_v1.comment.unwrap());
+        }
+
+        if tag_v1.track.is_some() {
+            tag.set_track(tag_v1.track.unwrap() as u32);
+        }
+
+        if tag_v1.genre_str.is_some() {
+            tag.set_genre(tag_v1.genre_str.unwrap());
+        } else if tag_v1.genre.is_some() {
+            // TODO maybe convert this from the genre id into a string
+            tag.set_genre(format!("{}", tag_v1.genre.unwrap()));
+        }
+        
+        Ok(tag)
+    }
+
+    /// Attempts to read an ID3v1 tag from the data as the specified path. The tag will be
+    /// converted into an ID3v2.3 tag upon success.
+    pub fn read_from_path_v1(path: &Path) -> TagResult<ID3Tag> {
+        let mut file = try!(File::open(path));
+        let mut tag = try!(ID3Tag::read_from_v1(&mut file));
+        tag.path = Some(path.clone());
+        tag.path_changed = false;
+        Ok(tag)
+    }
 
     /// Returns the version of the tag.
     ///
@@ -1310,7 +1374,29 @@ impl AudioTag for ID3Tag {
     fn write_to_path(&mut self, path: &Path) -> TagResult<()> {
         let data_opt = {
             match File::open(path) {
-                Ok(mut file) => Some(AudioTag::skip_metadata(&mut file, None::<ID3Tag>)),
+                Ok(mut file) => {
+                    // remove the ID3v1 tag if the remove_v1 flag is set
+                    let remove_bytes = if self.remove_v1 {
+                        if try!(id3v1::probe_xtag(&mut file)) {
+                            Some(id3v1::TAGPLUS_OFFSET as uint)
+                        } else if try!(id3v1::probe_tag(&mut file)) {
+                            Some(id3v1::TAG_OFFSET as uint)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    let mut data = AudioTag::skip_metadata(&mut file, None::<ID3Tag>);
+                    match remove_bytes {
+                        Some(n) => if n <= data.len() {
+                            data = data.slice_to(data.len() - n).to_vec();
+                        },
+                        None => {}
+                    }
+                    Some(data)
+                }
                 Err(_) => None
             }
         };
