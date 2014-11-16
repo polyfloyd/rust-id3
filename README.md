@@ -2,7 +2,7 @@
 
 An ID3 tag reader/writer. The `ID3Tag` struct implements the [AudioTag](https://github.com/jamesrhurst/rust-audiotag) trait for reading, writing, and modification of common metadata elements.
 
-Documentation is available at [https://jamesrhurst.github.io/doc/id3](https://jamesrhurst.github.io/doc/id3).
+Documentation is available via Rust CI at [http://www.rust-ci.org/jamesrhurst/rust-id3/doc/id3/](http://www.rust-ci.org/jamesrhurst/rust-id3/doc/id3/).
 
 ##Usage
 
