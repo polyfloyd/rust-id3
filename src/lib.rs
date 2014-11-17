@@ -63,7 +63,7 @@ pub use self::audiotag::{
 };
 
 pub use tag::ID3Tag;
-pub use frame::{Frame, FrameFlags, encoding, Contents, PictureContent, CommentContent, TextContent, ExtendedTextContent, LinkContent, ExtendedLinkContent, LyricsContent};
+pub use frame::{Frame, FrameFlags, encoding, Contents, PictureContent, CommentContent, TextContent, ExtendedTextContent, LinkContent, ExtendedLinkContent, LyricsContent, UnknownContent};
 pub use picture::{Picture, picture_type};
 
 mod macros;
