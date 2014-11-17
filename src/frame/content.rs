@@ -1,7 +1,12 @@
 use picture::Picture;
 
+use self::Content::{
+    TextContent, ExtendedTextContent, LinkContent, ExtendedLinkContent, CommentContent,
+    LyricsContent, PictureContent, UnknownContent
+};
+
 /// The decoded contents of a frame.
-pub enum Contents {
+pub enum Content {
     /// A value containing the parsed contents of a text frame.
     TextContent(String),
     /// A value containing the parsed contents of a user defined text frame (TXXX).
@@ -20,14 +25,14 @@ pub enum Contents {
     UnknownContent(Vec<u8>),
 }
 
-impl Contents {
+impl Content {
     /// Returns the `TextContent`.
     /// Panics if the value is not `TextContent`.
     #[inline]
     pub fn text(&self) -> &String {
         match *self {
             TextContent(ref text) => text,
-            _ => panic!("called `Contents::text()` on a non `TextContent` value") 
+            _ => panic!("called `Content::text()` on a non `TextContent` value") 
         }
     }
 
@@ -37,7 +42,7 @@ impl Contents {
     pub fn extended_text(&self) -> &(String, String) {
         match *self {
             ExtendedTextContent(ref pair) => pair,
-            _ => panic!("called `Contents::extended_text()` on a non `ExtendedTextContent` value") 
+            _ => panic!("called `Content::extended_text()` on a non `ExtendedTextContent` value") 
         }
     }
 
@@ -47,7 +52,7 @@ impl Contents {
     pub fn link(&self) -> &String {
         match *self {
             LinkContent(ref text) => text,
-            _ => panic!("called `Contents::link()` on a non `LinkContent` value") 
+            _ => panic!("called `Content::link()` on a non `LinkContent` value") 
         }
     }
 
@@ -57,7 +62,7 @@ impl Contents {
     pub fn extended_link(&self) -> &(String, String) {
         match *self {
             ExtendedLinkContent(ref pair) => pair,
-            _ => panic!("called `Contents::extended_link()` on a non `ExtendedLinkContent` value") 
+            _ => panic!("called `Content::extended_link()` on a non `ExtendedLinkContent` value") 
         }
     }
 
@@ -67,7 +72,7 @@ impl Contents {
     pub fn comment(&self) -> &(String, String) {
         match *self {
             CommentContent(ref pair) => pair,
-            _ => panic!("called `Contents::comment()` on a non `CommentContent` value") 
+            _ => panic!("called `Content::comment()` on a non `CommentContent` value") 
         }
     }
 
@@ -77,7 +82,7 @@ impl Contents {
     pub fn lyrics(&self) -> &(String, String) {
         match *self {
             LyricsContent(ref text) => text,
-            _ => panic!("called `Contents::lyrics()` on a non `LyricsContent` value") 
+            _ => panic!("called `Content::lyrics()` on a non `LyricsContent` value") 
         }
     }
 
@@ -87,7 +92,7 @@ impl Contents {
     pub fn picture(&self) -> &Picture {
         match *self {
             PictureContent(ref picture) => picture,
-            _ => panic!("called `Contents::picture()` on a non `PictureContent` value") 
+            _ => panic!("called `Content::picture()` on a non `PictureContent` value") 
         }
     }
 
@@ -97,7 +102,7 @@ impl Contents {
     pub fn unknown(&self) -> &[u8] {
         match *self {
             UnknownContent(ref data) => data.as_slice(),
-            _ => panic!("called `Contents::unknown()` on a non `UnknownContent` value") 
+            _ => panic!("called `Content::unknown()` on a non `UnknownContent` value") 
         }
     }
 }

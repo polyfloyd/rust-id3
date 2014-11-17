@@ -3,22 +3,25 @@ extern crate audiotag;
 use self::audiotag::{TagError, TagResult, InvalidInputError, StringDecodingError, UnsupportedFeatureError};
 
 use picture::Picture;
-use frame::{Contents, PictureContent, CommentContent, TextContent, ExtendedTextContent, LinkContent, ExtendedLinkContent, LyricsContent, UnknownContent};
-use encoding;
+use frame::{Content, Encoding};
+use frame::Content::{
+    PictureContent, CommentContent, TextContent, ExtendedTextContent, LyricsContent,
+    LinkContent, ExtendedLinkContent, UnknownContent
+};
 use util;
 
 /// The result of a successfully parsed frame.
 pub struct DecoderResult {
     /// The text encoding used in the frame.
-    pub encoding: encoding::Encoding,
+    pub encoding: Encoding,
     /// The parsed contents of the frame.
-    pub contents: Contents 
+    pub contents: Content 
 }
 
 impl DecoderResult {
     /// Creates a new `DecoderResult` with the provided encoding and contents.
     #[inline]
-    pub fn new(encoding: encoding::Encoding, contents: Contents) -> DecoderResult {
+    pub fn new(encoding: Encoding, contents: Content) -> DecoderResult {
         DecoderResult { encoding: encoding, contents: contents }
     }
 }
@@ -30,8 +33,8 @@ pub struct DecoderRequest<'a> {
 
 pub struct EncoderRequest<'a> {
     pub version: u8,
-    pub encoding: encoding::Encoding,
-    pub contents: &'a Contents
+    pub encoding: Encoding,
+    pub contents: &'a Content
 }
 
 /// Creates a vector representation of the request.
@@ -66,7 +69,7 @@ pub fn decode(request: DecoderRequest) -> TagResult<DecoderResult> {
                 } 
             }
 
-            Ok(DecoderResult::new(encoding::UTF16, UnknownContent(request.data.to_vec())))
+            Ok(DecoderResult::new(Encoding::UTF16, UnknownContent(request.data.to_vec())))
         }
     }
 }
@@ -75,19 +78,19 @@ pub fn decode(request: DecoderRequest) -> TagResult<DecoderResult> {
 fn text_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let text = request.contents.text().as_slice();
     match request.encoding {
-        encoding::Latin1 | encoding::UTF8 => {
+        Encoding::Latin1 | Encoding::UTF8 => {
             let mut data = Vec::with_capacity(1 + text.len());
             data.push(request.encoding as u8);
             data.push_all(text.as_bytes());
             data
         },
-        encoding::UTF16 => {
+        Encoding::UTF16 => {
             let mut data = Vec::with_capacity(1 + 2 + text.len() * 2);
             data.push(request.encoding as u8);
             data.extend(util::string_to_utf16(text).into_iter());
             data
         }
-        encoding::UTF16BE => {
+        Encoding::UTF16BE => {
             let mut data = Vec::with_capacity(1 + text.len() * 2);
             data.push(request.encoding as u8);
             data.extend(util::string_to_utf16be(text).into_iter());
@@ -99,7 +102,7 @@ fn text_to_bytes(request: EncoderRequest) -> Vec<u8> {
 fn extended_text_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let &(ref key, ref value) = request.contents.extended_text(); 
     match request.encoding {
-        encoding::Latin1 | encoding::UTF8 => {
+        Encoding::Latin1 | Encoding::UTF8 => {
             let mut data = Vec::with_capacity(1 + key.len() + 1 + value.len());
             data.push(request.encoding as u8);
             data.push_all(key.as_bytes());
@@ -107,7 +110,7 @@ fn extended_text_to_bytes(request: EncoderRequest) -> Vec<u8> {
             data.push_all(value.as_bytes());
             data
         },
-        encoding::UTF16 => {
+        Encoding::UTF16 => {
             let mut data = Vec::with_capacity(1 + (2 + key.len() * 2) + 2 + (2 + value.len() * 2));
             data.push(request.encoding as u8);
             data.extend(util::string_to_utf16(key.as_slice()).into_iter());
@@ -115,7 +118,7 @@ fn extended_text_to_bytes(request: EncoderRequest) -> Vec<u8> {
             data.extend(util::string_to_utf16(value.as_slice()).into_iter());
             data
         },
-        encoding::UTF16BE => {
+        Encoding::UTF16BE => {
             let mut data = Vec::with_capacity(1 + key.len() * 2 + 2 + value.len() * 2);
             data.push(request.encoding as u8);
             data.extend(util::string_to_utf16be(key.as_slice()).into_iter());
@@ -133,7 +136,7 @@ fn weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
 fn extended_weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let &(ref key, ref value) = request.contents.extended_link(); 
     match request.encoding {
-        encoding::Latin1 | encoding::UTF8 => {
+        Encoding::Latin1 | Encoding::UTF8 => {
             let mut data = Vec::with_capacity(1 + key.len() + 1 + value.len());
             data.push(request.encoding as u8);
             data.push_all(key.as_bytes());
@@ -141,7 +144,7 @@ fn extended_weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
             data.push_all(value.as_bytes());
             data
         },
-        encoding::UTF16 => {
+        Encoding::UTF16 => {
             let mut data = Vec::with_capacity(1 + (2 + key.len() * 2) + 2 + (2 + value.len() * 2));
             data.push(request.encoding as u8);
             data.extend(util::string_to_utf16(key.as_slice()).into_iter());
@@ -149,7 +152,7 @@ fn extended_weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
             data.extend(util::string_to_utf16(value.as_slice()).into_iter());
             data
         },
-        encoding::UTF16BE => {
+        Encoding::UTF16BE => {
             let mut data = Vec::with_capacity(1 + key.len() * 2 + 2 + value.len() * 2);
             data.push(request.encoding as u8);
             data.extend(util::string_to_utf16be(key.as_slice()).into_iter());
@@ -163,7 +166,7 @@ fn extended_weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
 fn lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let &(ref description, ref text) = request.contents.lyrics();
     match request.encoding {
-        encoding::Latin1 | encoding::UTF8 => {
+        Encoding::Latin1 | Encoding::UTF8 => {
             let mut data = Vec::with_capacity(1 + 3 + 1 + text.len());
             data.push(request.encoding as u8);
             data.push_all(b"eng");
@@ -172,7 +175,7 @@ fn lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
             data.push_all(text.as_bytes());
             data
         },
-        encoding::UTF16 => {
+        Encoding::UTF16 => {
             let mut data = Vec::with_capacity(1 + 3 + 2 + (2 + text.len() * 2));
             data.push(request.encoding as u8);
             data.push_all(b"eng");
@@ -181,7 +184,7 @@ fn lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
             data.extend(util::string_to_utf16(text.as_slice()).into_iter());
             data
         },
-        encoding::UTF16BE => {
+        Encoding::UTF16BE => {
             let mut data = Vec::with_capacity(1 + 3 + 2 + (text.len() * 2));
             data.push(request.encoding as u8);
             data.push_all(b"eng");
@@ -196,7 +199,7 @@ fn lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
 fn comment_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let &(ref description, ref text) = request.contents.comment();
     match request.encoding {
-        encoding::Latin1 | encoding::UTF8 => {
+        Encoding::Latin1 | Encoding::UTF8 => {
             let mut data = Vec::with_capacity(1 + 3 + description.len() + 1 + text.len());
             data.push(request.encoding as u8);
             data.push_all(b"eng");
@@ -205,7 +208,7 @@ fn comment_to_bytes(request: EncoderRequest) -> Vec<u8> {
             data.push_all(text.as_bytes());
             data
         },
-        encoding::UTF16 => {
+        Encoding::UTF16 => {
             let mut data = Vec::with_capacity(1 + 3 + (2 + description.len() * 2) + 2 + (2 + text.len() * 2));
             data.push(request.encoding as u8);
             data.push_all(b"eng");
@@ -214,7 +217,7 @@ fn comment_to_bytes(request: EncoderRequest) -> Vec<u8> {
             data.extend(util::string_to_utf16(text.as_slice()).into_iter());
             data
         },
-        encoding::UTF16BE => {
+        Encoding::UTF16BE => {
             let mut data = Vec::with_capacity(1 + 3 + (description.len() * 2) + 2 + (text.len() * 2));
             data.push(request.encoding as u8);
             data.push_all(b"eng".as_slice());
@@ -230,7 +233,7 @@ fn picture_to_bytes_v3(request: EncoderRequest) -> Vec<u8> {
     let picture = request.contents.picture();
 
     match request.encoding {
-        encoding::Latin1 | encoding::UTF8 => {
+        Encoding::Latin1 | Encoding::UTF8 => {
             let mut data = Vec::with_capacity(1 + picture.mime_type.len() + 1 + 1 + picture.description.len() + 1 + picture.data.len());
             data.push(request.encoding as u8);
             data.push_all(picture.mime_type.as_bytes());
@@ -241,7 +244,7 @@ fn picture_to_bytes_v3(request: EncoderRequest) -> Vec<u8> {
             data.push_all(picture.data.as_slice());
             data
         },
-        encoding::UTF16 => {
+        Encoding::UTF16 => {
             let mut data = Vec::with_capacity(1 + picture.mime_type.len() + 1 + 1 + (2 + picture.description.len() * 2) + 2 + picture.data.len());
             data.push(request.encoding as u8);
             data.push_all(picture.mime_type.as_bytes());
@@ -252,7 +255,7 @@ fn picture_to_bytes_v3(request: EncoderRequest) -> Vec<u8> {
             data.push_all(picture.data.as_slice());
             data
         },
-        encoding::UTF16BE => {
+        Encoding::UTF16BE => {
             let mut data = Vec::with_capacity(1 + picture.mime_type.len() + 1 + 1 + (picture.description.len() * 2) + 2 + picture.data.len());
             data.push(request.encoding as u8);
             data.push_all(picture.mime_type.as_bytes());
@@ -276,7 +279,7 @@ fn picture_to_bytes_v2(request: EncoderRequest) -> Vec<u8> {
     };
 
     let mut data = match request.encoding {
-        encoding::Latin1 => Vec::with_capacity(1 + 3 + 1 + picture.description.len() + 1 + picture.data.len()),
+        Encoding::Latin1 => Vec::with_capacity(1 + 3 + 1 + picture.description.len() + 1 + picture.data.len()),
         _ => Vec::with_capacity(1 + 3 + 1 + (2 + picture.description.len() * 2) + 2 + picture.data.len()),
     };
 
@@ -285,7 +288,7 @@ fn picture_to_bytes_v2(request: EncoderRequest) -> Vec<u8> {
     data.push(picture.picture_type as u8);
 
     match request.encoding {
-        encoding::Latin1 => {
+        Encoding::Latin1 => {
             data.push_all(picture.description.as_bytes());
             data.push(0x0);
         },
@@ -365,9 +368,9 @@ fn parse_apic_v3(data: &[u8]) -> TagResult<DecoderResult> {
     let mut i = 1;
     let mut start = i;
 
-    i = try_delim!(encoding::Latin1, data.as_slice(), i, "missing image mime type terminator"); 
+    i = try_delim!(Encoding::Latin1, data.as_slice(), i, "missing image mime type terminator"); 
 
-    picture.mime_type = try_string!(encoding::Latin1, data.slice(start, i));
+    picture.mime_type = try_string!(Encoding::Latin1, data.slice(start, i));
 
     i += 1;
 
@@ -440,7 +443,7 @@ fn parse_txxx(data: &[u8]) -> TagResult<DecoderResult> {
 /// Attempts to parse the data as a web link frame.
 /// Returns a `LinkContent`.
 fn parse_weblink(data: &[u8]) -> TagResult<DecoderResult> {
-    Ok(DecoderResult::new(encoding::Latin1, LinkContent(try_string!(encoding::Latin1, data))))
+    Ok(DecoderResult::new(Encoding::Latin1, LinkContent(try_string!(Encoding::Latin1, data))))
 }
 
 /// Attempts to parse the data as a user defined web link frame.
@@ -487,24 +490,24 @@ fn parse_uslt(data: &[u8]) -> TagResult<DecoderResult> {
 mod tests {
     use parsers;
     use parsers::{DecoderRequest, EncoderRequest};
-    use encoding;
     use util;
-    use frame::{PictureContent, CommentContent, TextContent, ExtendedTextContent, LinkContent, ExtendedLinkContent, LyricsContent};
-    use picture::{Picture, picture_type};
+    use frame::Encoding;
+    use frame::Content::{PictureContent, CommentContent, TextContent, ExtendedTextContent, LinkContent, ExtendedLinkContent, LyricsContent};
+    use picture::{Picture, PictureType};
     use std::collections::HashMap;
 
-    fn bytes_for_encoding(text: &str, encoding: encoding::Encoding) -> Vec<u8> {
+    fn bytes_for_encoding(text: &str, encoding: Encoding) -> Vec<u8> {
         match encoding {
-            encoding::Latin1 | encoding::UTF8 => text.as_bytes().to_vec(),
-            encoding::UTF16 => util::string_to_utf16(text),
-            encoding::UTF16BE => util::string_to_utf16be(text)
+            Encoding::Latin1 | Encoding::UTF8 => text.as_bytes().to_vec(),
+            Encoding::UTF16 => util::string_to_utf16(text),
+            Encoding::UTF16BE => util::string_to_utf16be(text)
         }
     }
 
-    fn delim_for_encoding(encoding: encoding::Encoding) -> Vec<u8> {
+    fn delim_for_encoding(encoding: Encoding) -> Vec<u8> {
         match encoding {
-            encoding::Latin1 | encoding::UTF8 => Vec::from_elem(1, 0),
-            encoding::UTF16 | encoding::UTF16BE => Vec::from_elem(2, 0)
+            Encoding::Latin1 | Encoding::UTF8 => Vec::from_elem(1, 0),
+            Encoding::UTF16 | Encoding::UTF16BE => Vec::from_elem(2, 0)
         }
     }
 
@@ -518,7 +521,7 @@ mod tests {
 
         for (mime_type, format) in format_map.into_iter() {
             for description in vec!("", "description").into_iter() {
-                let picture_type = picture_type::CoverFront;
+                let picture_type = PictureType::CoverFront;
                 let picture_data = vec!(0xF9, 0x90, 0x3A, 0x02, 0xBD);
 
                 let mut picture = Picture::new();
@@ -527,7 +530,7 @@ mod tests {
                 picture.description = description.into_string();
                 picture.data = picture_data.clone();
 
-                for encoding in vec!(encoding::Latin1, encoding::UTF16).into_iter() {
+                for encoding in vec!(Encoding::Latin1, Encoding::UTF16).into_iter() {
                     println!("`{}`, `{}`, `{}`", mime_type, description, encoding);
                     let mut data = Vec::new();
                     data.push(encoding as u8);
@@ -551,7 +554,7 @@ mod tests {
 
         for mime_type in vec!("", "image/jpeg").into_iter() {
             for description in vec!("", "description").into_iter() {
-                let picture_type = picture_type::CoverFront;
+                let picture_type = PictureType::CoverFront;
                 let picture_data = vec!(0xF9, 0x90, 0x3A, 0x02, 0xBD);
 
                 let mut picture = Picture::new();
@@ -560,7 +563,7 @@ mod tests {
                 picture.description = description.into_string();
                 picture.data = picture_data.clone();
 
-                for encoding in vec!(encoding::UTF8, encoding::UTF16, encoding::UTF16BE).into_iter() {
+                for encoding in vec!(Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
                     println!("`{}`, `{}`, `{}`", mime_type, description, encoding);
                     let mut data = Vec::new();
                     data.push(encoding as u8);
@@ -585,7 +588,7 @@ mod tests {
         println!("valid");
         for description in vec!("", "description").into_iter() {
             for comment in vec!("", "comment").into_iter() {
-                for encoding in vec!(encoding::UTF8, encoding::UTF16, encoding::UTF16BE).into_iter() {
+                for encoding in vec!(Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
                     println!("`{}`, `{}`, `{}`", description, comment, encoding);
                     let mut data = Vec::new();
                     data.push(encoding as u8);
@@ -605,7 +608,7 @@ mod tests {
         println!("invalid");
         let description = "description";
         let comment = "comment";
-        for encoding in vec!(encoding::UTF8, encoding::UTF16, encoding::UTF16BE).into_iter() {
+        for encoding in vec!(Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
             println!("`{}`", encoding);
             let mut data = Vec::new();
             data.push(encoding as u8);
@@ -622,7 +625,7 @@ mod tests {
         assert!(parsers::decode(DecoderRequest { id: "TALB", data: &[] } ).is_err());
 
         for text in vec!("", "text").into_iter() {
-            for encoding in vec!(encoding::UTF8, encoding::UTF16, encoding::UTF16BE).into_iter() {
+            for encoding in vec!(Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
                 println!("`{}`, `{}`", text, encoding);
                 let mut data = Vec::new();
                 data.push(encoding as u8);
@@ -641,7 +644,7 @@ mod tests {
         println!("valid");
         for key in vec!("", "key").into_iter() {
             for value in vec!("", "value").into_iter() {
-                for encoding in vec!(encoding::UTF8, encoding::UTF16, encoding::UTF16BE).into_iter() {
+                for encoding in vec!(Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
                     println!("{}", encoding);
                     let mut data = Vec::new();
                     data.push(encoding as u8);
@@ -660,7 +663,7 @@ mod tests {
         println!("invalid");
         let key = "key";
         let value = "value";
-        for encoding in vec!(encoding::UTF8, encoding::UTF16, encoding::UTF16BE).into_iter() {
+        for encoding in vec!(Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
             println!("`{}`", encoding);
             let mut data = Vec::new();
             data.push(encoding as u8);
@@ -677,7 +680,7 @@ mod tests {
             let data = link.as_bytes().to_vec();
             assert_eq!(parsers::decode(DecoderRequest { id: "WOAF", data: data.as_slice() } ).unwrap().contents.link().as_slice(), link);
 
-            assert_eq!(parsers::encode(EncoderRequest { encoding: encoding::Latin1, contents: &LinkContent(link.into_string()), version: 3 } ), data);
+            assert_eq!(parsers::encode(EncoderRequest { encoding: Encoding::Latin1, contents: &LinkContent(link.into_string()), version: 3 } ), data);
         }
     }
 
@@ -688,7 +691,7 @@ mod tests {
         println!("valid");
         for description in vec!("", "rust").into_iter() {
             for link in vec!("", "http://www.rust-lang.org/").into_iter() { 
-                for encoding in vec!(encoding::UTF8, encoding::UTF16, encoding::UTF16BE).into_iter() {
+                for encoding in vec!(Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
                     println!("`{}`, `{}`, `{}`", description, link, encoding);
                     let mut data = Vec::new();
                     data.push(encoding as u8);
@@ -707,7 +710,7 @@ mod tests {
         println!("invalid");
         let description = "rust";
         let link = "http://www.rust-lang.org/";
-        for encoding in vec!(encoding::UTF8, encoding::UTF16, encoding::UTF16BE).into_iter() {
+        for encoding in vec!(Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
             println!("`{}`", encoding);
             let mut data = Vec::new();
             data.push(encoding as u8);
@@ -724,7 +727,7 @@ mod tests {
         println!("valid");
         for description in vec!("", "description").into_iter() {
             for lyrics in vec!("", "lyrics").into_iter() {
-                for encoding in vec!(encoding::UTF8, encoding::UTF16, encoding::UTF16BE).into_iter() {
+                for encoding in vec!(Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
                     println!("`{}`, `{}, `{}`", description, lyrics, encoding);
                     let mut data = Vec::new();
                     data.push(encoding as u8);
@@ -744,7 +747,7 @@ mod tests {
         println!("invalid");
         let description = "description";
         let lyrics = "lyrics";
-        for encoding in vec!(encoding::UTF8, encoding::UTF16, encoding::UTF16BE).into_iter() {
+        for encoding in vec!(Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
             println!("`{}`", encoding);
             let mut data = Vec::new();
             data.push(encoding as u8);

@@ -2,8 +2,14 @@ extern crate std;
 extern crate audiotag;
 extern crate flate;
 
-pub use self::contents::{Contents, TextContent, ExtendedTextContent, LinkContent, ExtendedLinkContent, CommentContent, LyricsContent, PictureContent, UnknownContent};
+pub use self::encoding::Encoding;
+pub use self::content::Content;
 pub use self::flags::FrameFlags;
+
+use self::content::Content::{
+    TextContent, ExtendedTextContent, LinkContent, ExtendedLinkContent, CommentContent,
+    LyricsContent, UnknownContent
+};
 
 use self::stream::{FrameStream, FrameV2, FrameV3, FrameV4};
     
@@ -13,10 +19,8 @@ use util;
 use parsers;
 use parsers::{DecoderRequest, EncoderRequest};
 
-/// A module containing the `Encoding` enum. 
-pub mod encoding;
-
-mod contents;
+mod encoding;
+mod content;
 mod flags;
 mod stream;
 
@@ -29,11 +33,11 @@ pub struct Frame {
     /// The major version of the tag which this frame belongs to.
     version: u8,
     /// The encoding to be used when converting this frame to bytes.
-    encoding: encoding::Encoding,
+    encoding: Encoding,
     /// The frame flags.
     flags: FrameFlags,
     /// The parsed contents of the frame.
-    pub contents: Contents,
+    pub contents: Content,
     /// The offset of this frame in the file from which it was loaded.
     pub offset: u32,
 }
@@ -55,7 +59,7 @@ impl Frame {
     #[inline]
     pub fn new<T: StrAllocating>(id: T) -> Frame {
         Frame { 
-            uuid: util::uuid(), id: id.into_string(), version: 3, encoding: encoding::UTF16, 
+            uuid: util::uuid(), id: id.into_string(), version: 3, encoding: Encoding::UTF16, 
             flags: FrameFlags::new(), contents: UnknownContent(Vec::new()), offset: 0 
         }
     }
@@ -77,11 +81,11 @@ impl Frame {
 
     /// Returns an encoding compatible with the current version based on the requested encoding.
     #[inline]
-    fn compatible_encoding(&self, requested_encoding: encoding::Encoding) -> encoding::Encoding {
+    fn compatible_encoding(&self, requested_encoding: Encoding) -> Encoding {
         if self.version < 4 {
             match requested_encoding {
-                encoding::Latin1 => encoding::Latin1,
-                _ => encoding::UTF16, // if UTF16BE or UTF8 is requested, just return UTF16
+                Encoding::Latin1 => Encoding::Latin1,
+                _ => Encoding::UTF16, // if UTF16BE or UTF8 is requested, just return UTF16
             }
         } else {
             requested_encoding
@@ -91,14 +95,14 @@ impl Frame {
     // Getters/Setters
     #[inline]
     /// Returns the encoding.
-    pub fn encoding(&self) -> encoding::Encoding {
+    pub fn encoding(&self) -> Encoding {
         self.encoding
     }
 
     #[inline]
     /// Sets the encoding. If the encoding is not compatible with the frame version, another
     /// encoding will be chosen.
-    pub fn set_encoding(&mut self, encoding: encoding::Encoding) {
+    pub fn set_encoding(&mut self, encoding: Encoding) {
         self.encoding = self.compatible_encoding(encoding);
     }
 
@@ -293,7 +297,8 @@ impl Frame {
     ///
     /// # Example
     /// ```
-    /// use id3::{Frame, ExtendedTextContent, TextContent};
+    /// use id3::Frame;
+    /// use id3::Content::{ExtendedTextContent, TextContent};
     ///
     /// let mut title_frame = Frame::new("TIT2".into_string());
     /// title_frame.contents = TextContent("title".into_string());
@@ -326,8 +331,7 @@ impl Frame {
 #[cfg(test)]
 mod tests {
     use std::io::MemWriter;
-    use frame::{Frame, FrameFlags};
-    use encoding;
+    use frame::{Frame, FrameFlags, Encoding};
     use util;
 
     #[test]
@@ -362,7 +366,7 @@ mod tests {
     fn test_to_bytes_v2() {
         let id = "TAL";
         let text = "album";
-        let encoding = encoding::UTF16;
+        let encoding = Encoding::UTF16;
 
         let mut frame = Frame::with_version(id.into_string(), 2);
 
@@ -386,7 +390,7 @@ mod tests {
     fn test_to_bytes_v3() {
         let id = "TALB";
         let text = "album";
-        let encoding = encoding::UTF16;
+        let encoding = Encoding::UTF16;
 
         let mut frame = Frame::with_version(id.into_string(), 4);
 
@@ -411,7 +415,7 @@ mod tests {
     fn test_to_bytes_v4() {
         let id = "TALB";
         let text = "album";
-        let encoding = encoding::UTF16;
+        let encoding = Encoding::UTF16;
 
         let mut frame = Frame::with_version(id.into_string(), 4);
 

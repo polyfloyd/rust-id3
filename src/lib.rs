@@ -20,8 +20,9 @@
 //!
 //! ```no_run
 //! // you need to use AudioTag in order to use the trait features
-//! use id3::{ID3Tag, AudioTag, Frame, TextContent};
-//! use id3::encoding::UTF8;
+//! use id3::{ID3Tag, AudioTag, Frame};
+//! use id3::Content::TextContent;
+//! use id3::Encoding::UTF8;
 //!
 //! let mut tag = ID3Tag::with_version(4);
 //! 
@@ -63,8 +64,8 @@ pub use self::audiotag::{
 };
 
 pub use tag::ID3Tag;
-pub use frame::{Frame, FrameFlags, encoding, Contents, PictureContent, CommentContent, TextContent, ExtendedTextContent, LinkContent, ExtendedLinkContent, LyricsContent, UnknownContent};
-pub use picture::{Picture, picture_type};
+pub use frame::{Frame, FrameFlags, Encoding, Content};
+pub use picture::{Picture, PictureType};
 
 mod macros;
 

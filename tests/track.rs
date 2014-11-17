@@ -1,6 +1,6 @@
 extern crate id3;
 
-use id3::{AudioTag, ID3Tag, Frame, encoding};
+use id3::{AudioTag, ID3Tag, Frame, Encoding};
 
 static ID: &'static str = "TRCK";
 static TRACK: u32 = 5;
@@ -12,8 +12,8 @@ static INVALID: &'static str = "invalid";
 fn utf8() {
     let mut tag = ID3Tag::with_version(4);
 
-    tag.set_track_enc(TRACK, encoding::UTF8);
-    tag.set_total_tracks_enc(TOTAL, encoding::UTF8);
+    tag.set_track_enc(TRACK, Encoding::UTF8);
+    tag.set_total_tracks_enc(TOTAL, Encoding::UTF8);
     let frame = tag.get_frame_by_id(ID).unwrap();
 
     assert_eq!(tag.track().unwrap(), TRACK);
@@ -21,7 +21,7 @@ fn utf8() {
     assert_eq!(frame.contents.text().as_slice(), format!("{}/{}", TRACK, TOTAL).as_slice());
 
     let mut data: Vec<u8> = Vec::new();
-    data.push(encoding::UTF8 as u8);
+    data.push(Encoding::UTF8 as u8);
     data.extend(format!("{}/{}", TRACK, TOTAL).into_bytes().into_iter());
     assert_eq!(frame.contents_to_bytes(), data);
 }
@@ -30,7 +30,7 @@ fn utf8() {
 fn utf8_only_track() {
     let mut tag = ID3Tag::with_version(4);
 
-    tag.set_track_enc(TRACK, encoding::UTF8);
+    tag.set_track_enc(TRACK, Encoding::UTF8);
     let frame = tag.get_frame_by_id(ID).unwrap();
 
     assert_eq!(tag.track().unwrap(), TRACK);
@@ -39,7 +39,7 @@ fn utf8_only_track() {
     assert_eq!(frame.contents.text().as_slice(), format!("{}", TRACK).as_slice());
 
     let mut data: Vec<u8> = Vec::new();
-    data.push(encoding::UTF8 as u8);
+    data.push(Encoding::UTF8 as u8);
     data.extend(format!("{}", TRACK).into_bytes().into_iter());
     assert_eq!(frame.contents_to_bytes(), data);
 }
@@ -50,7 +50,7 @@ fn utf8_invalid() {
     
     let mut frame = Frame::with_version(ID.into_string(), 4);
     let mut data = Vec::new();
-    data.push(encoding::UTF8 as u8);
+    data.push(Encoding::UTF8 as u8);
     data.extend(format!("{}/{}", INVALID, TOTAL).into_bytes().into_iter());
     frame.parse_data(data.as_slice()).unwrap();
     tag.add_frame(frame);
@@ -61,7 +61,7 @@ fn utf8_invalid() {
 
     let mut frame = Frame::with_version(ID.into_string(), 4);
     let mut data = Vec::new();
-    data.push(encoding::UTF8 as u8);
+    data.push(Encoding::UTF8 as u8);
     data.extend(format!("{}/{}", TRACK, INVALID).into_bytes().into_iter());
     frame.parse_data(data.as_slice()).unwrap();
     tag.add_frame(frame);
@@ -75,8 +75,8 @@ fn utf8_invalid() {
 fn utf16() {
     let mut tag = ID3Tag::with_version(4);
 
-    tag.set_track_enc(TRACK, encoding::UTF16);
-    tag.set_total_tracks_enc(TOTAL, encoding::UTF16);
+    tag.set_track_enc(TRACK, Encoding::UTF16);
+    tag.set_total_tracks_enc(TOTAL, Encoding::UTF16);
     let frame = tag.get_frame_by_id(ID).unwrap();
 
     assert_eq!(tag.track().unwrap(), TRACK);
@@ -84,7 +84,7 @@ fn utf16() {
     assert_eq!(frame.contents.text().as_slice(), format!("{}/{}", TRACK, TOTAL).as_slice());
 
     let mut data = Vec::new();
-    data.push(encoding::UTF16 as u8);
+    data.push(Encoding::UTF16 as u8);
     data.extend(id3::util::string_to_utf16(format!("{}/{}", TRACK, TOTAL).as_slice()).into_iter());
     assert_eq!(frame.contents_to_bytes(), data);
 }
@@ -93,7 +93,7 @@ fn utf16() {
 fn utf16_only_track() {
     let mut tag = ID3Tag::with_version(4);
 
-    tag.set_track_enc(TRACK, encoding::UTF16);
+    tag.set_track_enc(TRACK, Encoding::UTF16);
     let frame = tag.get_frame_by_id(ID).unwrap();
 
     assert_eq!(tag.track().unwrap(), TRACK);
@@ -101,7 +101,7 @@ fn utf16_only_track() {
     assert_eq!(frame.contents.text().as_slice(), format!("{}", TRACK).as_slice());
 
     let mut data: Vec<u8> = Vec::new();
-    data.push(encoding::UTF16 as u8);
+    data.push(Encoding::UTF16 as u8);
     data.extend(id3::util::string_to_utf16(format!("{}", TRACK).as_slice()).into_iter());
     assert_eq!(frame.contents_to_bytes(), data);
 }
@@ -112,7 +112,7 @@ fn utf16_invalid() {
     
     let mut frame = Frame::with_version(ID.into_string(), 4);
     let mut data = Vec::new();
-    data.push(encoding::UTF16 as u8);
+    data.push(Encoding::UTF16 as u8);
     data.extend(id3::util::string_to_utf16(format!("{}/{}", INVALID, TOTAL).as_slice()).into_iter());
     frame.parse_data(data.as_slice()).unwrap();
     tag.add_frame(frame);
@@ -123,7 +123,7 @@ fn utf16_invalid() {
 
     let mut frame = Frame::with_version(ID.into_string(), 4);
     let mut data = Vec::new();
-    data.push(encoding::UTF16 as u8);
+    data.push(Encoding::UTF16 as u8);
     data.extend(id3::util::string_to_utf16(format!("{}/{}", TRACK, INVALID).as_slice()).into_iter());
     frame.parse_data(data.as_slice()).unwrap();
     tag.add_frame(frame);
@@ -137,8 +137,8 @@ fn utf16_invalid() {
 fn utf16be() {
     let mut tag = ID3Tag::with_version(4);
 
-    tag.set_track_enc(TRACK, encoding::UTF16BE);
-    tag.set_total_tracks_enc(TOTAL, encoding::UTF16BE);
+    tag.set_track_enc(TRACK, Encoding::UTF16BE);
+    tag.set_total_tracks_enc(TOTAL, Encoding::UTF16BE);
     let frame = tag.get_frame_by_id(ID).unwrap();
 
     assert_eq!(tag.track().unwrap(), TRACK);
@@ -146,7 +146,7 @@ fn utf16be() {
     assert_eq!(frame.contents.text().as_slice(), format!("{}/{}", TRACK, TOTAL).as_slice());
 
     let mut data: Vec<u8> = Vec::new();
-    data.push(encoding::UTF16BE as u8);
+    data.push(Encoding::UTF16BE as u8);
     data.extend(id3::util::string_to_utf16be(format!("{}/{}", TRACK, TOTAL).as_slice()).into_iter());
     assert_eq!(frame.contents_to_bytes(), data);
 }
@@ -155,7 +155,7 @@ fn utf16be() {
 fn utf16be_only_track() {
     let mut tag = ID3Tag::with_version(4);
 
-    tag.set_track_enc(TRACK, encoding::UTF16BE);
+    tag.set_track_enc(TRACK, Encoding::UTF16BE);
     let frame = tag.get_frame_by_id(ID).unwrap();
 
     assert_eq!(tag.track().unwrap(), TRACK);
@@ -163,7 +163,7 @@ fn utf16be_only_track() {
     assert_eq!(frame.contents.text().as_slice(), format!("{}", TRACK).as_slice());
 
     let mut data: Vec<u8> = Vec::new();
-    data.push(encoding::UTF16BE as u8);
+    data.push(Encoding::UTF16BE as u8);
     data.extend(id3::util::string_to_utf16be(format!("{}", TRACK).as_slice()).into_iter());
     assert_eq!(frame.contents_to_bytes(), data);
 }
@@ -174,7 +174,7 @@ fn utf16be_invalid() {
     
     let mut frame = Frame::with_version(ID.into_string(), 4);
     let mut data = Vec::new();
-    data.push(encoding::UTF16BE as u8);
+    data.push(Encoding::UTF16BE as u8);
     data.extend(id3::util::string_to_utf16be(format!("{}/{}", INVALID, TOTAL).as_slice()).into_iter());
     frame.parse_data(data.as_slice()).unwrap();
     tag.add_frame(frame);
@@ -185,7 +185,7 @@ fn utf16be_invalid() {
 
     let mut frame = Frame::with_version(ID.into_string(), 4);
     let mut data = Vec::new();
-    data.push(encoding::UTF16BE as u8);
+    data.push(Encoding::UTF16BE as u8);
     data.extend(id3::util::string_to_utf16be(format!("{}/{}", TRACK, INVALID).as_slice()).into_iter());
     frame.parse_data(data.as_slice()).unwrap();
     tag.add_frame(frame);

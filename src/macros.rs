@@ -14,7 +14,7 @@ macro_rules! try_delim {
 macro_rules! try_encoding {
     ($c:expr) => {
         {
-            let encoding: encoding::Encoding = match FromPrimitive::from_u8($c) {
+            let encoding: ::frame::Encoding = match FromPrimitive::from_u8($c) {
                 Some(encoding) => encoding,
                 None => return Err(TagError::new(audiotag::InvalidInputError, "invalid encoding byte"))
             };
@@ -34,9 +34,9 @@ macro_rules! try_string {
         match util::string_from_encoding($enc, $data) {
             Some(string) => string,
             None => return Err(TagError::new(audiotag::StringDecodingError($data.to_vec()), match $enc {
-                ::frame::encoding::Latin1 | ::frame::encoding::UTF8 => "string is not valid utf8",
-                ::frame::encoding::UTF16 => "string is not valid utf16",
-                ::frame::encoding::UTF16BE => "string is not valid utf16-be"
+                ::frame::Encoding::Latin1 | ::frame::Encoding::UTF8 => "string is not valid utf8",
+                ::frame::Encoding::UTF16 => "string is not valid utf16",
+                ::frame::Encoding::UTF16BE => "string is not valid utf16-be"
             }))
         }
     };

@@ -5,7 +5,7 @@ use phf;
 use std::rand;
 use std::rand::Rng;
 
-use encoding;
+use frame::Encoding;
 
 /// Returns a random sequence of 16 bytes, intended to be used as a UUID.
 #[inline]
@@ -37,11 +37,11 @@ pub fn u32_to_bytes(n: u32) -> Vec<u8> {
 /// Returns `None` if the vector is not a valid string of the specified
 /// encoding type.
 #[inline]
-pub fn string_from_encoding(encoding: encoding::Encoding, data: &[u8]) -> Option<String> {
+pub fn string_from_encoding(encoding: Encoding, data: &[u8]) -> Option<String> {
     match encoding {
-        encoding::Latin1 | encoding::UTF8 => string_from_utf8(data),
-        encoding::UTF16 => string_from_utf16(data),
-        encoding::UTF16BE => string_from_utf16be(data) 
+        Encoding::Latin1 | Encoding::UTF8 => string_from_utf8(data),
+        Encoding::UTF16 => string_from_utf16(data),
+        Encoding::UTF16BE => string_from_utf16be(data) 
     }
 }
 
@@ -137,10 +137,10 @@ pub fn string_to_utf16le(text: &str) -> Vec<u8> {
 }
 
 /// Returns the index of the first delimiter for the specified encoding.
-pub fn find_delim(encoding: encoding::Encoding, data: &[u8], index: uint) -> Option<uint> {
+pub fn find_delim(encoding: Encoding, data: &[u8], index: uint) -> Option<uint> {
     let mut i = index;
     match encoding {
-        encoding::Latin1 | encoding::UTF8 => {
+        Encoding::Latin1 | Encoding::UTF8 => {
             if i >= data.len() {
                 return None;
             }
@@ -158,7 +158,7 @@ pub fn find_delim(encoding: encoding::Encoding, data: &[u8], index: uint) -> Opt
 
             Some(i)
         },
-        encoding::UTF16 | encoding::UTF16BE => {
+        Encoding::UTF16 | Encoding::UTF16BE => {
             while i + 1 < data.len() 
                 && (data[i] != 0 || data[i + 1] != 0) {
                     i += 2;
@@ -175,10 +175,10 @@ pub fn find_delim(encoding: encoding::Encoding, data: &[u8], index: uint) -> Opt
 
 /// Returns the delimiter length for the specified encoding.
 #[inline]
-pub fn delim_len(encoding: encoding::Encoding) -> uint {
+pub fn delim_len(encoding: Encoding) -> uint {
     match encoding {
-        encoding::Latin1 | encoding::UTF8 => 1,
-        encoding::UTF16 | encoding::UTF16BE => 2
+        Encoding::Latin1 | Encoding::UTF8 => 1,
+        Encoding::UTF16 | Encoding::UTF16BE => 2
     }
 }
 
@@ -457,7 +457,7 @@ pub fn frame_description(id: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use util;
-    use encoding;
+    use frame::Encoding;
 
     #[test]
     fn test_synchsafe() {
@@ -479,30 +479,30 @@ mod tests {
         assert_eq!(util::string_to_utf16be(text).as_slice(), b"\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D");
         assert_eq!(util::string_to_utf16le(text).as_slice(), b"\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01");
 
-        assert_eq!(util::string_from_encoding(encoding::UTF16BE, b"\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D").unwrap().as_slice(), text);
+        assert_eq!(util::string_from_encoding(Encoding::UTF16BE, b"\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D").unwrap().as_slice(), text);
         assert_eq!(util::string_from_utf16be(b"\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D").unwrap().as_slice(), text);
 
         assert_eq!(util::string_from_utf16le(b"\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01").unwrap().as_slice(), text);
 
         // big endian BOM
-        assert_eq!(util::string_from_encoding(encoding::UTF16, b"\xFE\xFF\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D").unwrap().as_slice(), text);
+        assert_eq!(util::string_from_encoding(Encoding::UTF16, b"\xFE\xFF\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D").unwrap().as_slice(), text);
         assert_eq!(util::string_from_utf16(b"\xFE\xFF\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D").unwrap().as_slice(), text);
 
         // little endian BOM 
-        assert_eq!(util::string_from_encoding(encoding::UTF16, b"\xFF\xFE\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01").unwrap().as_slice(), text);
+        assert_eq!(util::string_from_encoding(Encoding::UTF16, b"\xFF\xFE\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01").unwrap().as_slice(), text);
         assert_eq!(util::string_from_utf16(b"\xFF\xFE\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01").unwrap().as_slice(), text);
     }
 
     #[test]
     fn test_find_delim() {
-        assert_eq!(util::find_delim(encoding::UTF8, [0x0, 0xFF, 0xFF, 0xFF, 0x0], 3).unwrap(), 4);
-        assert!(util::find_delim(encoding::UTF8, [0x0, 0xFF, 0xFF, 0xFF, 0xFF], 3).is_none());
+        assert_eq!(util::find_delim(Encoding::UTF8, [0x0, 0xFF, 0xFF, 0xFF, 0x0], 3).unwrap(), 4);
+        assert!(util::find_delim(Encoding::UTF8, [0x0, 0xFF, 0xFF, 0xFF, 0xFF], 3).is_none());
 
-        assert_eq!(util::find_delim(encoding::UTF16, [0x0, 0xFF, 0x0, 0xFF, 0x0, 0x0, 0xFF, 0xFF], 2).unwrap(), 4);
-        assert!(util::find_delim(encoding::UTF16, [0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0xFF, 0xFF], 2).is_none());
+        assert_eq!(util::find_delim(Encoding::UTF16, [0x0, 0xFF, 0x0, 0xFF, 0x0, 0x0, 0xFF, 0xFF], 2).unwrap(), 4);
+        assert!(util::find_delim(Encoding::UTF16, [0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0xFF, 0xFF], 2).is_none());
 
-        assert_eq!(util::find_delim(encoding::UTF16BE, [0x0, 0xFF, 0x0, 0xFF, 0x0, 0x0, 0xFF, 0xFF], 2).unwrap(), 4);
-        assert!(util::find_delim(encoding::UTF16BE, [0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0xFF, 0xFF], 2).is_none());
+        assert_eq!(util::find_delim(Encoding::UTF16BE, [0x0, 0xFF, 0x0, 0xFF, 0x0, 0x0, 0xFF, 0xFF], 2).unwrap(), 4);
+        assert!(util::find_delim(Encoding::UTF16BE, [0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0xFF, 0xFF], 2).is_none());
     }
 
     #[test]
