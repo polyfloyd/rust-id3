@@ -1,16 +1,13 @@
 extern crate std;
 
 use phf;
-
-use std::rand;
-use std::rand::Rng;
-
+use std::rand::{mod, Rng};
 use frame::Encoding;
 
 /// Returns a random sequence of 16 bytes, intended to be used as a UUID.
 #[inline]
 pub fn uuid() -> Vec<u8> {
-    rand::task_rng().gen_iter::<u8>().take(16).collect::<Vec<_>>()
+    rand::task_rng().gen_iter::<u8>().take(16).collect()
 }
 /// Returns the synchsafe varaiant of a `u32` value.
 #[inline]
@@ -45,15 +42,12 @@ pub fn string_from_encoding(encoding: Encoding, data: &[u8]) -> Option<String> {
     }
 }
 
-/// Returns a string created from the vector using UTF-8 encoding, removing a trailing null byte
-/// if present.
+/// Returns a string created from the vector using UTF-8 encoding, removing any trailing null
+/// bytes.
 /// Returns `None` if the vector is not a valid UTF-8 string.
 pub fn string_from_utf8(data: &[u8]) -> Option<String> {
-    if data.len() > 0 && data[data.len() - 1] == 0 {
-        String::from_utf8(data.slice_to(data.len() - 1).to_vec()).ok()
-    } else {
-        String::from_utf8(data.to_vec()).ok()
-    }
+    let data: Vec<u8> = data.iter().take_while(|&c| *c != 0).map(|c| *c).collect();
+    String::from_utf8(data).ok()
 }
 
 /// Returns a string created from the vector using UTF-16 (with byte order mark) encoding.
@@ -63,12 +57,10 @@ pub fn string_from_utf16(data: &[u8]) -> Option<String> {
         return None;
     }
 
-    let no_bom = data.slice(2, data.len());
-
     if data[0] == 0xFF && data[1] == 0xFE { // little endian
-        string_from_utf16le(no_bom)
+        string_from_utf16le(data.slice_from(2))
     } else { // big endian
-        string_from_utf16be(no_bom)
+        string_from_utf16be(data.slice_from(2))
     }
 }
 
@@ -128,7 +120,7 @@ pub fn string_to_utf16be(text: &str) -> Vec<u8> {
 /// Returns a UTF-16LE vector representation of the string.
 pub fn string_to_utf16le(text: &str) -> Vec<u8> {
     let mut out: Vec<u8> = Vec::with_capacity(text.len() * 2);
-    for c in text.as_slice().utf16_units() {
+    for c in text.utf16_units() {
         out.push((c & 0x00FF) as u8);
         out.push(((c & 0xFF00) >> 8) as u8);
     }
