@@ -109,7 +109,7 @@ pub fn string_from_utf16be(data: &[u8]) -> Option<String> {
 /// Returns a UTF-16 (with LE byte order mark) vector representation of the string.
 pub fn string_to_utf16(text: &str) -> Vec<u8> {
     let mut out: Vec<u8> = Vec::with_capacity(2 + text.len() * 2);
-    out.push_all([0xFFu8, 0xFEu8]); // add little endian BOM
+    out.push_all(&[0xFFu8, 0xFEu8]); // add little endian BOM
     out.extend(string_to_utf16le(text).into_iter());
     out
 }
@@ -495,14 +495,14 @@ mod tests {
 
     #[test]
     fn test_find_delim() {
-        assert_eq!(util::find_delim(Encoding::UTF8, [0x0, 0xFF, 0xFF, 0xFF, 0x0], 3).unwrap(), 4);
-        assert!(util::find_delim(Encoding::UTF8, [0x0, 0xFF, 0xFF, 0xFF, 0xFF], 3).is_none());
+        assert_eq!(util::find_delim(Encoding::UTF8, &[0x0, 0xFF, 0xFF, 0xFF, 0x0], 3).unwrap(), 4);
+        assert!(util::find_delim(Encoding::UTF8, &[0x0, 0xFF, 0xFF, 0xFF, 0xFF], 3).is_none());
 
-        assert_eq!(util::find_delim(Encoding::UTF16, [0x0, 0xFF, 0x0, 0xFF, 0x0, 0x0, 0xFF, 0xFF], 2).unwrap(), 4);
-        assert!(util::find_delim(Encoding::UTF16, [0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0xFF, 0xFF], 2).is_none());
+        assert_eq!(util::find_delim(Encoding::UTF16, &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0x0, 0xFF, 0xFF], 2).unwrap(), 4);
+        assert!(util::find_delim(Encoding::UTF16, &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0xFF, 0xFF], 2).is_none());
 
-        assert_eq!(util::find_delim(Encoding::UTF16BE, [0x0, 0xFF, 0x0, 0xFF, 0x0, 0x0, 0xFF, 0xFF], 2).unwrap(), 4);
-        assert!(util::find_delim(Encoding::UTF16BE, [0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0xFF, 0xFF], 2).is_none());
+        assert_eq!(util::find_delim(Encoding::UTF16BE, &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0x0, 0xFF, 0xFF], 2).unwrap(), 4);
+        assert!(util::find_delim(Encoding::UTF16BE, &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0xFF, 0xFF], 2).is_none());
     }
 
     #[test]

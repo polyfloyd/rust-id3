@@ -1265,7 +1265,7 @@ impl AudioTag for ID3Tag {
             return Err(TagError::new(InvalidInputError, "buffer does not contain an id3 tag"))
         }
 
-        try!(reader.read(tag.version));
+        try!(reader.read(&mut tag.version));
 
         debug!("tag version {}", tag.version[0]);
 
@@ -1342,7 +1342,7 @@ impl AudioTag for ID3Tag {
         self.size = size + PADDING_BYTES;
 
         try!(writer.write(b"ID3"));
-        try!(writer.write(self.version)); 
+        try!(writer.write(&mut self.version)); 
         try!(writer.write_u8(self.flags.to_byte(self.version[0])));
         try!(writer.write_be_u32(util::synchsafe(self.size)));
 

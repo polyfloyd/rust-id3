@@ -114,7 +114,7 @@ fn extended_text_to_bytes(request: EncoderRequest) -> Vec<u8> {
             let mut data = Vec::with_capacity(1 + (2 + key.len() * 2) + 2 + (2 + value.len() * 2));
             data.push(request.encoding as u8);
             data.extend(util::string_to_utf16(key.as_slice()).into_iter());
-            data.push_all([0x0, 0x0]);
+            data.push_all(&[0x0, 0x0]);
             data.extend(util::string_to_utf16(value.as_slice()).into_iter());
             data
         },
@@ -122,7 +122,7 @@ fn extended_text_to_bytes(request: EncoderRequest) -> Vec<u8> {
             let mut data = Vec::with_capacity(1 + key.len() * 2 + 2 + value.len() * 2);
             data.push(request.encoding as u8);
             data.extend(util::string_to_utf16be(key.as_slice()).into_iter());
-            data.push_all([0x0, 0x0]);
+            data.push_all(&[0x0, 0x0]);
             data.extend(util::string_to_utf16be(value.as_slice()).into_iter());
             data
         }
@@ -148,7 +148,7 @@ fn extended_weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
             let mut data = Vec::with_capacity(1 + (2 + key.len() * 2) + 2 + (2 + value.len() * 2));
             data.push(request.encoding as u8);
             data.extend(util::string_to_utf16(key.as_slice()).into_iter());
-            data.push_all([0x0, 0x0]);
+            data.push_all(&[0x0, 0x0]);
             data.extend(util::string_to_utf16(value.as_slice()).into_iter());
             data
         },
@@ -156,7 +156,7 @@ fn extended_weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
             let mut data = Vec::with_capacity(1 + key.len() * 2 + 2 + value.len() * 2);
             data.push(request.encoding as u8);
             data.extend(util::string_to_utf16be(key.as_slice()).into_iter());
-            data.push_all([0x0, 0x0]);
+            data.push_all(&[0x0, 0x0]);
             data.extend(util::string_to_utf16be(value.as_slice()).into_iter());
             data
         }
@@ -180,7 +180,7 @@ fn lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
             data.push(request.encoding as u8);
             data.push_all(b"eng");
             data.extend(util::string_to_utf16(description.as_slice()).into_iter());
-            data.push_all([0x0, 0x0]); 
+            data.push_all(&[0x0, 0x0]); 
             data.extend(util::string_to_utf16(text.as_slice()).into_iter());
             data
         },
@@ -189,7 +189,7 @@ fn lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
             data.push(request.encoding as u8);
             data.push_all(b"eng");
             data.extend(util::string_to_utf16be(description.as_slice()).into_iter());
-            data.push_all([0x0, 0x0]);
+            data.push_all(&[0x0, 0x0]);
             data.extend(util::string_to_utf16be(text.as_slice()).into_iter());
             data
         }
@@ -213,7 +213,7 @@ fn comment_to_bytes(request: EncoderRequest) -> Vec<u8> {
             data.push(request.encoding as u8);
             data.push_all(b"eng");
             data.extend(util::string_to_utf16(description.as_slice()).into_iter());
-            data.push_all([0x0, 0x0]);
+            data.push_all(&[0x0, 0x0]);
             data.extend(util::string_to_utf16(text.as_slice()).into_iter());
             data
         },
@@ -222,7 +222,7 @@ fn comment_to_bytes(request: EncoderRequest) -> Vec<u8> {
             data.push(request.encoding as u8);
             data.push_all(b"eng".as_slice());
             data.extend(util::string_to_utf16be(description.as_slice()).into_iter());
-            data.push_all([0x0, 0x0]);
+            data.push_all(&[0x0, 0x0]);
             data.extend(util::string_to_utf16be(text.as_slice()).into_iter());
             data
         }
@@ -251,7 +251,7 @@ fn picture_to_bytes_v3(request: EncoderRequest) -> Vec<u8> {
             data.push(0x0);
             data.push(picture.picture_type as u8);
             data.extend(util::string_to_utf16(picture.description.as_slice()).into_iter());
-            data.push_all([0x0, 0x0]);
+            data.push_all(&[0x0, 0x0]);
             data.push_all(picture.data.as_slice());
             data
         },
@@ -262,7 +262,7 @@ fn picture_to_bytes_v3(request: EncoderRequest) -> Vec<u8> {
             data.push(0x0);
             data.push(picture.picture_type as u8);
             data.extend(util::string_to_utf16be(picture.description.as_slice()).into_iter());
-            data.push_all([0x0, 0x0]);
+            data.push_all(&[0x0, 0x0]);
             data.push_all(picture.data.as_slice());
             data
         }
@@ -294,7 +294,7 @@ fn picture_to_bytes_v2(request: EncoderRequest) -> Vec<u8> {
         },
         _ => { // ignore other encodings and just encode as UTF16
             data.extend(util::string_to_utf16(picture.description.as_slice()).into_iter());
-            data.push_all([0x0, 0x0]);
+            data.push_all(&[0x0, 0x0]);
         },
     }
 

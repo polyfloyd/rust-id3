@@ -403,7 +403,7 @@ mod tests {
         let mut bytes = Vec::new();
         bytes.push_all(id.as_bytes());
         bytes.extend(util::u32_to_bytes(data.len() as u32).into_iter());
-        bytes.push_all([0x00, 0x00]);
+        bytes.push_all(&[0x00, 0x00]);
         bytes.extend(data.into_iter());
 
         let mut writer = MemWriter::new();
@@ -431,7 +431,7 @@ mod tests {
         let mut bytes = Vec::new();
         bytes.push_all(id.as_bytes());
         bytes.extend(util::u32_to_bytes(util::synchsafe(data.len() as u32)).into_iter());
-        bytes.push_all([0x60, 0x00]);
+        bytes.push_all(&[0x60, 0x00]);
         bytes.extend(data.into_iter());
 
         let mut writer = MemWriter::new();
