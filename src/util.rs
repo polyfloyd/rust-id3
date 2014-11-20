@@ -246,8 +246,8 @@ static ID_2_TO_3: phf::Map<&'static str, &'static str> = phf_map! {
 
 /// Returns the coresponding ID3v2.3/ID3v2.4 ID given the ID3v2.2 ID. 
 #[inline]
-pub fn convert_id_2_to_3(id: &str) -> Option<&str> {
-    ID_2_TO_3.get_equiv(id).map(|t| t.clone())
+pub fn convert_id_2_to_3(id: &str) -> Option<&'static str> {
+    ID_2_TO_3.get(id).map(|t| *t)
 }
 
 static ID_3_TO_2: phf::Map<&'static str, &'static str> = phf_map! {
@@ -322,8 +322,8 @@ static ID_3_TO_2: phf::Map<&'static str, &'static str> = phf_map! {
 
 /// Returns the coresponding ID3v2.2 ID given the ID3v2.3/ID3v2.3 ID. 
 #[inline]
-pub fn convert_id_3_to_2(id: &str) -> Option<&str> {
-    ID_3_TO_2.get_equiv(id).map(|t| t.clone())
+pub fn convert_id_3_to_2(id: &str) -> Option<&'static str> {
+    ID_3_TO_2.get(id).map(|t| *t)
 }
 
 static FRAME_DESCRIPTIONS: phf::Map<&'static str, &'static str> = phf_map! {
@@ -438,8 +438,8 @@ static FRAME_DESCRIPTIONS: phf::Map<&'static str, &'static str> = phf_map! {
 
 /// Returns a string describing the frame type.
 #[inline]
-pub fn frame_description(id: &str) -> &str {
-    match FRAME_DESCRIPTIONS.get_equiv(id).map(|t| t.clone()) {
+pub fn frame_description(id: &str) -> &'static str {
+    match FRAME_DESCRIPTIONS.get(id).map(|t| *t){
         Some(desc) => desc,
         None => ""
     }
