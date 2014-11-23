@@ -1302,13 +1302,8 @@ impl AudioTag for ID3Tag {
                     None => break //padding
                 },
                 Err(err) => {
-                    match err.kind {
-                        UnsupportedFeatureError => continue,
-                        _ => {
-                            debug!("{}", err);
-                            return Err(err);
-                        }
-                    }
+                    debug!("{}", err);
+                    return Err(err);
                 }
             };
 
