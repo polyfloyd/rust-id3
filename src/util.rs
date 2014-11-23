@@ -3,6 +3,7 @@ extern crate std;
 use phf;
 use std::rand::{mod, Rng};
 use frame::Encoding;
+use std::mem::transmute;
 
 /// Returns a random sequence of 16 bytes, intended to be used as a UUID.
 #[inline]
@@ -71,14 +72,19 @@ pub fn string_from_utf16le(data: &[u8]) -> Option<String> {
         return None;
     }
 
-    let mut buf: Vec<u16> = Vec::with_capacity(data.len() / 2);
-    let mut it = std::iter::range_step(0, data.len(), 2);
+    if cfg!(target_endian = "little") {
+        let buf = unsafe { transmute::<_, &[u16]>(data) };
+        String::from_utf16(buf.slice_to(data.len() / 2))
+    } else {
+        let mut buf: Vec<u16> = Vec::with_capacity(data.len() / 2);
+        let mut it = std::iter::range_step(0, data.len(), 2);
 
-    for i in it {
-        buf.push(data[i] as u16 | data[i + 1] as u16 << 8);
+        for i in it {
+            buf.push(data[i] as u16 | data[i + 1] as u16 << 8);
+        }
+
+        String::from_utf16(buf.as_slice())
     }
-
-    String::from_utf16(buf.as_slice())
 }
 
 /// Returns a string created from the vector using UTF-16BE encoding.
@@ -87,22 +93,32 @@ pub fn string_from_utf16be(data: &[u8]) -> Option<String> {
     if data.len() % 2 != 0 { 
         return None;
     }
+    if cfg!(target_endian = "big") {
+        let buf = unsafe { transmute::<_, &[u16]>(data) };
+        String::from_utf16(buf.slice_to(data.len() / 2))
+    } else {
+        let mut buf: Vec<u16> = Vec::with_capacity(data.len() / 2);
+        let mut it = std::iter::range_step(0, data.len(), 2);
 
-    let mut buf: Vec<u16> = Vec::with_capacity(data.len() / 2);
-    let mut it = std::iter::range_step(0, data.len(), 2);
+        for i in it {
+            buf.push(data[i] as u16 << 8 | data[i + 1] as u16);
+        }
 
-    for i in it {
-        buf.push(data[i] as u16 << 8 | data[i + 1] as u16);
+        String::from_utf16(buf.as_slice())
     }
-
-    String::from_utf16(buf.as_slice())
 }
 
-/// Returns a UTF-16 (with LE byte order mark) vector representation of the string.
+/// Returns a UTF-16 (with native byte order) vector representation of the string.
 pub fn string_to_utf16(text: &str) -> Vec<u8> {
     let mut out: Vec<u8> = Vec::with_capacity(2 + text.len() * 2);
-    out.push_all(&[0xFFu8, 0xFEu8]); // add little endian BOM
-    out.extend(string_to_utf16le(text).into_iter());
+
+    if cfg!(target_endian = "little") {
+        out.push_all(&[0xFF, 0xFE]); // add little endian BOM
+        out.extend(string_to_utf16le(text).into_iter());
+    } else {
+        out.push_all(&[0xFE, 0xFF]); // add big endian BOM
+        out.extend(string_to_utf16be(text).into_iter());
+    }
     out
 }
 
