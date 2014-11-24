@@ -36,8 +36,8 @@ pub struct Frame {
     encoding: Encoding,
     /// The frame flags.
     flags: FrameFlags,
-    /// The parsed contents of the frame.
-    pub contents: Content,
+    /// The parsed content of the frame.
+    pub content: Content,
     /// The offset of this frame in the file from which it was loaded.
     pub offset: u32,
 }
@@ -60,7 +60,7 @@ impl Frame {
     pub fn new<T: StrAllocating>(id: T) -> Frame {
         Frame { 
             uuid: util::uuid(), id: id.into_string(), version: 3, encoding: Encoding::UTF16, 
-            flags: FrameFlags::new(), contents: UnknownContent(Vec::new()), offset: 0 
+            flags: FrameFlags::new(), content: UnknownContent(Vec::new()), offset: 0 
         }
     }
     
@@ -249,16 +249,15 @@ impl Frame {
         }
     }
   
-    /// Creates a vector representation of the contents suitable for writing to an ID3 tag.
+    /// Creates a vector representation of the content suitable for writing to an ID3 tag.
     #[inline]
-    pub fn contents_to_bytes(&self) -> Vec<u8> {
-        let request = EncoderRequest { version: self.version, encoding: self.encoding, contents: &self.contents };
+    pub fn content_to_bytes(&self) -> Vec<u8> {
+        let request = EncoderRequest { version: self.version, encoding: self.encoding, content: &self.content };
         parsers::encode(request)
-        
     }
 
     // Parsing {{{
-    /// Parses the provided data and sets the `contents` field. If the compression flag is set to
+    /// Parses the provided data and sets the `content` field. If the compression flag is set to
     /// true then decompression will be performed.
     ///
     /// Returns `Err` if the data is invalid for the frame type.
@@ -278,7 +277,7 @@ impl Frame {
         }));
 
         self.encoding = result.encoding;
-        self.contents = result.contents;
+        self.content = result.content;
 
         Ok(())
     }
@@ -286,7 +285,7 @@ impl Frame {
     /// Reparses the frame's data.
     #[inline]
     pub fn reparse(&mut self) -> TagResult<()> {
-        let data = self.contents_to_bytes();
+        let data = self.content_to_bytes();
         self.parse_data(data.as_slice())
     }
     // }}}
@@ -301,15 +300,15 @@ impl Frame {
     /// use id3::Content::{ExtendedTextContent, TextContent};
     ///
     /// let mut title_frame = Frame::new("TIT2".into_string());
-    /// title_frame.contents = TextContent("title".into_string());
+    /// title_frame.content = TextContent("title".into_string());
     /// assert_eq!(title_frame.text().unwrap().as_slice(), "title");
     ///
     /// let mut txxx_frame = Frame::new("TXXX".into_string());
-    /// txxx_frame.contents = ExtendedTextContent(("key".into_string(), "value".into_string())); 
+    /// txxx_frame.content = ExtendedTextContent(("key".into_string(), "value".into_string())); 
     /// assert_eq!(txxx_frame.text().unwrap().as_slice(), "key: value");
     /// ```
     pub fn text(&self) -> Option<String> {
-        match self.contents {
+        match self.content {
             TextContent(ref text) 
                 | LinkContent(ref text) 
                 | LyricsContent((_, ref text)) => Some(text.clone()),

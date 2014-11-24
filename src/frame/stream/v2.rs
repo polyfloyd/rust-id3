@@ -23,7 +23,7 @@ impl FrameStream for FrameV2 {
     }
 
     fn write(writer: &mut Writer, frame: &Frame, _: Option<FrameV2>) -> TagResult<u32> {
-        let content_bytes = frame.contents_to_bytes();
+        let content_bytes = frame.content_to_bytes();
         let content_size = content_bytes.len() as u32;
 
         try!(writer.write(frame.id.slice_to(3).as_bytes()));

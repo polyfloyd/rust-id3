@@ -8,7 +8,7 @@
 //! let mut tag = AudioTag::read_from_path(&Path::new("music.mp3")).unwrap();
 //!
 //! // print the artist the hard way
-//! println!("{}", tag.get_frame_by_id("TALB").unwrap().contents.text());
+//! println!("{}", tag.get_frame_by_id("TALB").unwrap().content.text());
 //! 
 //! // or print it the easy way
 //! println!("{}", tag.artist().unwrap());
@@ -29,7 +29,7 @@
 //! // set the album the hard way
 //! let mut frame = Frame::with_version("TALB".into_string(), 4);
 //! frame.set_encoding(UTF8);
-//! frame.contents = TextContent("album".into_string());
+//! frame.content = TextContent("album".into_string());
 //! tag.add_frame(frame);
 //!
 //! // or set it the easy way

@@ -45,12 +45,12 @@ impl FrameStream for FrameV3 {
     }
 
     fn write(writer: &mut Writer, frame: &Frame, _: Option<FrameV3>) -> TagResult<u32> {
-        let mut content_bytes = frame.contents_to_bytes();
+        let mut content_bytes = frame.content_to_bytes();
         let mut content_size = content_bytes.len() as u32;
         let decompressed_size = content_size;
 
         if frame.flags.compression {
-            debug!("[{}] compressing frame contents", frame.id);
+            debug!("[{}] compressing frame content", frame.id);
             content_bytes = flate::deflate_bytes_zlib(content_bytes.as_slice()).unwrap().as_slice().to_vec();
             content_size = content_bytes.len() as u32 + 4;
         }
