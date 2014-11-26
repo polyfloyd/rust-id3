@@ -382,7 +382,6 @@ impl Frame {
 // Tests {{{
 #[cfg(test)]
 mod tests {
-    use std::io::MemWriter;
     use frame::{Frame, FrameFlags, Encoding};
     use util;
 
@@ -433,9 +432,9 @@ mod tests {
         bytes.push_all(util::u32_to_bytes(data.len() as u32).slice_from(1));
         bytes.extend(data.into_iter());
 
-        let mut writer = MemWriter::new();
+        let mut writer = Vec::new();
         frame.write_to(&mut writer).unwrap();
-        assert_eq!(writer.unwrap(), bytes);
+        assert_eq!(writer, bytes);
     }
 
     #[test]
@@ -458,9 +457,9 @@ mod tests {
         bytes.push_all(&[0x00, 0x00]);
         bytes.extend(data.into_iter());
 
-        let mut writer = MemWriter::new();
+        let mut writer = Vec::new();
         frame.write_to(&mut writer).unwrap();
-        assert_eq!(writer.unwrap(), bytes);
+        assert_eq!(writer, bytes);
     }
 
     #[test]
@@ -486,8 +485,8 @@ mod tests {
         bytes.push_all(&[0x60, 0x00]);
         bytes.extend(data.into_iter());
 
-        let mut writer = MemWriter::new();
+        let mut writer = Vec::new();
         frame.write_to(&mut writer).unwrap();
-        assert_eq!(writer.unwrap(), bytes);
+        assert_eq!(writer, bytes);
     }
 }

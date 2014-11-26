@@ -2,7 +2,7 @@ extern crate std;
 extern crate audiotag;
 
 use std::cmp::min;
-use std::io::{MemWriter, File, Open, Truncate, Write, SeekSet, SeekCur};
+use std::io::{File, Open, Truncate, Write, SeekSet, SeekCur};
 use std::collections::HashMap;
 
 use self::audiotag::{AudioTag, TagError, TagResult, InvalidInputError, UnsupportedFeatureError};
@@ -1346,9 +1346,9 @@ impl AudioTag for ID3Tag {
         let mut size = 0;
 
         for frame in self.frames.iter() {
-            let mut frame_writer = MemWriter::new();
+            let mut frame_writer = Vec::new();
             size += try!(frame.write_to(&mut frame_writer));
-            data_cache.insert(frame.uuid.clone(), frame_writer.unwrap());
+            data_cache.insert(frame.uuid.clone(), frame_writer);
         }
 
         self.size = size + PADDING_BYTES;
@@ -1461,9 +1461,9 @@ impl AudioTag for ID3Tag {
         let mut size = 0;
 
         for frame in self.frames.iter() {
-            let mut frame_writer = MemWriter::new();
+            let mut frame_writer = Vec::new();
             size += try!(frame.write_to(&mut frame_writer));
-            data_cache.insert(frame.uuid.clone(), frame_writer.unwrap());
+            data_cache.insert(frame.uuid.clone(), frame_writer);
         }
 
         debug!("modified offset: {}", self.modified_offset); 
