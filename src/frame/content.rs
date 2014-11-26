@@ -1,5 +1,3 @@
-use picture::Picture;
-
 use self::Content::{
     TextContent, ExtendedTextContent, LinkContent, ExtendedLinkContent, CommentContent,
     LyricsContent, PictureContent, UnknownContent
@@ -8,19 +6,19 @@ use self::Content::{
 /// The decoded contents of a frame.
 pub enum Content {
     /// A value containing the parsed contents of a text frame.
-    TextContent(String),
+    TextContent(super::Text),
     /// A value containing the parsed contents of a user defined text frame (TXXX).
-    ExtendedTextContent((String, String)),
+    ExtendedTextContent(super::ExtendedText),
     /// A value containing the parsed contents of a web link frame.
-    LinkContent(String),
+    LinkContent(super::Link),
     /// A value containing the parsed contents of a user defined web link frame (WXXX).
-    ExtendedLinkContent((String, String)),
+    ExtendedLinkContent(super::ExtendedLink),
     /// A value containing the parsed contents of a comment frame (COMM).
-    CommentContent((String, String)),
+    CommentContent(super::Comment),
     /// A value containing the parsed contents of a lyrics frame (USLT).
-    LyricsContent((String, String)),
+    LyricsContent(super::Lyrics),
     /// A value containing the parsed contents of a picture frame (APIC).
-    PictureContent(Picture),
+    PictureContent(super::Picture),
     /// A value containing the bytes of a unknown frame.
     UnknownContent(Vec<u8>),
 }
@@ -29,9 +27,9 @@ impl Content {
     /// Returns the `TextContent`.
     /// Panics if the value is not `TextContent`.
     #[inline]
-    pub fn text(&self) -> &String {
+    pub fn text(&self) -> &super::Text {
         match *self {
-            TextContent(ref text) => text,
+            TextContent(ref content) => content,
             _ => panic!("called `Content::text()` on a non `TextContent` value") 
         }
     }
@@ -39,9 +37,9 @@ impl Content {
     /// Returns the `ExtendedTextContent`.
     /// Panics if the value is not `ExtendedTextContent`.
     #[inline]
-    pub fn extended_text(&self) -> &(String, String) {
+    pub fn extended_text(&self) -> &super::ExtendedText {
         match *self {
-            ExtendedTextContent(ref pair) => pair,
+            ExtendedTextContent(ref content) => content,
             _ => panic!("called `Content::extended_text()` on a non `ExtendedTextContent` value") 
         }
     }
@@ -49,9 +47,9 @@ impl Content {
     /// Returns the `LinkContent`.
     /// Panics if the value is not `LinkContent`.
     #[inline]
-    pub fn link(&self) -> &String {
+    pub fn link(&self) -> &super::Link {
         match *self {
-            LinkContent(ref text) => text,
+            LinkContent(ref content) => content,
             _ => panic!("called `Content::link()` on a non `LinkContent` value") 
         }
     }
@@ -59,9 +57,9 @@ impl Content {
     /// Returns the `ExtendedLinkContent`.
     /// Panics if the value is not `ExtendedLinkContent`.
     #[inline]
-    pub fn extended_link(&self) -> &(String, String) {
+    pub fn extended_link(&self) -> &super::ExtendedLink {
         match *self {
-            ExtendedLinkContent(ref pair) => pair,
+            ExtendedLinkContent(ref content) => content,
             _ => panic!("called `Content::extended_link()` on a non `ExtendedLinkContent` value") 
         }
     }
@@ -69,9 +67,9 @@ impl Content {
     /// Returns the `CommentContent`.
     /// Panics if the value is not `CommentContent`.
     #[inline]
-    pub fn comment(&self) -> &(String, String) {
+    pub fn comment(&self) -> &super::Comment {
         match *self {
-            CommentContent(ref pair) => pair,
+            CommentContent(ref content) => content,
             _ => panic!("called `Content::comment()` on a non `CommentContent` value") 
         }
     }
@@ -79,9 +77,9 @@ impl Content {
     /// Returns the `LyricsContent`.
     /// Panics if the value is not `LyricsContent`.
     #[inline]
-    pub fn lyrics(&self) -> &(String, String) {
+    pub fn lyrics(&self) -> &super::Lyrics {
         match *self {
-            LyricsContent(ref text) => text,
+            LyricsContent(ref content) => content,
             _ => panic!("called `Content::lyrics()` on a non `LyricsContent` value") 
         }
     }
@@ -89,7 +87,7 @@ impl Content {
     /// Returns the `PictureContent`.
     /// Panics if the value is not `PictureContent`.
     #[inline]
-    pub fn picture(&self) -> &Picture {
+    pub fn picture(&self) -> &super::Picture {
         match *self {
             PictureContent(ref picture) => picture,
             _ => panic!("called `Content::picture()` on a non `PictureContent` value") 

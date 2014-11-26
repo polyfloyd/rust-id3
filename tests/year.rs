@@ -16,7 +16,7 @@ fn utf8() {
     let frame = tag.get_frame_by_id(ID).unwrap();
     
     assert_eq!(tag.year().unwrap(), YEAR);
-    assert_eq!(frame.content.text().as_slice(), YEARSTR);
+    assert_eq!(frame.content.text().text.as_slice(), YEARSTR);
 
     let mut data: Vec<u8> = Vec::new();
     data.push(Encoding::UTF8 as u8);
@@ -46,7 +46,7 @@ fn utf16() {
     let frame = tag.get_frame_by_id(ID).unwrap();
 
     assert_eq!(tag.year().unwrap(), YEAR);
-    assert_eq!(frame.content.text().as_slice(), YEARSTR);
+    assert_eq!(frame.content.text().text.as_slice(), YEARSTR);
 
     let mut data: Vec<u8> = Vec::new();
     data.push(Encoding::UTF16 as u8);
@@ -76,7 +76,7 @@ fn utf16be() {
     let frame = tag.get_frame_by_id(ID).unwrap();
 
     assert_eq!(tag.year().unwrap(), YEAR);
-    assert_eq!(frame.content.text().as_slice(), YEARSTR);
+    assert_eq!(frame.content.text().text.as_slice(), YEARSTR);
 
     let mut data: Vec<u8> = Vec::new();
     data.push(Encoding::UTF16BE as u8);

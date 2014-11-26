@@ -21,6 +21,7 @@
 //! ```no_run
 //! // you need to use AudioTag in order to use the trait features
 //! use id3::{ID3Tag, AudioTag, Frame};
+//! use id3::frame;
 //! use id3::Content::TextContent;
 //! use id3::Encoding::UTF8;
 //!
@@ -29,7 +30,7 @@
 //! // set the album the hard way
 //! let mut frame = Frame::with_version("TALB".into_string(), 4);
 //! frame.set_encoding(UTF8);
-//! frame.content = TextContent("album".into_string());
+//! frame.content = TextContent(frame::Text { text: "album".into_string() });
 //! tag.add_frame(frame);
 //!
 //! // or set it the easy way
@@ -42,7 +43,7 @@
 #![crate_type = "rlib"]
 #![warn(missing_docs)]
 #![feature(macro_rules)]
-
+#![feature(globs)]
 #![feature(phase)]
 #[phase(plugin, link)] extern crate log;
 
@@ -52,28 +53,18 @@ extern crate phf;
 
 extern crate audiotag; 
 
-pub use self::audiotag::{
-    AudioTag,
-    TagResult, 
-    
-    TagError,
-        InternalIoError,
-        StringDecodingError,
-        InvalidInputError,
-        UnsupportedFeatureError
-};
-
+pub use self::audiotag::{AudioTag, TagResult, TagError, ErrorKind};
 pub use tag::ID3Tag;
 pub use frame::{Frame, FrameFlags, Encoding, Content};
-pub use picture::{Picture, PictureType};
 
 mod macros;
 
 /// Utilities used for reading/writing ID3 tags.
 pub mod util;
 
+/// Contains types and methods for operating on ID3 frames.
+pub mod frame;
+
 mod id3v1;
 mod tag;
-mod frame;
 mod parsers;
-mod picture;

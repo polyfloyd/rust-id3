@@ -18,7 +18,7 @@ fn utf8() {
 
     assert_eq!(tag.track().unwrap(), TRACK);
     assert_eq!(tag.total_tracks().unwrap(), TOTAL);
-    assert_eq!(frame.content.text().as_slice(), format!("{}/{}", TRACK, TOTAL).as_slice());
+    assert_eq!(frame.content.text().text.as_slice(), format!("{}/{}", TRACK, TOTAL).as_slice());
 
     let mut data: Vec<u8> = Vec::new();
     data.push(Encoding::UTF8 as u8);
@@ -36,7 +36,7 @@ fn utf8_only_track() {
     assert_eq!(tag.track().unwrap(), TRACK);
     assert!(tag.total_tracks().is_none());
     assert_eq!(frame.text().unwrap().as_slice(), format!("{}", TRACK).as_slice());
-    assert_eq!(frame.content.text().as_slice(), format!("{}", TRACK).as_slice());
+    assert_eq!(frame.content.text().text.as_slice(), format!("{}", TRACK).as_slice());
 
     let mut data: Vec<u8> = Vec::new();
     data.push(Encoding::UTF8 as u8);
@@ -81,7 +81,7 @@ fn utf16() {
 
     assert_eq!(tag.track().unwrap(), TRACK);
     assert_eq!(tag.total_tracks().unwrap(), TOTAL);
-    assert_eq!(frame.content.text().as_slice(), format!("{}/{}", TRACK, TOTAL).as_slice());
+    assert_eq!(frame.content.text().text.as_slice(), format!("{}/{}", TRACK, TOTAL).as_slice());
 
     let mut data = Vec::new();
     data.push(Encoding::UTF16 as u8);
@@ -98,7 +98,7 @@ fn utf16_only_track() {
 
     assert_eq!(tag.track().unwrap(), TRACK);
     assert!(tag.total_tracks().is_none());
-    assert_eq!(frame.content.text().as_slice(), format!("{}", TRACK).as_slice());
+    assert_eq!(frame.content.text().text.as_slice(), format!("{}", TRACK).as_slice());
 
     let mut data: Vec<u8> = Vec::new();
     data.push(Encoding::UTF16 as u8);
@@ -143,7 +143,7 @@ fn utf16be() {
 
     assert_eq!(tag.track().unwrap(), TRACK);
     assert_eq!(tag.total_tracks().unwrap(), TOTAL);
-    assert_eq!(frame.content.text().as_slice(), format!("{}/{}", TRACK, TOTAL).as_slice());
+    assert_eq!(frame.content.text().text.as_slice(), format!("{}/{}", TRACK, TOTAL).as_slice());
 
     let mut data: Vec<u8> = Vec::new();
     data.push(Encoding::UTF16BE as u8);
@@ -160,7 +160,7 @@ fn utf16be_only_track() {
 
     assert_eq!(tag.track().unwrap(), TRACK);
     assert!(tag.total_tracks().is_none());
-    assert_eq!(frame.content.text().as_slice(), format!("{}", TRACK).as_slice());
+    assert_eq!(frame.content.text().text.as_slice(), format!("{}", TRACK).as_slice());
 
     let mut data: Vec<u8> = Vec::new();
     data.push(Encoding::UTF16BE as u8);

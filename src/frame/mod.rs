@@ -5,6 +5,7 @@ extern crate flate;
 pub use self::encoding::Encoding;
 pub use self::content::Content;
 pub use self::flags::FrameFlags;
+pub use self::picture::{Picture, PictureType};
 
 use self::content::Content::{
     TextContent, ExtendedTextContent, LinkContent, ExtendedLinkContent, CommentContent,
@@ -19,10 +20,59 @@ use util;
 use parsers;
 use parsers::{DecoderRequest, EncoderRequest};
 
+mod picture;
 mod encoding;
 mod content;
 mod flags;
 mod stream;
+
+#[deriving(Show, Clone, PartialEq)]
+#[allow(missing_docs)]
+/// The parsed contents of a text frame.
+pub struct Text {
+    pub text: String,
+}
+
+#[deriving(Show, Clone, PartialEq)]
+#[allow(missing_docs)]
+/// The parsed contents of an extended text frame.
+pub struct ExtendedText {
+    pub key: String,
+    pub value: String
+}
+
+#[deriving(Show, Clone, PartialEq)]
+#[allow(missing_docs)]
+/// The parsed contents of an unsynchronized lyrics frame.
+pub struct Lyrics {
+    pub lang: String,
+    pub description: String,
+    pub text: String
+}
+
+#[deriving(Show, Clone, PartialEq)]
+#[allow(missing_docs)]
+/// The parsed contents of a comment frame.
+pub struct Comment {
+    pub lang: String,
+    pub description: String,
+    pub text: String
+}
+
+#[deriving(Show, Clone, PartialEq)]
+#[allow(missing_docs)]
+/// The parsed contents of a link frame.
+pub struct Link {
+    pub link: String
+}
+
+#[deriving(Show, Clone, PartialEq)]
+#[allow(missing_docs)]
+/// The parsed contents of an extended link frame.
+pub struct ExtendedLink {
+    pub description: String,
+    pub link: String
+}
 
 /// A structure representing an ID3 frame.
 pub struct Frame {
@@ -296,25 +346,28 @@ impl Frame {
     ///
     /// # Example
     /// ```
-    /// use id3::Frame;
+    /// use id3::frame::{mod, Frame};
     /// use id3::Content::{ExtendedTextContent, TextContent};
     ///
     /// let mut title_frame = Frame::new("TIT2".into_string());
-    /// title_frame.content = TextContent("title".into_string());
+    /// title_frame.content = TextContent(frame::Text { text: "title".into_string() });
     /// assert_eq!(title_frame.text().unwrap().as_slice(), "title");
     ///
     /// let mut txxx_frame = Frame::new("TXXX".into_string());
-    /// txxx_frame.content = ExtendedTextContent(("key".into_string(), "value".into_string())); 
+    /// txxx_frame.content = ExtendedTextContent(frame::ExtendedText { 
+    ///     key: "key".into_string(), 
+    ///     value: "value".into_string()
+    /// });
     /// assert_eq!(txxx_frame.text().unwrap().as_slice(), "key: value");
     /// ```
     pub fn text(&self) -> Option<String> {
         match self.content {
-            TextContent(ref text) 
-                | LinkContent(ref text) 
-                | LyricsContent((_, ref text)) => Some(text.clone()),
-            ExtendedTextContent((ref key, ref value)) 
-                | ExtendedLinkContent((ref key, ref value)) 
-                | CommentContent((ref key, ref value)) => Some(format!("{}: {}", key, value)),
+            TextContent(ref content) => Some(content.text.clone()),
+            LinkContent(ref content) => Some(content.link.clone()), 
+            LyricsContent(ref content) => Some(content.text.clone()),
+            ExtendedTextContent(ref content) => Some(format!("{}: {}", content.key, content.value)), 
+            ExtendedLinkContent(ref content) => Some(format!("{}: {}", content.description, content.link)), 
+            CommentContent(ref content) => Some(format!("{}: {}", content.description, content.text)),
             _ => None
         }
     }
