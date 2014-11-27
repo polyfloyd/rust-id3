@@ -188,7 +188,7 @@ impl<'a> DecodingParams<'a> {
             Encoding::Latin1 | Encoding::UTF8 => DecodingParams {
                 encoding: Encoding::UTF8,
                 string_func: |bytes: &[u8]| -> Option<String>
-                    util::string_from_utf8(bytes)
+                    String::from_utf8(bytes.to_vec()).ok()
             },
             Encoding::UTF16 => DecodingParams {
                 encoding: Encoding::UTF16,
@@ -205,23 +205,23 @@ impl<'a> DecodingParams<'a> {
 }
 
 macro_rules! find_delim {
-    ($bytes:ident, $encoding:expr, $i:ident, $required:expr) => {
-        match util::find_delim($encoding, $bytes, $i) {
-            Some(i) => (i, i + util::delim_len($encoding)),
-            None => if $required {
-                return Err(TagError::new(InvalidInputError, "delimiter not found"));
-            } else {
-                ($bytes.len(), $bytes.len())
+    ($bytes:ident, $encoding:expr, $i:ident, $terminated:expr) => {
+        if !$terminated {
+            ($bytes.len(), $bytes.len())
+        } else {
+            match util::find_delim($encoding, $bytes, $i) {
+                Some(i) => (i, i + util::delim_len($encoding)),
+                None => return Err(TagError::new(InvalidInputError, "delimiter not found"))
             }
         }
     };
 }
 
 macro_rules! decode_part {
-    ($bytes:ident, $params:ident, $i:ident, string($null_required:expr)) => {
+    ($bytes:ident, $params:ident, $i:ident, string($terminated:expr)) => {
         {
             let start = $i;
-            let (end, with_delim) = find_delim!($bytes, $params.encoding, $i, $null_required);
+            let (end, with_delim) = find_delim!($bytes, $params.encoding, $i, $terminated);
             $i = with_delim; Some(&$i);
 
             match ($params.string_func)($bytes.slice(start, end)) {
@@ -246,10 +246,10 @@ macro_rules! decode_part {
             try_string!($bytes.slice(start, $i).to_vec())
         }
     };
-    ($bytes:ident, $params:ident, $i:ident, latin1($null_required:expr)) => {
+    ($bytes:ident, $params:ident, $i:ident, latin1($terminated:expr)) => {
         {
             let start = $i;
-            let (end, with_delim) = find_delim!($bytes, Encoding::Latin1, $i, $null_required);
+            let (end, with_delim) = find_delim!($bytes, Encoding::Latin1, $i, $terminated);
             $i = with_delim; Some(&$i);
             try_string!($bytes.slice(start, end).to_vec())
         }
@@ -301,8 +301,6 @@ macro_rules! decode {
         }
     };
 }
-
-
 
 /// Attempts to parse the data as an ID3v2.2 picture frame.
 /// Returns a `PictureContent`.
