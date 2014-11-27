@@ -28,13 +28,6 @@ mod stream;
 
 #[deriving(Show, Clone, PartialEq)]
 #[allow(missing_docs)]
-/// The parsed contents of a text frame.
-pub struct Text {
-    pub text: String,
-}
-
-#[deriving(Show, Clone, PartialEq)]
-#[allow(missing_docs)]
 /// The parsed contents of an extended text frame.
 pub struct ExtendedText {
     pub key: String,
@@ -57,13 +50,6 @@ pub struct Comment {
     pub lang: String,
     pub description: String,
     pub text: String
-}
-
-#[deriving(Show, Clone, PartialEq)]
-#[allow(missing_docs)]
-/// The parsed contents of a link frame.
-pub struct Link {
-    pub link: String
 }
 
 #[deriving(Show, Clone, PartialEq)]
@@ -349,8 +335,8 @@ impl Frame {
     /// use id3::frame::{mod, Frame};
     /// use id3::Content::{ExtendedTextContent, TextContent};
     ///
-    /// let mut title_frame = Frame::new("TIT2".into_string());
-    /// title_frame.content = TextContent(frame::Text { text: "title".into_string() });
+    /// let mut title_frame = Frame::new("TIT2");
+    /// title_frame.content = TextContent("title".into_string());
     /// assert_eq!(title_frame.text().unwrap().as_slice(), "title");
     ///
     /// let mut txxx_frame = Frame::new("TXXX".into_string());
@@ -362,8 +348,8 @@ impl Frame {
     /// ```
     pub fn text(&self) -> Option<String> {
         match self.content {
-            TextContent(ref content) => Some(content.text.clone()),
-            LinkContent(ref content) => Some(content.link.clone()), 
+            TextContent(ref content) => Some(content.clone()),
+            LinkContent(ref content) => Some(content.clone()), 
             LyricsContent(ref content) => Some(content.text.clone()),
             ExtendedTextContent(ref content) => Some(format!("{}: {}", content.key, content.value)), 
             ExtendedLinkContent(ref content) => Some(format!("{}: {}", content.description, content.link)), 

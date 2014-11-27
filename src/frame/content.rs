@@ -6,11 +6,11 @@ use self::Content::{
 /// The decoded contents of a frame.
 pub enum Content {
     /// A value containing the parsed contents of a text frame.
-    TextContent(super::Text),
+    TextContent(String),
     /// A value containing the parsed contents of a user defined text frame (TXXX).
     ExtendedTextContent(super::ExtendedText),
     /// A value containing the parsed contents of a web link frame.
-    LinkContent(super::Link),
+    LinkContent(String),
     /// A value containing the parsed contents of a user defined web link frame (WXXX).
     ExtendedLinkContent(super::ExtendedLink),
     /// A value containing the parsed contents of a comment frame (COMM).
@@ -27,7 +27,7 @@ impl Content {
     /// Returns the `TextContent`.
     /// Panics if the value is not `TextContent`.
     #[inline]
-    pub fn text(&self) -> &super::Text {
+    pub fn text(&self) -> &String {
         match *self {
             TextContent(ref content) => content,
             _ => panic!("called `Content::text()` on a non `TextContent` value") 
@@ -47,7 +47,7 @@ impl Content {
     /// Returns the `LinkContent`.
     /// Panics if the value is not `LinkContent`.
     #[inline]
-    pub fn link(&self) -> &super::Link {
+    pub fn link(&self) -> &String {
         match *self {
             LinkContent(ref content) => content,
             _ => panic!("called `Content::link()` on a non `LinkContent` value") 

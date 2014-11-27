@@ -21,7 +21,6 @@
 //! ```no_run
 //! // you need to use AudioTag in order to use the trait features
 //! use id3::{ID3Tag, AudioTag, Frame};
-//! use id3::frame;
 //! use id3::Content::TextContent;
 //! use id3::Encoding::UTF8;
 //!
@@ -30,7 +29,7 @@
 //! // set the album the hard way
 //! let mut frame = Frame::with_version("TALB".into_string(), 4);
 //! frame.set_encoding(UTF8);
-//! frame.content = TextContent(frame::Text { text: "album".into_string() });
+//! frame.content = TextContent("album".into_string());
 //! tag.add_frame(frame);
 //!
 //! // or set it the easy way
