@@ -28,7 +28,11 @@ pub fn unsynchsafe(n: u32) -> u32 {
 /// Returns a vector representation of a `u32` value.
 #[inline]
 pub fn u32_to_bytes(n: u32) -> Vec<u8> {
-    vec!(((n & 0xFF000000) >> 24) as u8, ((n & 0xFF0000) >> 16) as u8, ((n & 0xFF00) >> 8) as u8, (n & 0xFF) as u8)
+    vec!(((n & 0xFF000000) >> 24) as u8, 
+         ((n & 0xFF0000) >> 16) as u8, 
+         ((n & 0xFF00) >> 8) as u8, 
+         (n & 0xFF) as u8
+        )
 }
 
 /// Returns a string created from the vector using the specified encoding.

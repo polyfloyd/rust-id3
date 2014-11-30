@@ -12,7 +12,10 @@ use frame::{mod, Frame, Encoding, Picture, PictureType};
 use frame::Content::{PictureContent, CommentContent, TextContent, ExtendedTextContent, LyricsContent};
 use util;
 
-static DEFAULT_FILE_DISCARD: [&'static str, ..11] = ["AENC", "ETCO", "EQUA", "MLLT", "POSS", "SYLT", "SYTC", "RVAD", "TENC", "TLEN", "TSIZ"];
+static DEFAULT_FILE_DISCARD: [&'static str, ..11] = [
+    "AENC", "ETCO", "EQUA", "MLLT", "POSS", 
+    "SYLT", "SYTC", "RVAD", "TENC", "TLEN", "TSIZ"
+];
 static PADDING_BYTES: u32 = 2048;
 
 /// An ID3 tag containing metadata frames. 
@@ -57,7 +60,10 @@ impl TagFlags {
     /// Creates a new `TagFlags` with all flags set to false.
     #[inline]
     pub fn new() -> TagFlags {
-        TagFlags { unsynchronization: false, extended_header: false, experimental: false, footer: false, compression: false }
+        TagFlags { 
+            unsynchronization: false, extended_header: false, experimental: false, 
+            footer: false, compression: false 
+        }
     }
 
     /// Creates a new `TagFlags` using the provided byte.
@@ -490,7 +496,9 @@ impl ID3Tag {
                 }
                 false
             };
-            self.frames.retain(|frame| frame.uuid.as_slice() != uuid || set_modified_offset(frame.offset));
+            self.frames.retain(|frame| {
+                frame.uuid.as_slice() != uuid || set_modified_offset(frame.offset)
+            });
         }
         self.modified_offset = modified_offset;
     }
@@ -524,7 +532,9 @@ impl ID3Tag {
                 }
                 false
             };
-            self.frames.retain(|frame| frame.id.as_slice() != id || set_modified_offset(frame.offset));
+            self.frames.retain(|frame| {
+                frame.id.as_slice() != id || set_modified_offset(frame.offset)
+            });
         }
         self.modified_offset = modified_offset;
     }
@@ -627,7 +637,10 @@ impl ID3Tag {
 
         let mut frame = Frame::with_version(self.txxx_id(), self.version[0]);
         frame.set_encoding(encoding);
-        frame.content = ExtendedTextContent(frame::ExtendedText { key: key, value: value.into_string() });
+        frame.content = ExtendedTextContent(frame::ExtendedText { 
+            key: key, 
+            value: value.into_string() 
+        });
         
         self.frames.push(frame);
     }
@@ -769,7 +782,12 @@ impl ID3Tag {
         let mut frame = Frame::with_version(self.picture_id(), self.version[0]);
 
         frame.set_encoding(encoding);
-        frame.content = PictureContent(Picture { mime_type: mime_type.into_string(), picture_type: picture_type, description: description.into_string(), data: data } );
+        frame.content = PictureContent(Picture { 
+            mime_type: mime_type.into_string(), 
+            picture_type: picture_type, 
+            description: description.into_string(), 
+            data: data 
+        });
 
         self.frames.push(frame);
     }
@@ -848,7 +866,8 @@ impl ID3Tag {
         let mut out = Vec::new();
         for frame in self.get_frames_by_id(self.comment_id()).iter() {
             match frame.content {
-                CommentContent(ref comment) => out.push((comment.description.clone(), comment.text.clone())),
+                CommentContent(ref comment) => out.push((comment.description.clone(), 
+                                                         comment.text.clone())),
                 _ => { }
             }
         }
@@ -901,7 +920,11 @@ impl ID3Tag {
         let mut frame = Frame::with_version(self.comment_id(), self.version[0]);
 
         frame.set_encoding(encoding);
-        frame.content = CommentContent(frame::Comment { lang: lang.into_string(), description: description, text: text.into_string() });
+        frame.content = CommentContent(frame::Comment { 
+            lang: lang.into_string(), 
+            description: description, 
+            text: text.into_string() 
+        });
        
         self.frames.push(frame);
     }
@@ -1219,7 +1242,11 @@ impl ID3Tag {
         let mut frame = Frame::with_version(id, self.version[0]);
 
         frame.set_encoding(encoding);
-        frame.content = LyricsContent(frame::Lyrics { lang: lang.into_string(), description: description.into_string(), text: text.into_string() });
+        frame.content = LyricsContent(frame::Lyrics { 
+            lang: lang.into_string(), 
+            description: description.into_string(), 
+            text: text.into_string() 
+        });
         
         self.frames.push(frame);
     }
@@ -1339,7 +1366,13 @@ impl AudioTag for ID3Tag {
         let path_changed = self.path_changed;
         
         // remove frames which have the flags indicating they should be removed 
-        self.frames.retain(|frame| !(frame.offset != 0 && (frame.tag_alter_preservation() || (path_changed && (frame.file_alter_preservation() || DEFAULT_FILE_DISCARD.contains(&frame.id.as_slice()))))));
+        self.frames.retain(|frame| {
+            !(frame.offset != 0 
+              && (frame.tag_alter_preservation() 
+                  || (path_changed 
+                      && (frame.file_alter_preservation() 
+                          || DEFAULT_FILE_DISCARD.contains(&frame.id.as_slice())))))
+        });
             
         let mut data_cache: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
         let mut size = 0;
@@ -1452,7 +1485,10 @@ impl AudioTag for ID3Tag {
                 }
                 false
             };       
-            self.frames.retain(|frame| frame.offset == 0 || !frame.tag_alter_preservation() || set_modified_offset(frame.offset));
+            self.frames.retain(|frame| {
+                frame.offset == 0 || !frame.tag_alter_preservation() 
+                    || set_modified_offset(frame.offset)
+            });
         }
         self.modified_offset = modified_offset;
 

@@ -231,11 +231,13 @@ macro_rules! decode_part {
 
             match ($params.string_func)($bytes.slice(start, end)) {
                 Some(string) => string,
-                None => return Err(TagError::new(audiotag::StringDecodingError($bytes.slice(start, end).to_vec()), match $params.encoding {
-                    Encoding::Latin1 | ::frame::Encoding::UTF8 => "string is not valid utf8",
-                    Encoding::UTF16 => "string is not valid utf16",
-                    Encoding::UTF16BE => "string is not valid utf16-be"
-                }))
+                None => return Err(TagError::new(
+                        audiotag::StringDecodingError($bytes.slice(start, end).to_vec()), 
+                        match $params.encoding {
+                            Encoding::Latin1 | ::frame::Encoding::UTF8 => "string is not valid utf8",
+                            Encoding::UTF16 => "string is not valid utf16",
+                            Encoding::UTF16BE => "string is not valid utf16-be"
+                        }))
             }
         }
     };
@@ -322,7 +324,8 @@ fn parse_apic_v2(data: &[u8]) -> TagResult<DecoderResult> {
         "JPG" => "image/jpeg".into_string(),
         other => {
             debug!("can't determine MIME type for `{}`", other);
-            return Err(TagError::new(UnsupportedFeatureError, "can't determine MIME type for image format"))
+            return Err(TagError::new(UnsupportedFeatureError, 
+                                     "can't determine MIME type for image format"))
         }
     }; 
 
@@ -336,13 +339,15 @@ fn parse_apic_v2(data: &[u8]) -> TagResult<DecoderResult> {
 /// Attempts to parse the data as an ID3v2.3/ID3v2.4 picture frame.
 /// Returns a `PictureContent`.
 fn parse_apic_v3(data: &[u8]) -> TagResult<DecoderResult> {
-    return decode!(data, Picture, latin1(mime_type, true), picture_type(picture_type), string(description, true), bytes(data));
+    return decode!(data, Picture, latin1(mime_type, true), picture_type(picture_type), 
+                   string(description, true), bytes(data));
 }
 
 /// Attempts to parse the data as a comment frame.
 /// Returns a `CommentContent`.
 fn parse_comm(data: &[u8]) -> TagResult<DecoderResult> {
-    return decode!(data, Comment, fixed_string(lang, 3), string(description, true), string(text, false));
+    return decode!(data, Comment, fixed_string(lang, 3), string(description, true), 
+                   string(text, false));
 }
 
 /// Attempts to parse the data as a text frame.
@@ -376,7 +381,8 @@ fn parse_wxxx(data: &[u8]) -> TagResult<DecoderResult> {
 /// Attempts to parse the data as an unsynchronized lyrics text frame.
 /// Returns a `LyricsContent`.
 fn parse_uslt(data: &[u8]) -> TagResult<DecoderResult> {
-    return decode!(data, Lyrics, fixed_string(lang, 3), string(description, true), string(text, false));
+    return decode!(data, Lyrics, fixed_string(lang, 3), string(description, true), 
+                   string(text, false));
 }
 // }}}
 
@@ -387,7 +393,10 @@ mod tests {
     use parsers::{DecoderRequest, EncoderRequest};
     use util;
     use frame::{mod, Picture, PictureType, Encoding};
-    use frame::Content::{PictureContent, CommentContent, TextContent, ExtendedTextContent, LinkContent, ExtendedLinkContent, LyricsContent};
+    use frame::Content::{
+        PictureContent, CommentContent, TextContent, ExtendedTextContent, 
+        LinkContent, ExtendedLinkContent, LyricsContent
+    };
     use std::collections::HashMap;
 
     fn bytes_for_encoding(text: &str, encoding: Encoding) -> Vec<u8> {
@@ -434,8 +443,15 @@ mod tests {
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.push_all(picture_data.as_slice());
 
-                    assert_eq!(*parsers::decode(DecoderRequest { id: "PIC", data: data.as_slice() } ).unwrap().content.picture(), picture);
-                    assert_eq!(parsers::encode(EncoderRequest { encoding: encoding, content: &PictureContent(picture.clone()), version: 2 } ), data);
+                    assert_eq!(*parsers::decode(DecoderRequest { 
+                        id: "PIC", 
+                        data: data.as_slice() 
+                    }).unwrap().content.picture(), picture);
+                    assert_eq!(parsers::encode(EncoderRequest { 
+                        encoding: encoding, 
+                        content: &PictureContent(picture.clone()), 
+                        version: 2 
+                    }), data);
                 }
             }
         }
@@ -467,8 +483,14 @@ mod tests {
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.push_all(picture_data.as_slice());
                     
-                    assert_eq!(*parsers::decode(DecoderRequest { id: "APIC", data: data.as_slice() } ).unwrap().content.picture(), picture);
-                    assert_eq!(parsers::encode(EncoderRequest { encoding: encoding, content: &PictureContent(picture.clone()), version: 3 } ), data);
+                    assert_eq!(*parsers::decode(DecoderRequest { 
+                        id: "APIC", 
+                        data: data.as_slice() 
+                    }).unwrap().content.picture(), picture);
+                    assert_eq!(parsers::encode(EncoderRequest { 
+                        encoding: encoding, 
+                        content: &PictureContent(picture.clone()), 
+                        version: 3 }), data);
                 }
             }
         }
@@ -490,9 +512,19 @@ mod tests {
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(bytes_for_encoding(comment, encoding).into_iter());
 
-                    let content = frame::Comment { lang: "eng".into_string(), description: description.into_string(), text: comment.into_string() };
-                    assert_eq!(*parsers::decode(DecoderRequest { id: "COMM", data: data.as_slice() } ).unwrap().content.comment(), content);
-                    assert_eq!(parsers::encode(EncoderRequest { encoding: encoding, content: &CommentContent(content), version: 3 }), data);
+                    let content = frame::Comment { 
+                        lang: "eng".into_string(), 
+                        description: description.into_string(), 
+                        text: comment.into_string() 
+                    };
+                    assert_eq!(*parsers::decode(DecoderRequest { 
+                        id: "COMM", 
+                        data: data.as_slice() 
+                    }).unwrap().content.comment(), content);
+                    assert_eq!(parsers::encode(EncoderRequest { 
+                        encoding: encoding, 
+                        content: &CommentContent(content), version: 3 
+                    }), data);
                 }
             }
         }
@@ -507,7 +539,10 @@ mod tests {
             data.push_all(b"eng");
             data.extend(bytes_for_encoding(description, encoding).into_iter());
             data.extend(bytes_for_encoding(comment, encoding).into_iter());
-            assert!(parsers::decode(DecoderRequest { id: "COMM", data: data.as_slice() } ).is_err());
+            assert!(parsers::decode(DecoderRequest { 
+                id: "COMM", 
+                data: data.as_slice() 
+            }).is_err());
         }
 
     }
@@ -523,8 +558,15 @@ mod tests {
                 data.push(encoding as u8);
                 data.extend(bytes_for_encoding(text, encoding).into_iter());
 
-                assert_eq!(parsers::decode(DecoderRequest { id: "TALB", data: data.as_slice() } ).unwrap().content.text().as_slice(), text);
-                assert_eq!(parsers::encode(EncoderRequest { encoding: encoding, content: &TextContent(text.into_string()), version: 3 } ), data);
+                assert_eq!(parsers::decode(DecoderRequest { 
+                    id: "TALB", 
+                    data: data.as_slice() 
+                }).unwrap().content.text().as_slice(), text);
+                assert_eq!(parsers::encode(EncoderRequest { 
+                    encoding: encoding, 
+                    content: &TextContent(text.into_string()), 
+                    version: 3 
+                } ), data);
             }
         }
     }
@@ -544,9 +586,19 @@ mod tests {
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(bytes_for_encoding(value, encoding).into_iter());
 
-                    let content = frame::ExtendedText { key: key.into_string(), value: value.into_string() };
-                    assert_eq!(*parsers::decode(DecoderRequest { id: "TXXX", data: data.as_slice() } ).unwrap().content.extended_text(), content);
-                    assert_eq!(parsers::encode(EncoderRequest { encoding: encoding, content: &ExtendedTextContent(content), version: 3 } ), data);
+                    let content = frame::ExtendedText { 
+                        key: key.into_string(), 
+                        value: value.into_string() 
+                    };
+                    assert_eq!(*parsers::decode(DecoderRequest { 
+                        id: "TXXX", 
+                        data: data.as_slice() 
+                    }).unwrap().content.extended_text(), content);
+                    assert_eq!(parsers::encode(EncoderRequest { 
+                        encoding: encoding, 
+                        content: &ExtendedTextContent(content), 
+                        version: 3
+                    }), data);
                 }
             }
         }
@@ -560,7 +612,10 @@ mod tests {
             data.push(encoding as u8);
             data.extend(bytes_for_encoding(key, encoding).into_iter());
             data.extend(bytes_for_encoding(value, encoding).into_iter());
-            assert!(parsers::decode(DecoderRequest { id: "TXXX", data: data.as_slice() } ).is_err());
+            assert!(parsers::decode(DecoderRequest { 
+                id: "TXXX", 
+                data: data.as_slice() 
+            }).is_err());
         }
     }
 
@@ -570,8 +625,15 @@ mod tests {
             println!("`{}`", link);
             let data = link.as_bytes().to_vec();
 
-            assert_eq!(parsers::decode(DecoderRequest { id: "WOAF", data: data.as_slice() } ).unwrap().content.link().as_slice(), link);
-            assert_eq!(parsers::encode(EncoderRequest { encoding: Encoding::Latin1, content: &LinkContent(link.into_string()), version: 3 } ), data);
+            assert_eq!(parsers::decode(DecoderRequest { 
+                id: "WOAF", 
+                data: data.as_slice() 
+            }).unwrap().content.link().as_slice(), link);
+            assert_eq!(parsers::encode(EncoderRequest { 
+                encoding: Encoding::Latin1, 
+                content: &LinkContent(link.into_string()), 
+                version: 3 
+            }), data);
         }
     }
 
@@ -590,9 +652,19 @@ mod tests {
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(bytes_for_encoding(link, encoding).into_iter());
 
-                    let content = frame::ExtendedLink { description: description.into_string(), link: link.into_string() };
-                    assert_eq!(*parsers::decode(DecoderRequest { id: "WXXX", data: data.as_slice() } ).unwrap().content.extended_link(), content);
-                    assert_eq!(parsers::encode(EncoderRequest { encoding: encoding, content: &ExtendedLinkContent(content), version: 3 } ), data);
+                    let content = frame::ExtendedLink { 
+                        description: description.into_string(), 
+                        link: link.into_string() 
+                    };
+                    assert_eq!(*parsers::decode(DecoderRequest { 
+                        id: "WXXX", 
+                        data: data.as_slice() 
+                    }).unwrap().content.extended_link(), content);
+                    assert_eq!(parsers::encode(EncoderRequest { 
+                        encoding: encoding, 
+                        content: &ExtendedLinkContent(content), 
+                        version: 3
+                    }), data);
                 }
             }
         }
@@ -606,7 +678,10 @@ mod tests {
             data.push(encoding as u8);
             data.extend(bytes_for_encoding(description, encoding).into_iter());
             data.extend(bytes_for_encoding(link, encoding).into_iter());
-            assert!(parsers::decode(DecoderRequest { id: "WXXX", data: data.as_slice() } ).is_err());
+            assert!(parsers::decode(DecoderRequest { 
+                id: "WXXX", 
+                data: data.as_slice() 
+            }).is_err());
         }
     }
 
@@ -626,9 +701,20 @@ mod tests {
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(bytes_for_encoding(text, encoding).into_iter());
 
-                    let content = frame::Lyrics { lang: "eng".into_string(), description: description.into_string(), text: text.into_string() };
-                    assert_eq!(*parsers::decode(DecoderRequest { id: "USLT", data: data.as_slice() } ).unwrap().content.lyrics(), content);
-                    assert_eq!(parsers::encode(EncoderRequest { encoding: encoding, content: &LyricsContent(content), version: 3 } ), data);
+                    let content = frame::Lyrics { 
+                        lang: "eng".into_string(), 
+                        description: description.into_string(), 
+                        text: text.into_string() 
+                    };
+                    assert_eq!(*parsers::decode(DecoderRequest { 
+                        id: "USLT", 
+                        data: data.as_slice() 
+                    }).unwrap().content.lyrics(), content);
+                    assert_eq!(parsers::encode(EncoderRequest { 
+                        encoding: encoding, 
+                        content: &LyricsContent(content), 
+                        version: 3 
+                    }), data);
                 }
             }
         }
@@ -643,7 +729,10 @@ mod tests {
             data.push_all(b"eng");
             data.extend(bytes_for_encoding(description, encoding).into_iter());
             data.extend(bytes_for_encoding(lyrics, encoding).into_iter());
-            assert!(parsers::decode(DecoderRequest { id: "USLT", data: data.as_slice() } ).is_err());
+            assert!(parsers::decode(DecoderRequest { 
+                id: "USLT", 
+                data: data.as_slice() 
+            }).is_err());
         }
     }
 }
