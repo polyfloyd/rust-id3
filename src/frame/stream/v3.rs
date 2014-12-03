@@ -1,9 +1,9 @@
 extern crate flate;
-extern crate audiotag;
 
 use frame::stream::FrameStream;
 use frame::Frame;
-use audiotag::{TagResult, TagError, UnsupportedFeatureError, StringDecodingError};
+use audiotag::{TagResult, TagError};
+use audiotag::ErrorKind::UnsupportedFeatureError;
 use util;
 
 pub struct FrameV3;

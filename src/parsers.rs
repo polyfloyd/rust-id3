@@ -1,6 +1,5 @@
-extern crate audiotag;
-
-use self::audiotag::{TagError, TagResult, InvalidInputError, StringDecodingError, UnsupportedFeatureError};
+use audiotag::{TagError, TagResult};
+use audiotag::ErrorKind::{InvalidInputError, StringDecodingError, UnsupportedFeatureError};
 
 use frame::{Encoding, Picture, PictureType, Content};
 use frame::Content::*;
@@ -232,7 +231,7 @@ macro_rules! decode_part {
             match ($params.string_func)($bytes.slice(start, end)) {
                 Some(string) => string,
                 None => return Err(TagError::new(
-                        audiotag::StringDecodingError($bytes.slice(start, end).to_vec()), 
+                        StringDecodingError($bytes.slice(start, end).to_vec()), 
                         match $params.encoding {
                             Encoding::Latin1 | ::frame::Encoding::UTF8 => "string is not valid utf8",
                             Encoding::UTF16 => "string is not valid utf16",

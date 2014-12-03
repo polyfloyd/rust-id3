@@ -1,8 +1,6 @@
-extern crate audiotag;
-
 use frame::stream::FrameStream;
 use frame::Frame;
-use audiotag::{TagResult, TagError, StringDecodingError};
+use audiotag::{TagResult, TagError};
 use util;
 
 pub struct FrameV2;

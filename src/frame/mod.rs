@@ -1,5 +1,4 @@
 extern crate std;
-extern crate audiotag;
 extern crate flate;
 
 pub use self::encoding::Encoding;
@@ -14,7 +13,8 @@ use self::content::Content::{
 
 use self::stream::{FrameStream, FrameV2, FrameV3, FrameV4};
     
-use self::audiotag::{TagError, TagResult, InvalidInputError};
+use audiotag::{TagError, TagResult};
+use audiotag::ErrorKind::InvalidInputError;
 
 use util;
 use parsers;

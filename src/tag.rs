@@ -1,11 +1,11 @@
 extern crate std;
-extern crate audiotag;
 
 use std::cmp::min;
 use std::io::{File, Open, Truncate, Write, SeekSet, SeekCur};
 use std::collections::HashMap;
 
-use self::audiotag::{AudioTag, TagError, TagResult, InvalidInputError, UnsupportedFeatureError};
+use audiotag::{AudioTag, TagError, TagResult};
+use audiotag::ErrorKind::{InvalidInputError, UnsupportedFeatureError};
 
 use id3v1;
 use frame::{mod, Frame, Encoding, Picture, PictureType};

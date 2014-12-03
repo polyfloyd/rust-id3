@@ -1,5 +1,3 @@
-extern crate audiotag;
-
 use frame::Frame;
 use audiotag::TagResult;
 
