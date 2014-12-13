@@ -1,5 +1,5 @@
 /// Types of text encodings used in ID3 frames.
-#[deriving(Show, FromPrimitive, PartialEq)]
+#[deriving(Show, FromPrimitive, PartialEq, Copy)]
 pub enum Encoding {
     /// ISO-8859-1 text encoding, also referred to as latin1 encoding.
     Latin1,

@@ -1,4 +1,5 @@
 /// Flags used in ID3 frames.
+#[deriving(Copy)]
 pub struct FrameFlags {
     /// Indicates whether or not this frame should be discarded if the tag is altered.
     /// A value of `true` indicates the frame should be discarded.

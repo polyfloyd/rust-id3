@@ -1,5 +1,5 @@
 /// Types of pictures used in APIC frames.
-#[deriving(Show, FromPrimitive, PartialEq, Clone)]
+#[deriving(Show, FromPrimitive, PartialEq, Clone, Copy)]
 #[allow(missing_docs)]
 pub enum PictureType {
     Other,

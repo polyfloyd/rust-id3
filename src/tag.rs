@@ -42,6 +42,7 @@ pub struct ID3Tag {
 }
 
 /// Flags used in the ID3 header.
+#[deriving(Copy)]
 pub struct TagFlags {
     /// Indicates whether or not unsynchronization is used.
     pub unsynchronization: bool,
