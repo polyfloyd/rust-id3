@@ -48,7 +48,7 @@ fn utf8_only_track() {
 fn utf8_invalid() {
     let mut tag = ID3Tag::with_version(4);
     
-    let mut frame = Frame::with_version(ID.into_string(), 4);
+    let mut frame = Frame::with_version(ID.to_string(), 4);
     let mut data = Vec::new();
     data.push(Encoding::UTF8 as u8);
     data.extend(format!("{}/{}", INVALID, TOTAL).into_bytes().into_iter());
@@ -59,7 +59,7 @@ fn utf8_invalid() {
 
     tag.remove_frames_by_id(ID);
 
-    let mut frame = Frame::with_version(ID.into_string(), 4);
+    let mut frame = Frame::with_version(ID.to_string(), 4);
     let mut data = Vec::new();
     data.push(Encoding::UTF8 as u8);
     data.extend(format!("{}/{}", TRACK, INVALID).into_bytes().into_iter());
@@ -110,7 +110,7 @@ fn utf16_only_track() {
 fn utf16_invalid() {
     let mut tag = ID3Tag::with_version(4);
     
-    let mut frame = Frame::with_version(ID.into_string(), 4);
+    let mut frame = Frame::with_version(ID.to_string(), 4);
     let mut data = Vec::new();
     data.push(Encoding::UTF16 as u8);
     data.extend(id3::util::string_to_utf16(format!("{}/{}", INVALID, TOTAL).as_slice()).into_iter());
@@ -121,7 +121,7 @@ fn utf16_invalid() {
 
     tag.remove_frames_by_id(ID);
 
-    let mut frame = Frame::with_version(ID.into_string(), 4);
+    let mut frame = Frame::with_version(ID.to_string(), 4);
     let mut data = Vec::new();
     data.push(Encoding::UTF16 as u8);
     data.extend(id3::util::string_to_utf16(format!("{}/{}", TRACK, INVALID).as_slice()).into_iter());
@@ -172,7 +172,7 @@ fn utf16be_only_track() {
 fn utf16be_invalid() {
     let mut tag = ID3Tag::with_version(4);
     
-    let mut frame = Frame::with_version(ID.into_string(), 4);
+    let mut frame = Frame::with_version(ID.to_string(), 4);
     let mut data = Vec::new();
     data.push(Encoding::UTF16BE as u8);
     data.extend(id3::util::string_to_utf16be(format!("{}/{}", INVALID, TOTAL).as_slice()).into_iter());
@@ -183,7 +183,7 @@ fn utf16be_invalid() {
 
     tag.remove_frames_by_id(ID);
 
-    let mut frame = Frame::with_version(ID.into_string(), 4);
+    let mut frame = Frame::with_version(ID.to_string(), 4);
     let mut data = Vec::new();
     data.push(Encoding::UTF16BE as u8);
     data.extend(id3::util::string_to_utf16be(format!("{}/{}", TRACK, INVALID).as_slice()).into_iter());

@@ -1,6 +1,8 @@
 extern crate std;
 extern crate flate;
 
+use std::borrow::IntoCow;
+
 pub use self::encoding::Encoding;
 pub use self::content::Content;
 pub use self::flags::FrameFlags;
@@ -90,12 +92,12 @@ impl PartialEq for Frame {
     }
 }
 
-impl Frame {
+impl<'a> Frame {
     /// Creates a new ID3v2.3 frame with the specified identifier.
     #[inline]
-    pub fn new<T: StrAllocating>(id: T) -> Frame {
+    pub fn new<T: IntoCow<'a, String, str>>(id: T) -> Frame {
         Frame { 
-            uuid: util::uuid(), id: id.into_string(), version: 3, encoding: Encoding::UTF16, 
+            uuid: util::uuid(), id: id.into_cow().into_owned(), version: 3, encoding: Encoding::UTF16, 
             flags: FrameFlags::new(), content: UnknownContent(Vec::new()), offset: 0 
         }
     }
@@ -106,10 +108,10 @@ impl Frame {
     /// ```
     /// use id3::Frame;
     ///
-    /// let frame = Frame::with_version("TALB".into_string(), 4);
+    /// let frame = Frame::with_version("TALB".to_string(), 4);
     /// assert_eq!(frame.version(), 4);
     /// ```
-    pub fn with_version<T: StrAllocating>(id: T, version: u8) -> Frame {
+    pub fn with_version<T: IntoCow<'a, String, str>>(id: T, version: u8) -> Frame {
         let mut frame = Frame::new(id);
         frame.version = version;
         frame
@@ -187,7 +189,7 @@ impl Frame {
     /// ```
     /// use id3::Frame;
     ///
-    /// let frame = Frame::with_version("USLT".into_string(), 4);
+    /// let frame = Frame::with_version("USLT".to_string(), 4);
     /// assert_eq!(frame.version(), 4)
     /// ```
     #[inline]
@@ -208,7 +210,7 @@ impl Frame {
         if (self.version == 3 || self.version == 4) && version == 2 {
             // attempt to convert the id
             self.id = match util::convert_id_3_to_2(self.id.as_slice()) {
-                Some(id) => id.into_string(),
+                Some(id) => id.to_string(),
                 None => {
                     debug!("no ID3v2.3 to ID3v2.3 mapping for {}", self.id);
                     return false;
@@ -217,7 +219,7 @@ impl Frame {
         } else if self.version == 2 && (version == 3 || version == 4) {
             // attempt to convert the id
             self.id = match util::convert_id_2_to_3(self.id.as_slice()) {
-                Some(id) => id.into_string(),
+                Some(id) => id.to_string(),
                 None => {
                     debug!("no ID3v2.2 to ID3v2.3 mapping for {}", self.id);
                     return false;
@@ -247,7 +249,7 @@ impl Frame {
     /// ```
     /// use id3::Frame;
     ///
-    /// let mut frame = Frame::new("TYER".into_string());
+    /// let mut frame = Frame::new("TYER".to_string());
     /// let prev_uuid = frame.uuid.clone();
     /// frame.generate_uuid();
     /// assert!(prev_uuid != frame.uuid);
@@ -336,13 +338,13 @@ impl Frame {
     /// use id3::Content::{ExtendedTextContent, TextContent};
     ///
     /// let mut title_frame = Frame::new("TIT2");
-    /// title_frame.content = TextContent("title".into_string());
+    /// title_frame.content = TextContent("title".to_string());
     /// assert_eq!(title_frame.text().unwrap().as_slice(), "title");
     ///
-    /// let mut txxx_frame = Frame::new("TXXX".into_string());
+    /// let mut txxx_frame = Frame::new("TXXX".to_string());
     /// txxx_frame.content = ExtendedTextContent(frame::ExtendedText { 
-    ///     key: "key".into_string(), 
-    ///     value: "value".into_string()
+    ///     key: "key".to_string(), 
+    ///     value: "value".to_string()
     /// });
     /// assert_eq!(txxx_frame.text().unwrap().as_slice(), "key: value");
     /// ```
@@ -405,7 +407,7 @@ mod tests {
         let text = "album";
         let encoding = Encoding::UTF16;
 
-        let mut frame = Frame::with_version(id.into_string(), 2);
+        let mut frame = Frame::with_version(id.to_string(), 2);
 
         let mut data = Vec::new();
         data.push(encoding as u8);
@@ -429,7 +431,7 @@ mod tests {
         let text = "album";
         let encoding = Encoding::UTF16;
 
-        let mut frame = Frame::with_version(id.into_string(), 4);
+        let mut frame = Frame::with_version(id.to_string(), 4);
 
         let mut data = Vec::new();
         data.push(encoding as u8);
@@ -454,7 +456,7 @@ mod tests {
         let text = "album";
         let encoding = Encoding::UTF16;
 
-        let mut frame = Frame::with_version(id.into_string(), 4);
+        let mut frame = Frame::with_version(id.to_string(), 4);
 
         frame.flags.tag_alter_preservation = true;
         frame.flags.file_alter_preservation = true; 

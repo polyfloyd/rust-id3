@@ -27,7 +27,7 @@ fn utf8() {
 #[test]
 fn utf8_invalid() {
     let mut tag = ID3Tag::with_version(4);
-    let mut frame = Frame::with_version(ID.into_string(), 4);
+    let mut frame = Frame::with_version(ID.to_string(), 4);
     let mut data = Vec::new();
     data.push(Encoding::UTF8 as u8);
     data.push_all(INVALID.as_bytes());
@@ -57,7 +57,7 @@ fn utf16() {
 #[test]
 fn utf16_invalid() {
     let mut tag = ID3Tag::with_version(4);
-    let mut frame = Frame::with_version(ID.into_string(), 4);
+    let mut frame = Frame::with_version(ID.to_string(), 4);
     let mut data = Vec::new();
     data.push(Encoding::UTF16 as u8);
     data.extend(id3::util::string_to_utf16(INVALID).into_iter());
@@ -87,7 +87,7 @@ fn utf16be() {
 #[test]
 fn utf16be_invalid() {
     let mut tag = ID3Tag::with_version(4);
-    let mut frame = Frame::with_version(ID.into_string(), 4);
+    let mut frame = Frame::with_version(ID.to_string(), 4);
     let mut data = Vec::new();
     data.push(Encoding::UTF16BE as u8);
     data.extend(id3::util::string_to_utf16be(INVALID).into_iter());

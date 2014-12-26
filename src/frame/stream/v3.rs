@@ -57,7 +57,7 @@ impl FrameStream for FrameV3 {
 
         try!(writer.write(frame.id.slice_to(4).as_bytes()));
         try!(writer.write(util::u32_to_bytes(content_size).as_slice()));
-        try!(writer.write(frame.flags.to_bytes(0x3).as_slice()))
+        try!(writer.write(frame.flags.to_bytes(0x3).as_slice()));
         if frame.flags.compression {
             try!(writer.write(util::u32_to_bytes(decompressed_size).as_slice()));
         }
