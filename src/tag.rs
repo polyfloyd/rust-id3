@@ -567,21 +567,21 @@ impl<'a> ID3Tag {
     ///
     /// let mut frame = Frame::new("TXXX");
     /// frame.content = ExtendedTextContent(frame::ExtendedText { 
-    ///     key: "key1"to_string(),
-    ///     value: "value1"to_string()
+    ///     key: "key1".to_string(),
+    ///     value: "value1".to_string()
     /// });
     /// tag.add_frame(frame);
     ///
     /// let mut frame = Frame::new("TXXX");
     /// frame.content = ExtendedTextContent(frame::ExtendedText { 
-    ///     key: "key2"to_string(),
-    ///     value: "value2"to_string()
+    ///     key: "key2".to_string(),
+    ///     value: "value2".to_string()
     /// }); 
     /// tag.add_frame(frame);
     ///
     /// assert_eq!(tag.txxx().len(), 2);
-    /// assert!(tag.txxx().contains(&("key1"to_string(), "value1"to_string())));
-    /// assert!(tag.txxx().contains(&("key2"to_string(), "value2"to_string())));
+    /// assert!(tag.txxx().contains(&("key1".to_string(), "value1".to_string())));
+    /// assert!(tag.txxx().contains(&("key2".to_string(), "value2".to_string())));
     /// ```
     pub fn txxx(&self) -> Vec<(String, String)> {
         let mut out = Vec::new();
@@ -607,8 +607,8 @@ impl<'a> ID3Tag {
     /// tag.add_txxx("key2", "value2");
     ///
     /// assert_eq!(tag.txxx().len(), 2);
-    /// assert!(tag.txxx().contains(&("key1"to_string(), "value1"to_string())));
-    /// assert!(tag.txxx().contains(&("key2"to_string(), "value2"to_string())));
+    /// assert!(tag.txxx().contains(&("key1".to_string(), "value1".to_string())));
+    /// assert!(tag.txxx().contains(&("key2".to_string(), "value2".to_string())));
     /// ```
     #[inline]
     pub fn add_txxx<K: IntoCow<'a, String, str>, V: IntoCow<'a, String, str>>(&mut self, key: K, value: V) {
@@ -629,8 +629,8 @@ impl<'a> ID3Tag {
     /// tag.add_txxx_enc("key2", "value2", UTF16);
     ///
     /// assert_eq!(tag.txxx().len(), 2);
-    /// assert!(tag.txxx().contains(&("key1"to_string(), "value1"to_string())));
-    /// assert!(tag.txxx().contains(&("key2"to_string(), "value2"to_string())));
+    /// assert!(tag.txxx().contains(&("key1".to_string(), "value1".to_string())));
+    /// assert!(tag.txxx().contains(&("key2".to_string(), "value2".to_string())));
     /// ```
     pub fn add_txxx_enc<K: IntoCow<'a, String, str>, V: IntoCow<'a, String, str>>(&mut self, key: K, value: V, encoding: Encoding) {
         let key = key.into_cow().into_owned();
@@ -846,23 +846,23 @@ impl<'a> ID3Tag {
     ///
     /// let mut frame = Frame::new("COMM");
     /// frame.content = CommentContent(frame::Comment {
-    ///     lang: "eng"to_string(),
-    ///     description: "key1"to_string(),
-    ///     text: "value1"to_string()
+    ///     lang: "eng".to_string(),
+    ///     description: "key1".to_string(),
+    ///     text: "value1".to_string()
     /// });
     /// tag.add_frame(frame);
     ///
     /// let mut frame = Frame::new("COMM");
     /// frame.content = CommentContent(frame::Comment { 
-    ///     lang: "eng"to_string(),
-    ///     description: "key2"to_string(),
-    ///     text: "value2"to_string()
+    ///     lang: "eng".to_string(),
+    ///     description: "key2".to_string(),
+    ///     text: "value2".to_string()
     /// });
     /// tag.add_frame(frame);
     ///
     /// assert_eq!(tag.comments().len(), 2);
-    /// assert!(tag.comments().contains(&("key1"to_string(), "value1"to_string())));
-    /// assert!(tag.comments().contains(&("key2"to_string(), "value2"to_string())));
+    /// assert!(tag.comments().contains(&("key1".to_string(), "value1".to_string())));
+    /// assert!(tag.comments().contains(&("key2".to_string(), "value2".to_string())));
     /// ```
     pub fn comments(&self) -> Vec<(String, String)> {
         let mut out = Vec::new();
@@ -889,8 +889,8 @@ impl<'a> ID3Tag {
     /// tag.add_comment("key2", "value2");
     ///
     /// assert_eq!(tag.comments().len(), 2);
-    /// assert!(tag.comments().contains(&("key1"to_string(), "value1"to_string())));
-    /// assert!(tag.comments().contains(&("key2"to_string(), "value2"to_string())));
+    /// assert!(tag.comments().contains(&("key1".to_string(), "value1".to_string())));
+    /// assert!(tag.comments().contains(&("key2".to_string(), "value2".to_string())));
     /// ```
     #[inline]
     pub fn add_comment<K: IntoCow<'a, String, str>, V: IntoCow<'a, String, str>>(&mut self, description: K, text: V) {
@@ -911,8 +911,8 @@ impl<'a> ID3Tag {
     /// tag.add_comment_enc("eng", "key2", "value2", UTF16);
     ///
     /// assert_eq!(tag.comments().len(), 2);
-    /// assert!(tag.comments().contains(&("key1"to_string(), "value1"to_string())));
-    /// assert!(tag.comments().contains(&("key2"to_string(), "value2"to_string())));
+    /// assert!(tag.comments().contains(&("key1".to_string(), "value1".to_string())));
+    /// assert!(tag.comments().contains(&("key2".to_string(), "value2".to_string())));
     /// ```
     pub fn add_comment_enc<L: IntoCow<'a, String, str>, K: IntoCow<'a, String, str>, V: IntoCow<'a, String, str>>(&mut self, lang: L, description: K, text: V, encoding: Encoding) {
         let description = description.into_cow().into_owned();
@@ -1096,14 +1096,14 @@ impl<'a> ID3Tag {
     /// assert!(tag.year().is_none());
     ///
     /// let mut frame_valid = Frame::new("TYER");
-    /// frame_valid.content = TextContent("2014"to_string());
+    /// frame_valid.content = TextContent("2014".to_string());
     /// tag.add_frame(frame_valid);
     /// assert_eq!(tag.year().unwrap(), 2014);
     ///
     /// tag.remove_frames_by_id("TYER");
     ///
     /// let mut frame_invalid = Frame::new("TYER");
-    /// frame_invalid.content = TextContent("nope"to_string());
+    /// frame_invalid.content = TextContent("nope".to_string());
     /// tag.add_frame(frame_invalid);
     /// assert!(tag.year().is_none());
     /// ```
