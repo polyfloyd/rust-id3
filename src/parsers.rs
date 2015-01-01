@@ -408,8 +408,8 @@ mod tests {
 
     fn delim_for_encoding(encoding: Encoding) -> Vec<u8> {
         match encoding {
-            Encoding::Latin1 | Encoding::UTF8 => Vec::from_elem(1, 0),
-            Encoding::UTF16 | Encoding::UTF16BE => Vec::from_elem(2, 0)
+            Encoding::Latin1 | Encoding::UTF8 => vec!(0),
+            Encoding::UTF16 | Encoding::UTF16BE => vec!(0, 0)
         }
     }
 

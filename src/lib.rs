@@ -3,9 +3,9 @@
 //! # Modifying an existing tag
 //!
 //! ```no_run
-//! use id3::AudioTag;
+//! use id3::{ID3Tag, AudioTag};
 //!
-//! let mut tag = AudioTag::read_from_path(&Path::new("music.mp3")).unwrap();
+//! let mut tag: ID3Tag = AudioTag::read_from_path(&Path::new("music.mp3")).unwrap();
 //!
 //! // print the artist the hard way
 //! println!("{}", tag.get_frame_by_id("TALB").unwrap().content.text());

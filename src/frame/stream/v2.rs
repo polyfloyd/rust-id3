@@ -1,6 +1,6 @@
 use frame::stream::FrameStream;
 use frame::Frame;
-use audiotag::{TagResult, TagError};
+use audiotag::TagResult;
 use util;
 
 pub struct FrameV2;

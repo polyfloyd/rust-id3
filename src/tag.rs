@@ -1421,7 +1421,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
 
     fn read_from_path(path: &Path) -> TagResult<ID3Tag> {
         let mut file = try!(File::open(path));
-        let mut tag = try!(AudioTag::read_from(&mut file));
+        let mut tag: ID3Tag = try!(AudioTag::read_from(&mut file));
         tag.path = Some(path.clone());
         tag.path_changed = false;
         Ok(tag)

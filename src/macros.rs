@@ -23,10 +23,7 @@ macro_rules! try_encoding {
 
 macro_rules! try_string {
     ($data:expr) => {
-        match String::from_utf8($data) {
-            Ok(string) => string,
-            Err((data, _)) => return Err(TagError::new(::audiotag::ErrorKind::StringDecodingError(data), "string is not valid utf8"))
-        }
+        try!(String::from_utf8($data))
     };
     ($enc:expr, $data:expr) => {
         match util::string_from_encoding($enc, $data) {

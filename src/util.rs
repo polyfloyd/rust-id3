@@ -8,7 +8,7 @@ use std::mem::transmute;
 /// Returns a random sequence of 16 bytes, intended to be used as a UUID.
 #[inline]
 pub fn uuid() -> Vec<u8> {
-    rand::task_rng().gen_iter::<u8>().take(16).collect()
+    rand::thread_rng().gen_iter::<u8>().take(16).collect()
 }
 /// Returns the synchsafe varaiant of a `u32` value.
 #[inline]
@@ -78,7 +78,7 @@ pub fn string_from_utf16le(data: &[u8]) -> Option<String> {
 
     if cfg!(target_endian = "little") {
         let buf = unsafe { transmute::<_, &[u16]>(data) };
-        String::from_utf16(buf.slice_to(data.len() / 2))
+        String::from_utf16(buf.slice_to(data.len() / 2)).ok()
     } else {
         let mut buf: Vec<u16> = Vec::with_capacity(data.len() / 2);
         let mut it = std::iter::range_step(0, data.len(), 2);
@@ -87,7 +87,7 @@ pub fn string_from_utf16le(data: &[u8]) -> Option<String> {
             buf.push(data[i] as u16 | data[i + 1] as u16 << 8);
         }
 
-        String::from_utf16(buf.as_slice())
+        String::from_utf16(buf.as_slice()).ok()
     }
 }
 
@@ -99,7 +99,7 @@ pub fn string_from_utf16be(data: &[u8]) -> Option<String> {
     }
     if cfg!(target_endian = "big") {
         let buf = unsafe { transmute::<_, &[u16]>(data) };
-        String::from_utf16(buf.slice_to(data.len() / 2))
+        String::from_utf16(buf.slice_to(data.len() / 2)).ok()
     } else {
         let mut buf: Vec<u16> = Vec::with_capacity(data.len() / 2);
         let mut it = std::iter::range_step(0, data.len(), 2);
@@ -108,7 +108,7 @@ pub fn string_from_utf16be(data: &[u8]) -> Option<String> {
             buf.push(data[i] as u16 << 8 | data[i + 1] as u16);
         }
 
-        String::from_utf16(buf.as_slice())
+        String::from_utf16(buf.as_slice()).ok()
     }
 }
 
