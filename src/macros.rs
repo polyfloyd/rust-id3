@@ -12,6 +12,8 @@ macro_rules! try_delim {
 macro_rules! try_encoding {
     ($c:expr) => {
         {
+            use std::num::FromPrimitive;
+
             let encoding: ::frame::Encoding = match FromPrimitive::from_u8($c) {
                 Some(encoding) => encoding,
                 None => return Err(TagError::new(::audiotag::ErrorKind::InvalidInputError, "invalid encoding byte"))

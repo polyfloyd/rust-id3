@@ -1,7 +1,7 @@
 extern crate std;
 
 use phf;
-use std::rand::{mod, Rng};
+use std::rand::{self, Rng};
 use frame::Encoding;
 use std::mem::transmute;
 

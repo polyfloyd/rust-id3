@@ -262,6 +262,8 @@ macro_rules! decode_part {
     };
     ($bytes:ident, $params:ident, $i:ident, picture_type()) => {
         {
+            use std::num::FromPrimitive;
+
             if $i + 1 >= $bytes.len() {
                 return Err(TagError::new(InvalidInputError, "insufficient data"));
             }
@@ -391,7 +393,7 @@ mod tests {
     use parsers;
     use parsers::{DecoderRequest, EncoderRequest};
     use util;
-    use frame::{mod, Picture, PictureType, Encoding};
+    use frame::{self, Picture, PictureType, Encoding};
     use frame::Content::{
         PictureContent, CommentContent, TextContent, ExtendedTextContent, 
         LinkContent, ExtendedLinkContent, LyricsContent

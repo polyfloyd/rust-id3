@@ -9,11 +9,11 @@ use audiotag::{AudioTag, TagError, TagResult};
 use audiotag::ErrorKind::{InvalidInputError, UnsupportedFeatureError};
 
 use id3v1;
-use frame::{mod, Frame, Encoding, Picture, PictureType};
+use frame::{self, Frame, Encoding, Picture, PictureType};
 use frame::Content::{PictureContent, CommentContent, TextContent, ExtendedTextContent, LyricsContent};
 use util;
 
-static DEFAULT_FILE_DISCARD: [&'static str, ..11] = [
+static DEFAULT_FILE_DISCARD: [&'static str; 11] = [
     "AENC", "ETCO", "EQUA", "MLLT", "POSS", 
     "SYLT", "SYTC", "RVAD", "TENC", "TLEN", "TSIZ"
 ];
@@ -27,7 +27,7 @@ pub struct ID3Tag {
     path_changed: bool,
     /// The version of the tag. The first byte represents the major version number, while the
     /// second byte represents the revision number.
-    version: [u8, ..2],
+    version: [u8; 2],
     /// The size of the tag when read from a file.
     size: u32,
     /// The ID3 header flags.
@@ -43,7 +43,7 @@ pub struct ID3Tag {
 }
 
 /// Flags used in the ID3 header.
-#[deriving(Copy)]
+#[derive(Copy)]
 pub struct TagFlags {
     /// Indicates whether or not unsynchronization is used.
     pub unsynchronization: bool,
