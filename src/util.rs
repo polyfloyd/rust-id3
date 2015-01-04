@@ -84,7 +84,7 @@ pub fn string_from_utf16le(data: &[u8]) -> Option<String> {
         let mut it = std::iter::range_step(0, data.len(), 2);
 
         for i in it {
-            buf.push(data[i] as u16 | data[i + 1] as u16 << 8);
+            buf.push(data[i] as u16 | (data[i + 1] as u16) << 8);
         }
 
         String::from_utf16(buf.as_slice()).ok()
@@ -105,7 +105,7 @@ pub fn string_from_utf16be(data: &[u8]) -> Option<String> {
         let mut it = std::iter::range_step(0, data.len(), 2);
 
         for i in it {
-            buf.push(data[i] as u16 << 8 | data[i + 1] as u16);
+            buf.push((data[i] as u16) << 8 | data[i + 1] as u16);
         }
 
         String::from_utf16(buf.as_slice()).ok()
