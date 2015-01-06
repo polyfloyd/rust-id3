@@ -492,7 +492,7 @@ impl<'a> ID3Tag {
     pub fn remove_frame_by_uuid(&mut self, uuid: &[u8]) {
         let mut modified_offset = self.modified_offset;
         {
-            let set_modified_offset = |offset: u32| {
+            let mut set_modified_offset = |&mut: offset: u32| {
                 if offset != 0 {
                     modified_offset = min(modified_offset, offset);
                 }
@@ -528,7 +528,7 @@ impl<'a> ID3Tag {
     pub fn remove_frames_by_id(&mut self, id: &str) {
         let mut modified_offset = self.modified_offset;
         {
-            let set_modified_offset = |offset: u32| {
+            let mut set_modified_offset = |&mut: offset: u32| {
                 if offset != 0 {
                     modified_offset = min(modified_offset, offset);
                 }
@@ -1481,7 +1481,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
         // remove any old frames that have the tag_alter_presevation flag
         let mut modified_offset = self.modified_offset;
         {
-            let set_modified_offset = |offset: u32| {
+            let mut set_modified_offset = |&mut: offset: u32| {
                 if offset != 0 {
                     modified_offset = min(modified_offset, offset);
                 }

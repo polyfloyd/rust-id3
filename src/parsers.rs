@@ -72,7 +72,7 @@ pub fn decode(request: DecoderRequest) -> TagResult<DecoderResult> {
 // Encoders {{{
 struct EncodingParams<'a> {
     delim_len: u8,
-    string_func: |&mut Vec<u8>, &str|:'a
+    string_func: Box<Fn(&mut Vec<u8>, &str) + 'a>
 }
 
 macro_rules! encode_part {
@@ -89,17 +89,17 @@ macro_rules! encode {
             let params = match $encoding {
                 Encoding::Latin1 | Encoding::UTF8 => EncodingParams { 
                     delim_len: 1,
-                    string_func: |buf: &mut Vec<u8>, string: &str| 
+                    string_func: box |&: buf: &mut Vec<u8>, string: &str| 
                         buf.push_all(string.as_bytes())
                 },
                 Encoding::UTF16 => EncodingParams {
                     delim_len: 2,
-                    string_func: |buf: &mut Vec<u8>, string: &str| 
+                    string_func: box |&: buf: &mut Vec<u8>, string: &str| 
                         buf.extend(util::string_to_utf16(string).into_iter())
                 },
                 Encoding::UTF16BE => EncodingParams {
                     delim_len: 2,
-                    string_func: |buf: &mut Vec<u8>, string: &str| 
+                    string_func: box |&: buf: &mut Vec<u8>, string: &str| 
                         buf.extend(util::string_to_utf16be(string).into_iter())
                 }
             };
@@ -175,7 +175,7 @@ fn picture_to_bytes(request: EncoderRequest) -> Vec<u8> {
 // Decoders {{{
 struct DecodingParams<'a> {
     encoding: Encoding,
-    string_func: |&[u8]|:'a -> Option<String>
+    string_func: Box<Fn(&[u8]) -> Option<String> + 'a>
 }
 
 impl<'a> DecodingParams<'a> {
@@ -183,17 +183,17 @@ impl<'a> DecodingParams<'a> {
         match encoding {
             Encoding::Latin1 | Encoding::UTF8 => DecodingParams {
                 encoding: Encoding::UTF8,
-                string_func: |bytes: &[u8]| -> Option<String>
+                string_func: box |&: bytes: &[u8]| -> Option<String>
                     String::from_utf8(bytes.to_vec()).ok()
             },
             Encoding::UTF16 => DecodingParams {
                 encoding: Encoding::UTF16,
-                string_func: |bytes: &[u8]| -> Option<String>
+                string_func: box |&: bytes: &[u8]| -> Option<String>
                     util::string_from_utf16(bytes)
             },
             Encoding::UTF16BE => DecodingParams {
                 encoding: Encoding::UTF16BE,
-                string_func: |bytes: &[u8]| -> Option<String>
+                string_func: box |&: bytes: &[u8]| -> Option<String>
                     util::string_from_utf16be(bytes)
             }
         }
