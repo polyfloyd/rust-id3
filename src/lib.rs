@@ -41,12 +41,13 @@
 #![crate_name = "id3"]
 #![crate_type = "rlib"]
 #![warn(missing_docs)]
-#![feature(macro_rules)]
-#![feature(globs)]
-#![feature(phase)]
-#[phase(plugin, link)] extern crate log;
+#![feature(plugin)]
 
-#[phase(plugin)]
+#[macro_use] 
+extern crate log;
+
+#[macro_use]
+#[plugin]
 extern crate phf_mac;
 extern crate phf;
 
@@ -56,6 +57,7 @@ pub use self::audiotag::{AudioTag, TagResult, TagError, ErrorKind};
 pub use tag::ID3Tag;
 pub use frame::{Frame, FrameFlags, Encoding, Content};
 
+#[macro_use]
 mod macros;
 
 /// Utilities used for reading/writing ID3 tags.

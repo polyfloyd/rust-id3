@@ -1,5 +1,3 @@
-#![macro_escape]
-
 macro_rules! try_delim {
     ($enc:expr, $data:expr, $i:expr, $msg:expr) => {
         match util::find_delim($enc, $data, $i) {
