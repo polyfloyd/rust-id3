@@ -149,7 +149,7 @@ pub fn string_to_utf16le(text: &str) -> Vec<u8> {
 }
 
 /// Returns the index of the first delimiter for the specified encoding.
-pub fn find_delim(encoding: Encoding, data: &[u8], index: uint) -> Option<uint> {
+pub fn find_delim(encoding: Encoding, data: &[u8], index: usize) -> Option<usize> {
     let mut i = index;
     match encoding {
         Encoding::Latin1 | Encoding::UTF8 => {
@@ -187,7 +187,7 @@ pub fn find_delim(encoding: Encoding, data: &[u8], index: uint) -> Option<uint> 
 
 /// Returns the delimiter length for the specified encoding.
 #[inline]
-pub fn delim_len(encoding: Encoding) -> uint {
+pub fn delim_len(encoding: Encoding) -> usize {
     match encoding {
         Encoding::Latin1 | Encoding::UTF8 => 1,
         Encoding::UTF16 | Encoding::UTF16BE => 2

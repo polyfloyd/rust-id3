@@ -1107,12 +1107,12 @@ impl<'a> ID3Tag {
     /// tag.add_frame(frame_invalid);
     /// assert!(tag.year().is_none());
     /// ```
-    pub fn year(&self) -> Option<uint> {
+    pub fn year(&self) -> Option<usize> {
         let id = self.year_id();
         match self.get_frame_by_id(id) {
             Some(frame) => {
                 match frame.content {
-                    TextContent(ref text) => text.as_slice().parse::<uint>(),
+                    TextContent(ref text) => text.as_slice().parse::<usize>(),
                     _ => None
                 }
             },
@@ -1131,7 +1131,7 @@ impl<'a> ID3Tag {
     /// assert_eq!(tag.year().unwrap(), 2014);
     /// ```
     #[inline]
-    pub fn set_year(&mut self, year: uint) {
+    pub fn set_year(&mut self, year: usize) {
         let id = self.year_id();
         self.add_text_frame_enc(id, format!("{}", year), Encoding::Latin1);
     }
@@ -1148,7 +1148,7 @@ impl<'a> ID3Tag {
     /// assert_eq!(tag.year().unwrap(), 2014);
     /// ```
     #[inline]
-    pub fn set_year_enc(&mut self, year: uint, encoding: Encoding) {
+    pub fn set_year_enc(&mut self, year: usize, encoding: Encoding) {
         let id = self.year_id();
         self.add_text_frame_enc(id, format!("{}", year), encoding);
     }
@@ -1336,7 +1336,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
         if tag.flags.extended_header {
             let ext_size = util::unsynchsafe(try!(reader.read_be_u32()));
             offset += 4;
-            let _ = try!(reader.read_exact(ext_size as uint));
+            let _ = try!(reader.read_exact(ext_size as usize));
             offset += ext_size;
         }
 
@@ -1347,7 +1347,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
                     None => break //padding
                 },
                 Err(err) => {
-                    debug!("{}", err);
+                    debug!("{:?}", err);
                     return Err(err);
                 }
             };
@@ -1434,9 +1434,9 @@ impl<'a> AudioTag<'a> for ID3Tag {
                     // remove the ID3v1 tag if the remove_v1 flag is set
                     let remove_bytes = if self.remove_v1 {
                         if try!(id3v1::probe_xtag(&mut file)) {
-                            Some(id3v1::TAGPLUS_OFFSET as uint)
+                            Some(id3v1::TAGPLUS_OFFSET as usize)
                         } else if try!(id3v1::probe_tag(&mut file)) {
-                            Some(id3v1::TAG_OFFSET as uint)
+                            Some(id3v1::TAG_OFFSET as usize)
                         } else {
                             None
                         }

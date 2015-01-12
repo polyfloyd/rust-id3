@@ -3,33 +3,33 @@ use std::io::{SeekEnd, IoResult};
 static TAG: &'static [u8] = b"TAG";
 pub static TAG_OFFSET: i64 = 128;
 static TITLE_OFFSET: i64 = 125;
-static TITLE_LEN: uint = 30;
+static TITLE_LEN: usize = 30;
 static ARTIST_OFFSET: i64 = 95;
-static ARTIST_LEN: uint = 30;
+static ARTIST_LEN: usize = 30;
 static ALBUM_OFFSET: i64 = 65;
-static ALBUM_LEN: uint = 30;
+static ALBUM_LEN: usize = 30;
 static YEAR_OFFSET: i64 = 35;
-static YEAR_LEN: uint = 4;
+static YEAR_LEN: usize = 4;
 static COMMENT_OFFSET: i64 = 31;
-static COMMENT_LEN: uint = 30;
+static COMMENT_LEN: usize = 30;
 static TRACK_OFFSET: i64 = 3;
 static GENRE_OFFSET: i64 = 1;
 
 static TAGPLUS: &'static [u8] = b"TAG+";
 pub static TAGPLUS_OFFSET: i64 = 355;
 static XTITLE_OFFSET: i64 = 351;
-static XTITLE_LEN: uint = 60;
+static XTITLE_LEN: usize = 60;
 static XARTIST_OFFSET: i64 = 291;
-static XARTIST_LEN: uint = 60;
+static XARTIST_LEN: usize = 60;
 static XALBUM_OFFSET: i64 = 231;
-static XALBUM_LEN: uint = 60;
+static XALBUM_LEN: usize = 60;
 static SPEED_OFFSET: i64 = 171;
 static GENRE_STR_OFFSET: i64 = 170;
-static GENRE_STR_LEN: uint = 30;
+static GENRE_STR_LEN: usize = 30;
 static START_TIME_OFFSET: i64 = 140;
-static START_TIME_LEN: uint = 6;
+static START_TIME_LEN: usize = 6;
 static END_TIME_OFFSET: i64 = 134;
-static END_TIME_LEN: uint = 6;
+static END_TIME_LEN: usize = 6;
 
 /// A structure containing ID3v1 metadata.
 pub struct ID3v1 {
@@ -71,21 +71,21 @@ impl ID3v1 {
 /// ID3v1 tag reading helpers.
 trait ID3v1Helpers {
     /// Read `n` bytes starting at an offset from the end.
-    fn read_from_end(&mut self, n:uint, offset:i64) -> IoResult<Vec<u8>>;
+    fn read_from_end(&mut self, n:usize, offset:i64) -> IoResult<Vec<u8>>;
 
     /// Read a null-terminated ISO-8859-1 string of size at most `n`, at an offset from the end.
-    fn read_str(&mut self, n: uint, offset: i64) -> IoResult<String>;
+    fn read_str(&mut self, n: usize, offset: i64) -> IoResult<String>;
 }
 
 impl<R: Reader + Seek> ID3v1Helpers for R {
     #[inline]
-    fn read_from_end(&mut self, n: uint, offset:i64) -> IoResult<Vec<u8>> {
+    fn read_from_end(&mut self, n: usize, offset:i64) -> IoResult<Vec<u8>> {
         try!(self.seek(-offset, SeekEnd));
         self.read_exact(n)
     }
 
     #[inline]
-    fn read_str(&mut self, n: uint, offset: i64) -> IoResult<String> {
+    fn read_str(&mut self, n: usize, offset: i64) -> IoResult<String> {
         self.read_from_end(n, offset).map(|vec| extract_nz_88591(vec))
     }
 }

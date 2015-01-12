@@ -43,7 +43,7 @@ impl FrameStream for FrameV4 {
             read_size -= 4;
         }
 
-        let data = try!(reader.read_exact(read_size as uint));
+        let data = try!(reader.read_exact(read_size as usize));
         try!(frame.parse_data(data.as_slice()));
 
         Ok(Some((10 + content_size, frame)))

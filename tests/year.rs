@@ -3,7 +3,7 @@ extern crate id3;
 use id3::{ID3Tag, Frame, Encoding};
 
 static ID: &'static str = "TYER";
-static YEAR: uint = 2014;
+static YEAR: usize = 2014;
 static YEARSTR: &'static str = "2014";
 static INVALID: &'static str = "invalid";
 
