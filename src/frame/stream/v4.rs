@@ -64,7 +64,7 @@ impl FrameStream for FrameV4 {
             content_size += 4;
         }
 
-        try!(writer.write(frame.id.slice_to(4).as_bytes()));
+        try!(writer.write(frame.id[..4].as_bytes()));
         try!(writer.write(util::u32_to_bytes(util::synchsafe(content_size)).as_slice()));
         try!(writer.write(frame.flags.to_bytes(0x4).as_slice()));
         if frame.flags.data_length_indicator {

@@ -63,9 +63,9 @@ pub fn string_from_utf16(data: &[u8]) -> Option<String> {
     }
 
     if data[0] == 0xFF && data[1] == 0xFE { // little endian
-        string_from_utf16le(data.slice_from(2))
+        string_from_utf16le(&data[2..])
     } else { // big endian
-        string_from_utf16be(data.slice_from(2))
+        string_from_utf16be(&data[2..])
     }
 }
 
@@ -78,7 +78,7 @@ pub fn string_from_utf16le(data: &[u8]) -> Option<String> {
 
     if cfg!(target_endian = "little") {
         let buf = unsafe { transmute::<_, &[u16]>(data) };
-        String::from_utf16(buf.slice_to(data.len() / 2)).ok()
+        String::from_utf16(&buf[..data.len() / 2]).ok()
     } else {
         let mut buf: Vec<u16> = Vec::with_capacity(data.len() / 2);
         let mut it = std::iter::range_step(0, data.len(), 2);
@@ -99,7 +99,7 @@ pub fn string_from_utf16be(data: &[u8]) -> Option<String> {
     }
     if cfg!(target_endian = "big") {
         let buf = unsafe { transmute::<_, &[u16]>(data) };
-        String::from_utf16(buf.slice_to(data.len() / 2)).ok()
+        String::from_utf16(&buf[..data.len() / 2]).ok()
     } else {
         let mut buf: Vec<u16> = Vec::with_capacity(data.len() / 2);
         let mut it = std::iter::range_step(0, data.len(), 2);
@@ -157,7 +157,7 @@ pub fn find_delim(encoding: Encoding, data: &[u8], index: usize) -> Option<usize
                 return None;
             }
 
-            for c in data.slice_from(i).iter() {
+            for c in data[i..].iter() {
                 if *c == 0 {
                     break;
                 }

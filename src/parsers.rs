@@ -133,13 +133,13 @@ fn extended_weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
 
 fn lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let content = request.content.lyrics();
-    return encode!(encoding(request.encoding), bytes(content.lang.slice_to(3).as_bytes()), 
+    return encode!(encoding(request.encoding), bytes(content.lang[..3].as_bytes()), 
                    string(content.description), delim(0), string(content.text));
 }
 
 fn comment_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let content = request.content.comment();
-    return encode!(encoding(request.encoding), bytes(content.lang.slice_to(3).as_bytes()), 
+    return encode!(encoding(request.encoding), bytes(content.lang[..3].as_bytes()), 
                    string(content.description), delim(0), string(content.text));
 }
 

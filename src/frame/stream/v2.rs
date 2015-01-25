@@ -24,8 +24,8 @@ impl FrameStream for FrameV2 {
         let content_bytes = frame.content_to_bytes();
         let content_size = content_bytes.len() as u32;
 
-        try!(writer.write(frame.id.slice_to(3).as_bytes()));
-        try!(writer.write(util::u32_to_bytes(content_size).slice(1, 4)));
+        try!(writer.write(frame.id[..3].as_bytes()));
+        try!(writer.write(&util::u32_to_bytes(content_size)[1..4]));
         try!(writer.write(content_bytes.as_slice()));
 
         Ok(6 + content_size)

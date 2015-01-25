@@ -1447,7 +1447,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
                     let mut data = AudioTag::skip_metadata(&mut file, None::<ID3Tag>);
                     match remove_bytes {
                         Some(n) => if n <= data.len() {
-                            data = data.slice_to(data.len() - n).to_vec();
+                            data = data[..data.len() - n].to_vec();
                         },
                         None => {}
                     }

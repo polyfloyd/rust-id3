@@ -55,7 +55,7 @@ impl FrameStream for FrameV3 {
             content_size = content_bytes.len() as u32 + 4;
         }
 
-        try!(writer.write(frame.id.slice_to(4).as_bytes()));
+        try!(writer.write(frame.id[..4].as_bytes()));
         try!(writer.write(util::u32_to_bytes(content_size).as_slice()));
         try!(writer.write(frame.flags.to_bytes(0x3).as_slice()));
         if frame.flags.compression {

@@ -417,7 +417,7 @@ mod tests {
 
         let mut bytes = Vec::new();
         bytes.push_all(id.as_bytes());
-        bytes.push_all(util::u32_to_bytes(data.len() as u32).slice_from(1));
+        bytes.push_all(&util::u32_to_bytes(data.len() as u32)[1..]);
         bytes.extend(data.into_iter());
 
         let mut writer = Vec::new();
