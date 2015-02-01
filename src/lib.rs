@@ -42,7 +42,7 @@
 #![crate_type = "rlib"]
 #![warn(missing_docs)]
 #![feature(plugin)]
-#![allow(unstable)]
+#![feature(core, io, collections, rand, rustc_private)]
 
 #[macro_use] 
 extern crate log;

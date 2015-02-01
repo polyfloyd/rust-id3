@@ -1,7 +1,7 @@
 extern crate std;
 
 use std::cmp::min;
-use std::io::{File, Open, Truncate, Write, SeekSet, SeekCur};
+use std::old_io::{File, Open, Truncate, Write, SeekSet, SeekCur};
 use std::collections::HashMap;
 use std::borrow::IntoCow;
 
@@ -1387,8 +1387,8 @@ impl<'a> AudioTag<'a> for ID3Tag {
 
         self.size = size + PADDING_BYTES;
 
-        try!(writer.write(b"ID3"));
-        try!(writer.write(&mut self.version)); 
+        try!(writer.write_all(b"ID3"));
+        try!(writer.write_all(&mut self.version)); 
         try!(writer.write_u8(self.flags.to_byte(self.version[0])));
         try!(writer.write_be_u32(util::synchsafe(self.size)));
 
@@ -1401,7 +1401,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
 
             bytes_written += match data_cache.get(&frame.uuid) {
                 Some(data) => { 
-                    try!(writer.write(data.as_slice()));
+                    try!(writer.write_all(&data[]));
                     data.len() as u32
                 },
                 None => try!(frame.write_to(writer))
@@ -1463,7 +1463,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
         self.write_to(&mut file).unwrap();
         
         match data_opt {
-            Some(data) => file.write(data.as_slice()).unwrap(),
+            Some(data) => file.write_all(&data[]).unwrap(),
             None => {}
         }
 
@@ -1519,7 +1519,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
                     frame.offset = offset;
                     offset += match data_cache.get(&frame.uuid) {
                         Some(data) => { 
-                            try!(writer.write(data.as_slice()));
+                            try!(writer.write_all(&data[]));
                             data.len() as u32
                         },
                         None => try!(frame.write_to(&mut writer))

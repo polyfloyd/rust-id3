@@ -1,4 +1,4 @@
-use std::io::{SeekEnd, IoResult};
+use std::old_io::{SeekEnd, IoResult};
 
 static TAG: &'static [u8] = b"TAG";
 pub static TAG_OFFSET: i64 = 128;

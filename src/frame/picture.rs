@@ -1,5 +1,5 @@
 /// Types of pictures used in APIC frames.
-#[derive(Show, FromPrimitive, PartialEq, Clone, Copy)]
+#[derive(Debug, FromPrimitive, PartialEq, Clone, Copy)]
 #[allow(missing_docs)]
 pub enum PictureType {
     Other,
@@ -26,7 +26,7 @@ pub enum PictureType {
 }
 
 /// A structure representing an ID3 picture frame's contents.
-#[derive(Show, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Picture {
     /// The picture's MIME type.
     pub mime_type: String,

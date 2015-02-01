@@ -64,14 +64,14 @@ impl FrameStream for FrameV4 {
             content_size += 4;
         }
 
-        try!(writer.write(frame.id[..4].as_bytes()));
-        try!(writer.write(util::u32_to_bytes(util::synchsafe(content_size)).as_slice()));
-        try!(writer.write(frame.flags.to_bytes(0x4).as_slice()));
+        try!(writer.write_all(frame.id[..4].as_bytes()));
+        try!(writer.write_all(util::u32_to_bytes(util::synchsafe(content_size)).as_slice()));
+        try!(writer.write_all(&frame.flags.to_bytes(0x4)[]));
         if frame.flags.data_length_indicator {
             debug!("[{}] adding data length indicator", frame.id);
-            try!(writer.write(util::u32_to_bytes(util::synchsafe(decompressed_size)).as_slice()));
+            try!(writer.write_all(&util::u32_to_bytes(util::synchsafe(decompressed_size))[]));
         }
-        try!(writer.write(content_bytes.as_slice()));
+        try!(writer.write_all(&content_bytes));
 
         Ok(10 + content_size)
     }
