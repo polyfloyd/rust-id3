@@ -3,6 +3,7 @@ use self::Content::{
     LyricsContent, PictureContent, UnknownContent
 };
 
+#[derive(Debug)]
 /// The decoded contents of a frame.
 pub enum Content {
     /// A value containing the parsed contents of a text frame.
