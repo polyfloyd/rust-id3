@@ -1112,7 +1112,7 @@ impl<'a> ID3Tag {
         match self.get_frame_by_id(id) {
             Some(frame) => {
                 match frame.content {
-                    TextContent(ref text) => text.as_slice().parse::<usize>(),
+                    TextContent(ref text) => text.as_slice().parse::<usize>().ok(),
                     _ => None
                 }
             },
@@ -1163,16 +1163,16 @@ impl<'a> ID3Tag {
 
                         let total_tracks = if split.len() == 2 {
                             match split[1].parse::<u32>() {
-                                Some(total_tracks) => Some(total_tracks),
-                                None => return None
+                                Ok(total_tracks) => Some(total_tracks),
+                                Err(_) => return None
                             }
                         } else {
                             None
                         };
 
                         match split[0].parse::<u32>() {
-                            Some(track) => Some((track, total_tracks)),
-                            None => None
+                            Ok(track) => Some((track, total_tracks)),
+                            Err(_) => None
                         }
                     },
                     _ => None
