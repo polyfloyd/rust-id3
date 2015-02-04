@@ -1,3 +1,5 @@
+#![feature(core, collections)]
+
 extern crate id3;
 
 use id3::{ID3Tag, Frame, Encoding};
