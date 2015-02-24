@@ -26,7 +26,7 @@ impl FrameStream for FrameV2 {
 
         try!(writer.write_all(frame.id[..3].as_bytes()));
         try!(writer.write_all(&util::u32_to_bytes(content_size)[1..4]));
-        try!(writer.write_all(&content_bytes[]));
+        try!(writer.write_all(&content_bytes[..]));
 
         Ok(6 + content_size)
     }

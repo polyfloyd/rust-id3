@@ -1,7 +1,8 @@
 extern crate std;
+extern crate rand;
 
 use phf;
-use std::rand::{self, Rng};
+use self::rand::Rng;
 use frame::Encoding;
 use std::mem::transmute;
 

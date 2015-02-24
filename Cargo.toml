@@ -5,8 +5,9 @@ authors = ["James Hurst <jamesrhurst@users.noreply.github.com>"]
 
 [dependencies]
 log = "*"
-phf_mac = "*"
+phf_macros = "*"
 phf = "*"
+rand = "*"
 
 [dependencies.audiotag]
 git = "https://github.com/jamesrhurst/rust-audiotag.git"

@@ -446,7 +446,7 @@ impl<'a> ID3Tag {
     /// assert_eq!(tag.get_frame_by_id("TCON").unwrap().content.text().as_slice(), "Metal");
     /// ```
     #[inline]
-    pub fn add_text_frame<K: IntoCow<'a, String, str>, V: IntoCow<'a, String, str>>(&mut self, id: K, text: V) {
+    pub fn add_text_frame<K: IntoCow<'a, str>, V: IntoCow<'a, str>>(&mut self, id: K, text: V) {
         let encoding = self.default_encoding();
         self.add_text_frame_enc(id, text, encoding);
     }
@@ -462,7 +462,7 @@ impl<'a> ID3Tag {
     /// tag.add_text_frame_enc("TRCK", "1/13", UTF16);
     /// assert_eq!(tag.get_frame_by_id("TRCK").unwrap().content.text().as_slice(), "1/13");
     /// ```
-    pub fn add_text_frame_enc<K: IntoCow<'a, String, str>, V: IntoCow<'a, String, str>>(&mut self, id: K, text: V, encoding: Encoding) {
+    pub fn add_text_frame_enc<K: IntoCow<'a, str>, V: IntoCow<'a, str>>(&mut self, id: K, text: V, encoding: Encoding) {
         let id = id.into_cow().into_owned();
 
         self.remove_frames_by_id(id.as_slice());
@@ -492,7 +492,7 @@ impl<'a> ID3Tag {
     pub fn remove_frame_by_uuid(&mut self, uuid: &[u8]) {
         let mut modified_offset = self.modified_offset;
         {
-            let mut set_modified_offset = |&mut: offset: u32| {
+            let mut set_modified_offset = |offset: u32| {
                 if offset != 0 {
                     modified_offset = min(modified_offset, offset);
                 }
@@ -528,7 +528,7 @@ impl<'a> ID3Tag {
     pub fn remove_frames_by_id(&mut self, id: &str) {
         let mut modified_offset = self.modified_offset;
         {
-            let mut set_modified_offset = |&mut: offset: u32| {
+            let mut set_modified_offset = |offset: u32| {
                 if offset != 0 {
                     modified_offset = min(modified_offset, offset);
                 }
@@ -611,7 +611,7 @@ impl<'a> ID3Tag {
     /// assert!(tag.txxx().contains(&("key2".to_string(), "value2".to_string())));
     /// ```
     #[inline]
-    pub fn add_txxx<K: IntoCow<'a, String, str>, V: IntoCow<'a, String, str>>(&mut self, key: K, value: V) {
+    pub fn add_txxx<K: IntoCow<'a, str>, V: IntoCow<'a, str>>(&mut self, key: K, value: V) {
         let encoding = self.default_encoding();
         self.add_txxx_enc(key, value, encoding);
     }
@@ -632,7 +632,7 @@ impl<'a> ID3Tag {
     /// assert!(tag.txxx().contains(&("key1".to_string(), "value1".to_string())));
     /// assert!(tag.txxx().contains(&("key2".to_string(), "value2".to_string())));
     /// ```
-    pub fn add_txxx_enc<K: IntoCow<'a, String, str>, V: IntoCow<'a, String, str>>(&mut self, key: K, value: V, encoding: Encoding) {
+    pub fn add_txxx_enc<K: IntoCow<'a, str>, V: IntoCow<'a, str>>(&mut self, key: K, value: V, encoding: Encoding) {
         let key = key.into_cow().into_owned();
 
         self.remove_txxx(Some(key.as_slice()), None);
@@ -759,7 +759,7 @@ impl<'a> ID3Tag {
     /// assert_eq!(tag.pictures()[0].mime_type.as_slice(), "image/png");
     /// ```
     #[inline]
-    pub fn add_picture<T: IntoCow<'a, String, str>>(&mut self, mime_type: T, picture_type: PictureType, data: Vec<u8>) {
+    pub fn add_picture<T: IntoCow<'a, str>>(&mut self, mime_type: T, picture_type: PictureType, data: Vec<u8>) {
         self.add_picture_enc(mime_type, picture_type, "", data, Encoding::Latin1);
     }
 
@@ -778,7 +778,7 @@ impl<'a> ID3Tag {
     /// assert_eq!(tag.pictures().len(), 1);
     /// assert_eq!(tag.pictures()[0].mime_type.as_slice(), "image/png");
     /// ```
-    pub fn add_picture_enc<S: IntoCow<'a, String, str>, T: IntoCow<'a, String, str>>(&mut self, mime_type: S, picture_type: PictureType, description: T, data: Vec<u8>, encoding: Encoding) {
+    pub fn add_picture_enc<S: IntoCow<'a, str>, T: IntoCow<'a, str>>(&mut self, mime_type: S, picture_type: PictureType, description: T, data: Vec<u8>, encoding: Encoding) {
         self.remove_picture_type(picture_type);
 
         let mut frame = Frame::with_version(self.picture_id(), self.version[0]);
@@ -893,7 +893,7 @@ impl<'a> ID3Tag {
     /// assert!(tag.comments().contains(&("key2".to_string(), "value2".to_string())));
     /// ```
     #[inline]
-    pub fn add_comment<K: IntoCow<'a, String, str>, V: IntoCow<'a, String, str>>(&mut self, description: K, text: V) {
+    pub fn add_comment<K: IntoCow<'a, str>, V: IntoCow<'a, str>>(&mut self, description: K, text: V) {
         let encoding = self.default_encoding();
         self.add_comment_enc("eng", description, text, encoding);
     }
@@ -914,7 +914,7 @@ impl<'a> ID3Tag {
     /// assert!(tag.comments().contains(&("key1".to_string(), "value1".to_string())));
     /// assert!(tag.comments().contains(&("key2".to_string(), "value2".to_string())));
     /// ```
-    pub fn add_comment_enc<L: IntoCow<'a, String, str>, K: IntoCow<'a, String, str>, V: IntoCow<'a, String, str>>(&mut self, lang: L, description: K, text: V, encoding: Encoding) {
+    pub fn add_comment_enc<L: IntoCow<'a, str>, K: IntoCow<'a, str>, V: IntoCow<'a, str>>(&mut self, lang: L, description: K, text: V, encoding: Encoding) {
         let description = description.into_cow().into_owned();
 
         self.remove_comment(Some(description.as_slice()), None);
@@ -1009,7 +1009,7 @@ impl<'a> ID3Tag {
     /// assert_eq!(tag.artist().unwrap().as_slice(), "artist");
     /// ```
     #[inline]
-    pub fn set_artist_enc<T: IntoCow<'a, String, str>>(&mut self, artist: T, encoding: Encoding) {
+    pub fn set_artist_enc<T: IntoCow<'a, str>>(&mut self, artist: T, encoding: Encoding) {
         let id = self.artist_id();
         self.add_text_frame_enc(id, artist, encoding);
     }
@@ -1026,7 +1026,7 @@ impl<'a> ID3Tag {
     /// assert_eq!(tag.album_artist().unwrap().as_slice(), "album artist");
     /// ```
     #[inline]
-    pub fn set_album_artist_enc<T: IntoCow<'a, String, str>>(&mut self, album_artist: T, encoding: Encoding) {
+    pub fn set_album_artist_enc<T: IntoCow<'a, str>>(&mut self, album_artist: T, encoding: Encoding) {
         self.remove_frames_by_id("TSOP");
         let id = self.album_artist_id();
         self.add_text_frame_enc(id, album_artist, encoding);
@@ -1044,7 +1044,7 @@ impl<'a> ID3Tag {
     /// assert_eq!(tag.album().unwrap().as_slice(), "album");
     /// ```
     #[inline]
-    pub fn set_album_enc<T: IntoCow<'a, String, str>>(&mut self, album: T, encoding: Encoding) {
+    pub fn set_album_enc<T: IntoCow<'a, str>>(&mut self, album: T, encoding: Encoding) {
         let id = self.album_id();
         self.add_text_frame_enc(id, album, encoding);
     }
@@ -1061,7 +1061,7 @@ impl<'a> ID3Tag {
     /// assert_eq!(tag.title().unwrap().as_slice(), "title");
     /// ```
     #[inline]
-    pub fn set_title_enc<T: IntoCow<'a, String, str>>(&mut self, title: T, encoding: Encoding) {
+    pub fn set_title_enc<T: IntoCow<'a, str>>(&mut self, title: T, encoding: Encoding) {
         self.remove_frames_by_id("TSOT");
         let id = self.title_id();
         self.add_text_frame_enc(id, title, encoding);
@@ -1079,7 +1079,7 @@ impl<'a> ID3Tag {
     /// assert_eq!(tag.genre().unwrap().as_slice(), "genre");
     /// ```
     #[inline]
-    pub fn set_genre_enc<T: IntoCow<'a, String, str>>(&mut self, genre: T, encoding: Encoding) {
+    pub fn set_genre_enc<T: IntoCow<'a, str>>(&mut self, genre: T, encoding: Encoding) {
         let id = self.genre_id();
         self.add_text_frame_enc(id, genre, encoding);
     }
@@ -1237,7 +1237,7 @@ impl<'a> ID3Tag {
     /// tag.set_lyrics_enc("eng", "description", "lyrics", UTF16);
     /// assert_eq!(tag.lyrics().unwrap().as_slice(), "lyrics");
     /// ```
-    pub fn set_lyrics_enc<L: IntoCow<'a, String, str>, K: IntoCow<'a, String, str>, V: IntoCow<'a, String, str>>(&mut self, lang: L, description: K, text: V, encoding: Encoding) {
+    pub fn set_lyrics_enc<L: IntoCow<'a, str>, K: IntoCow<'a, str>, V: IntoCow<'a, str>>(&mut self, lang: L, description: K, text: V, encoding: Encoding) {
         let id = self.lyrics_id();
         self.remove_frames_by_id(id);
 
@@ -1401,7 +1401,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
 
             bytes_written += match data_cache.get(&frame.uuid) {
                 Some(data) => { 
-                    try!(writer.write_all(&data[]));
+                    try!(writer.write_all(&data[..]));
                     data.len() as u32
                 },
                 None => try!(frame.write_to(writer))
@@ -1463,7 +1463,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
         self.write_to(&mut file).unwrap();
         
         match data_opt {
-            Some(data) => file.write_all(&data[]).unwrap(),
+            Some(data) => file.write_all(&data[..]).unwrap(),
             None => {}
         }
 
@@ -1481,7 +1481,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
         // remove any old frames that have the tag_alter_presevation flag
         let mut modified_offset = self.modified_offset;
         {
-            let mut set_modified_offset = |&mut: offset: u32| {
+            let mut set_modified_offset = |offset: u32| {
                 if offset != 0 {
                     modified_offset = min(modified_offset, offset);
                 }
@@ -1519,7 +1519,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
                     frame.offset = offset;
                     offset += match data_cache.get(&frame.uuid) {
                         Some(data) => { 
-                            try!(writer.write_all(&data[]));
+                            try!(writer.write_all(&data[..]));
                             data.len() as u32
                         },
                         None => try!(frame.write_to(&mut writer))
@@ -1551,7 +1551,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
     }
 
     #[inline]
-    fn set_artist<T: IntoCow<'a, String, str>>(&mut self, artist: T) {
+    fn set_artist<T: IntoCow<'a, str>>(&mut self, artist: T) {
         let encoding = self.default_encoding();
         self.set_artist_enc(artist, encoding);
     }
@@ -1568,7 +1568,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
     }
 
     #[inline]
-    fn set_album_artist<T: IntoCow<'a, String, str>>(&mut self, album_artist: T) {
+    fn set_album_artist<T: IntoCow<'a, str>>(&mut self, album_artist: T) {
         let encoding = self.default_encoding();
         self.set_album_artist_enc(album_artist, encoding);
     }
@@ -1584,7 +1584,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
         self.text_for_frame_id(self.album_id())
     }
 
-    fn set_album<T: IntoCow<'a, String, str>>(&mut self, album: T) {
+    fn set_album<T: IntoCow<'a, str>>(&mut self, album: T) {
         let encoding = self.default_encoding();
         self.set_album_enc(album, encoding);
     }
@@ -1602,7 +1602,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
     }
 
     #[inline]
-    fn set_title<T: IntoCow<'a, String, str>>(&mut self, title: T) {
+    fn set_title<T: IntoCow<'a, str>>(&mut self, title: T) {
         let encoding = self.default_encoding();
         self.set_title_enc(title, encoding);
     }
@@ -1619,7 +1619,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
     }
 
     #[inline]
-    fn set_genre<T: IntoCow<'a, String, str>>(&mut self, genre: T) {
+    fn set_genre<T: IntoCow<'a, str>>(&mut self, genre: T) {
         let encoding = self.default_encoding();
         self.set_genre_enc(genre, encoding);
     }
@@ -1675,7 +1675,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
     }
 
     #[inline]
-    fn set_lyrics<T: IntoCow<'a, String, str>>(&mut self, text: T) {
+    fn set_lyrics<T: IntoCow<'a, str>>(&mut self, text: T) {
         let encoding = self.default_encoding();
         self.set_lyrics_enc("eng", text, "", encoding);
     }
@@ -1687,7 +1687,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
     }
 
     #[inline]
-    fn set_picture<T: IntoCow<'a, String, str>>(&mut self, mime_type: T, data: Vec<u8>) {
+    fn set_picture<T: IntoCow<'a, str>>(&mut self, mime_type: T, data: Vec<u8>) {
         self.remove_picture();
         self.add_picture(mime_type, PictureType::Other, data);
     }

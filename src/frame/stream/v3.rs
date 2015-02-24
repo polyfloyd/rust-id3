@@ -56,12 +56,12 @@ impl FrameStream for FrameV3 {
         }
 
         try!(writer.write_all(frame.id[..4].as_bytes()));
-        try!(writer.write_all(&util::u32_to_bytes(content_size)[]));
-        try!(writer.write_all(&frame.flags.to_bytes(0x3)[]));
+        try!(writer.write_all(&util::u32_to_bytes(content_size)[..]));
+        try!(writer.write_all(&frame.flags.to_bytes(0x3)[..]));
         if frame.flags.compression {
-            try!(writer.write_all(&util::u32_to_bytes(decompressed_size)[]));
+            try!(writer.write_all(&util::u32_to_bytes(decompressed_size)[..]));
         }
-        try!(writer.write_all(&content_bytes[]));
+        try!(writer.write_all(&content_bytes[..]));
 
         Ok(10 + content_size)
     }

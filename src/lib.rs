@@ -42,17 +42,14 @@
 #![crate_type = "rlib"]
 #![warn(missing_docs)]
 #![feature(plugin)]
-#![feature(core, io, collections, rand, rustc_private)]
+#![plugin(phf_macros)]
+#![feature(core, old_io, collections, rustc_private, concat_idents, old_path)]
 
 #[macro_use] 
 extern crate log;
 
-#[macro_use]
-#[plugin]
-extern crate phf_mac;
 extern crate phf;
-
-extern crate audiotag; 
+extern crate audiotag;
 
 pub use self::audiotag::{AudioTag, TagResult, TagError, ErrorKind};
 pub use tag::ID3Tag;
