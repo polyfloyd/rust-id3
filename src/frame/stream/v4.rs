@@ -56,7 +56,7 @@ impl FrameStream for FrameV4 {
 
         if frame.flags.compression {
             debug!("[{}] compressing frame content", frame.id);
-            content_bytes = flate::deflate_bytes_zlib(content_bytes.as_slice()).unwrap().as_slice().to_vec();
+            content_bytes = flate::deflate_bytes_zlib(content_bytes.as_slice()).as_slice().to_vec();
             content_size = content_bytes.len() as u32;
         }
 
