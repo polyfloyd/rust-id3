@@ -6,6 +6,8 @@ use audiotag::{TagResult, TagError};
 use audiotag::ErrorKind::UnsupportedFeatureError;
 use util;
 
+use std::old_io::{Reader, Writer};
+
 pub struct FrameV4;
 impl FrameStream for FrameV4 {
     fn read(reader: &mut Reader, _: Option<FrameV4>) -> TagResult<Option<(u32, Frame)>> {

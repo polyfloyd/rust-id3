@@ -1,7 +1,8 @@
 extern crate std;
 
 use std::cmp::min;
-use std::old_io::{File, Open, Truncate, Write, SeekSet, SeekCur};
+use std::old_path::Path;
+use std::old_io::{File, Open, Truncate, Write, SeekSet, SeekCur, Reader, Writer, Seek};
 use std::collections::HashMap;
 use std::borrow::IntoCow;
 
@@ -1412,7 +1413,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
         self.modified_offset = self.offset;
 
         // write padding
-        for _ in range(0, PADDING_BYTES) {
+        for _ in 0..PADDING_BYTES {
             try!(writer.write_u8(0));
         }
 
@@ -1528,7 +1529,7 @@ impl<'a> AudioTag<'a> for ID3Tag {
             }
 
             if self.offset > offset {
-                for _ in range(offset, self.offset) {
+                for _ in offset..self.offset {
                     try!(writer.write_u8(0));
                 }
             }

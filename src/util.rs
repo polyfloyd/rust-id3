@@ -82,9 +82,8 @@ pub fn string_from_utf16le(data: &[u8]) -> Option<String> {
         String::from_utf16(&buf[..data.len() / 2]).ok()
     } else {
         let mut buf: Vec<u16> = Vec::with_capacity(data.len() / 2);
-        let it = std::iter::range_step(0, data.len(), 2);
 
-        for i in it {
+        for i in (0..data.len()).step_by(2) {
             buf.push(data[i] as u16 | (data[i + 1] as u16) << 8);
         }
 
@@ -103,9 +102,8 @@ pub fn string_from_utf16be(data: &[u8]) -> Option<String> {
         String::from_utf16(&buf[..data.len() / 2]).ok()
     } else {
         let mut buf: Vec<u16> = Vec::with_capacity(data.len() / 2);
-        let it = std::iter::range_step(0, data.len(), 2);
 
-        for i in it {
+        for i in (0..data.len()).step_by(2) {
             buf.push((data[i] as u16) << 8 | data[i + 1] as u16);
         }
 

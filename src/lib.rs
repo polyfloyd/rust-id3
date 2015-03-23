@@ -4,6 +4,7 @@
 //!
 //! ```no_run
 //! use id3::{ID3Tag, AudioTag};
+//! use std::old_path::Path;
 //!
 //! let mut tag: ID3Tag = AudioTag::read_from_path(&Path::new("music.mp3")).unwrap();
 //!
@@ -23,6 +24,7 @@
 //! use id3::{ID3Tag, AudioTag, Frame};
 //! use id3::Content::TextContent;
 //! use id3::Encoding::UTF8;
+//! use std::old_path::Path;
 //!
 //! let mut tag = ID3Tag::with_version(4);
 //! 

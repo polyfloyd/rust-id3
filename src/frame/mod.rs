@@ -2,6 +2,7 @@ extern crate std;
 extern crate flate;
 
 use std::borrow::IntoCow;
+use std::old_io::{Reader, Writer};
 
 pub use self::encoding::Encoding;
 pub use self::content::Content;

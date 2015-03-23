@@ -1,6 +1,8 @@
 use frame::Frame;
 use audiotag::TagResult;
 
+use std::old_io::{Reader, Writer};
+
 pub use self::v2::FrameV2;
 pub use self::v3::FrameV3;
 pub use self::v4::FrameV4;

@@ -3,6 +3,8 @@ use frame::Frame;
 use audiotag::TagResult;
 use util;
 
+use std::old_io::{Reader, Writer};
+
 pub struct FrameV2;
 impl FrameStream for FrameV2 {
     fn read(reader: &mut Reader, _: Option<FrameV2>) -> TagResult<Option<(u32, Frame)>> {
