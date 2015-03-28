@@ -94,14 +94,14 @@ impl<R: Reader + Seek> ID3v1Helpers for R {
 #[inline]
 pub fn probe_tag<R: Reader + Seek>(reader: &mut R) -> IoResult<bool> {
     let tag = try!(reader.read_from_end(TAG.len(), TAG_OFFSET));
-    Ok(TAG == tag.as_slice())
+    Ok(TAG == &tag[..])
 }
 
 /// Checks for the existence of the bytes denoting an ID3v1 extended metadata tag.
 #[inline]
 pub fn probe_xtag<R: Reader + Seek>(reader: &mut R) -> IoResult<bool> {
     let xtag = try!(reader.read_from_end(TAGPLUS.len(), TAGPLUS_OFFSET));
-    Ok(TAGPLUS == xtag.as_slice())
+    Ok(TAGPLUS == &xtag[..])
 }
 
 pub fn read<R: Reader + Seek>(reader: &mut R) -> IoResult<ID3v1> {
@@ -109,7 +109,7 @@ pub fn read<R: Reader + Seek>(reader: &mut R) -> IoResult<ID3v1> {
         ($prop:expr, $len:ident, $offset:ident) => {
             {
                 let mut string = $prop.or(Some(String::new())).unwrap();
-                string.push_str(try!(reader.read_str($len, $offset)).as_slice());
+                string.push_str(&try!(reader.read_str($len, $offset))[..]);
                 $prop = if string.is_empty() {
                     None
                 } else {

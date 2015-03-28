@@ -100,7 +100,7 @@ impl Content {
     #[inline]
     pub fn unknown(&self) -> &[u8] {
         match *self {
-            UnknownContent(ref data) => data.as_slice(),
+            UnknownContent(ref data) => &data[..],
             _ => panic!("called `Content::unknown()` on a non `UnknownContent` value") 
         }
     }

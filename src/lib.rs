@@ -3,6 +3,7 @@
 //! # Modifying an existing tag
 //!
 //! ```no_run
+//! #![feature(old_path)]
 //! use id3::{ID3Tag, AudioTag};
 //! use std::old_path::Path;
 //!
@@ -20,6 +21,7 @@
 //! # Creating a new tag
 //!
 //! ```no_run
+//! #![feature(old_path)]
 //! // you need to use AudioTag in order to use the trait features
 //! use id3::{ID3Tag, AudioTag, Frame};
 //! use id3::Content::TextContent;
@@ -45,7 +47,7 @@
 #![warn(missing_docs)]
 #![feature(plugin)]
 #![plugin(phf_macros)]
-#![feature(core, old_io, collections, rustc_private, concat_idents, old_path)]
+#![feature(core, old_io, collections, rustc_private, concat_idents, old_path, into_cow, step_by, str_char)]
 
 #[macro_use] 
 extern crate log;

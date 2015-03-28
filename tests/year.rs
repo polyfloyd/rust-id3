@@ -1,4 +1,4 @@
-#![feature(core, collections)]
+#![feature(collections)]
 
 extern crate id3;
 
@@ -18,7 +18,7 @@ fn utf8() {
     let frame = tag.get_frame_by_id(ID).unwrap();
     
     assert_eq!(tag.year().unwrap(), YEAR);
-    assert_eq!(frame.content.text().as_slice(), YEARSTR);
+    assert_eq!(&frame.content.text()[..], YEARSTR);
 
     let mut data: Vec<u8> = Vec::new();
     data.push(Encoding::UTF8 as u8);
@@ -33,7 +33,7 @@ fn utf8_invalid() {
     let mut data = Vec::new();
     data.push(Encoding::UTF8 as u8);
     data.push_all(INVALID.as_bytes());
-    frame.parse_data(data.as_slice()).unwrap();
+    frame.parse_data(&data[..]).unwrap();
     tag.add_frame(frame);
     assert!(tag.year().is_none());
 }
@@ -48,7 +48,7 @@ fn utf16() {
     let frame = tag.get_frame_by_id(ID).unwrap();
 
     assert_eq!(tag.year().unwrap(), YEAR);
-    assert_eq!(frame.content.text().as_slice(), YEARSTR);
+    assert_eq!(&frame.content.text()[..], YEARSTR);
 
     let mut data: Vec<u8> = Vec::new();
     data.push(Encoding::UTF16 as u8);
@@ -63,7 +63,7 @@ fn utf16_invalid() {
     let mut data = Vec::new();
     data.push(Encoding::UTF16 as u8);
     data.extend(id3::util::string_to_utf16(INVALID).into_iter());
-    frame.parse_data(data.as_slice()).unwrap();
+    frame.parse_data(&data[..]).unwrap();
     tag.add_frame(frame);
     assert!(tag.year().is_none());
 }
@@ -78,7 +78,7 @@ fn utf16be() {
     let frame = tag.get_frame_by_id(ID).unwrap();
 
     assert_eq!(tag.year().unwrap(), YEAR);
-    assert_eq!(frame.content.text().as_slice(), YEARSTR);
+    assert_eq!(&frame.content.text()[..], YEARSTR);
 
     let mut data: Vec<u8> = Vec::new();
     data.push(Encoding::UTF16BE as u8);
@@ -93,7 +93,7 @@ fn utf16be_invalid() {
     let mut data = Vec::new();
     data.push(Encoding::UTF16BE as u8);
     data.extend(id3::util::string_to_utf16be(INVALID).into_iter());
-    frame.parse_data(data.as_slice()).unwrap();
+    frame.parse_data(&data[..]).unwrap();
     tag.add_frame(frame);
     assert!(tag.year().is_none());
 }

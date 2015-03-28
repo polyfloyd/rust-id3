@@ -46,7 +46,7 @@ impl FrameStream for FrameV4 {
         }
 
         let data = try!(reader.read_exact(read_size as usize));
-        try!(frame.parse_data(data.as_slice()));
+        try!(frame.parse_data(&data[..]));
 
         Ok(Some((10 + content_size, frame)))
     }
@@ -58,7 +58,7 @@ impl FrameStream for FrameV4 {
 
         if frame.flags.compression {
             debug!("[{}] compressing frame content", frame.id);
-            content_bytes = flate::deflate_bytes_zlib(content_bytes.as_slice()).as_slice().to_vec();
+            content_bytes = flate::deflate_bytes_zlib(&content_bytes[..])[..].to_vec();
             content_size = content_bytes.len() as u32;
         }
 
@@ -67,7 +67,7 @@ impl FrameStream for FrameV4 {
         }
 
         try!(writer.write_all(frame.id[..4].as_bytes()));
-        try!(writer.write_all(util::u32_to_bytes(util::synchsafe(content_size)).as_slice()));
+        try!(writer.write_all(&util::u32_to_bytes(util::synchsafe(content_size))[..]));
         try!(writer.write_all(&frame.flags.to_bytes(0x4)[..]));
         if frame.flags.data_length_indicator {
             debug!("[{}] adding data length indicator", frame.id);

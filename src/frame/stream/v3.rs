@@ -41,7 +41,7 @@ impl FrameStream for FrameV3 {
         }
         
         let data = try!(reader.read_exact(read_size as usize));
-        try!(frame.parse_data(data.as_slice()));
+        try!(frame.parse_data(&data));
 
         Ok(Some((10 + content_size, frame)))
     }
@@ -53,7 +53,7 @@ impl FrameStream for FrameV3 {
 
         if frame.flags.compression {
             debug!("[{}] compressing frame content", frame.id);
-            content_bytes = flate::deflate_bytes_zlib(content_bytes.as_slice()).as_slice().to_vec();
+            content_bytes = flate::deflate_bytes_zlib(&content_bytes[..])[..].to_vec();
             content_size = content_bytes.len() as u32 + 4;
         }
 

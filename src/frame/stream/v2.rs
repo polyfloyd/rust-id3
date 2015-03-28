@@ -17,7 +17,7 @@ impl FrameStream for FrameV2 {
         let read_size = ((sizebytes[0] as u32) << 16) | ((sizebytes[1] as u32) << 8) | sizebytes[2] as u32;
 
         let data = try!(reader.read_exact(read_size as usize));
-        try!(frame.parse_data(data.as_slice()));
+        try!(frame.parse_data(&data));
 
         Ok(Some((6 + read_size, frame)))
     }

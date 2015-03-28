@@ -84,12 +84,12 @@ pub struct Frame {
 impl PartialEq for Frame {
     #[inline]
     fn eq(&self, other: &Frame) -> bool {
-        self.uuid.as_slice() == other.uuid.as_slice()
+        &self.uuid[..] == &other.uuid[..]
     }
 
     #[inline]
     fn ne(&self, other: &Frame) -> bool {
-        self.uuid.as_slice() != other.uuid.as_slice()
+        &self.uuid[..] != &other.uuid[..]
     }
 }
 
@@ -210,7 +210,7 @@ impl<'a> Frame {
 
         if (self.version == 3 || self.version == 4) && version == 2 {
             // attempt to convert the id
-            self.id = match util::convert_id_3_to_2(self.id.as_slice()) {
+            self.id = match util::convert_id_3_to_2(&self.id[..]) {
                 Some(id) => id.to_string(),
                 None => {
                     debug!("no ID3v2.3 to ID3v2.3 mapping for {}", self.id);
@@ -219,7 +219,7 @@ impl<'a> Frame {
             }
         } else if self.version == 2 && (version == 3 || version == 4) {
             // attempt to convert the id
-            self.id = match util::convert_id_2_to_3(self.id.as_slice()) {
+            self.id = match util::convert_id_2_to_3(&self.id[..]) {
                 Some(id) => id.to_string(),
                 None => {
                     debug!("no ID3v2.2 to ID3v2.3 mapping for {}", self.id);
@@ -308,9 +308,9 @@ impl<'a> Frame {
         };
 
         let result = try!(parsers::decode(DecoderRequest { 
-            id: self.id.as_slice(), 
+            id: &self.id[..],
             data: match decompressed_opt {
-                Some(ref decompressed) => decompressed.as_slice(),
+                Some(ref decompressed) => &decompressed[..],
                 None => data
             }
         }));
@@ -325,7 +325,7 @@ impl<'a> Frame {
     #[inline]
     pub fn reparse(&mut self) -> TagResult<()> {
         let data = self.content_to_bytes();
-        self.parse_data(data.as_slice())
+        self.parse_data(&data[..])
     }
     // }}}
 
@@ -335,19 +335,19 @@ impl<'a> Frame {
     ///
     /// # Example
     /// ```
-    /// use id3::frame::{mod, Frame};
+    /// use id3::frame::{self, Frame};
     /// use id3::Content::{ExtendedTextContent, TextContent};
     ///
     /// let mut title_frame = Frame::new("TIT2");
     /// title_frame.content = TextContent("title".to_string());
-    /// assert_eq!(title_frame.text().unwrap().as_slice(), "title");
+    /// assert_eq!(&title_frame.text().unwrap()[..], "title");
     ///
     /// let mut txxx_frame = Frame::new("TXXX".to_string());
     /// txxx_frame.content = ExtendedTextContent(frame::ExtendedText { 
     ///     key: "key".to_string(), 
     ///     value: "value".to_string()
     /// });
-    /// assert_eq!(txxx_frame.text().unwrap().as_slice(), "key: value");
+    /// assert_eq!(&txxx_frame.text().unwrap()[..], "key: value");
     /// ```
     pub fn text(&self) -> Option<String> {
         match self.content {
@@ -364,7 +364,7 @@ impl<'a> Frame {
     /// Returns a string describing the frame type.
     #[inline]
     pub fn description(&self) -> &str {
-        util::frame_description(self.id.as_slice())
+        util::frame_description(&self.id[..])
     }
 }
  
@@ -414,7 +414,7 @@ mod tests {
         data.push(encoding as u8);
         data.extend(util::string_to_utf16(text).into_iter());
 
-        frame.parse_data(data.as_slice()).unwrap();
+        frame.parse_data(&data[..]).unwrap();
 
         let mut bytes = Vec::new();
         bytes.push_all(id.as_bytes());
@@ -438,7 +438,7 @@ mod tests {
         data.push(encoding as u8);
         data.extend(util::string_to_utf16(text).into_iter());
 
-        frame.parse_data(data.as_slice()).unwrap();
+        frame.parse_data(&data[..]).unwrap();
 
         let mut bytes = Vec::new();
         bytes.push_all(id.as_bytes());
@@ -466,7 +466,7 @@ mod tests {
         data.push(encoding as u8);
         data.extend(util::string_to_utf16(text).into_iter());
 
-        frame.parse_data(data.as_slice()).unwrap();
+        frame.parse_data(&data[..]).unwrap();
 
         let mut bytes = Vec::new();
         bytes.push_all(id.as_bytes());
