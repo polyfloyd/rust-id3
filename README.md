@@ -1,6 +1,6 @@
 #rust-id3 [![Build Status](https://travis-ci.org/jamesrhurst/rust-id3.svg)](https://travis-ci.org/jamesrhurst/rust-id3)
 
-An ID3 tag reader/writer. The `Tag` struct implements the [AudioTag](https://github.com/jamesrhurst/rust-audiotag) trait for reading, writing, and modification of common metadata elements.
+An ID3 tag reader/writer. 
 
 Documentation is available via Rust CI at [http://www.rust-ci.org/jamesrhurst/rust-id3/doc/id3/](http://www.rust-ci.org/jamesrhurst/rust-id3/doc/id3/).
 
