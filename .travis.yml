@@ -1,8 +1,8 @@
 language: rust
 
 env:
-    global:
-        - secure: BRECGZ9JZXzCbLMYuPCxJASmfSp6XNnIaIwjh3avuD1loq/bVEIySLYtSm6K/XXHpXcvsXeeRkaJ1OmHP8I9pw27mCVqy3X7JI32tWtDjJHygLZJ/GCRY3DSS+HdyxUiMvKMSXeOCvS4ePdzIjD4Ww5SkfjXF0J7FywmFQ8h9/c=
+  global:
+    - secure: l6L4c/XxVQOjmKTXWs9TjbiRNb9p8jspQvJV3pq91R9ebZxz8CUe2+0JAIDzVaVzSIxsiFFpesZ+/X2yZk9knr0pnZgibqZxy5JzvFUyUaugksIUfB8VB2tHSHipbsIJYxBA8K+knPvY/jH6Wv6EA0FbRHmkaFa1Mas6FRVGjnI=1
 
 script:
     - cargo build
