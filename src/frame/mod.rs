@@ -1,27 +1,17 @@
 extern crate std;
 extern crate flate;
 
-use std::borrow::IntoCow;
-use std::old_io::{Reader, Writer};
+use std::io::{Read, Write};
+use std::borrow::Cow;
 
 pub use self::encoding::Encoding;
 pub use self::content::Content;
-pub use self::flags::FrameFlags;
+pub use self::flags::Flags;
 pub use self::picture::{Picture, PictureType};
-
-use self::content::Content::{
-    TextContent, ExtendedTextContent, LinkContent, ExtendedLinkContent, CommentContent,
-    LyricsContent, UnknownContent
-};
 
 use self::stream::{FrameStream, FrameV2, FrameV3, FrameV4};
     
-use audiotag::{TagError, TagResult};
-use audiotag::ErrorKind::InvalidInputError;
-
-use util;
-use parsers;
-use parsers::{DecoderRequest, EncoderRequest};
+use parsers::{self, DecoderRequest, EncoderRequest};
 
 mod picture;
 mod encoding;
@@ -69,12 +59,10 @@ pub struct Frame {
     pub uuid: Vec<u8>,
     /// The frame identifier.
     pub id: String,
-    /// The major version of the tag which this frame belongs to.
-    version: u8,
-    /// The encoding to be used when converting this frame to bytes.
-    encoding: Encoding,
+    /// The preferred encoding to be used when converting this frame to bytes.
+    pub encoding: Encoding,
     /// The frame flags.
-    flags: FrameFlags,
+    flags: Flags,
     /// The parsed content of the frame.
     pub content: Content,
     /// The offset of this frame in the file from which it was loaded.
@@ -93,35 +81,20 @@ impl PartialEq for Frame {
     }
 }
 
-impl<'a> Frame {
+impl Frame {
     /// Creates a new ID3v2.3 frame with the specified identifier.
     #[inline]
-    pub fn new<T: IntoCow<'a, str>>(id: T) -> Frame {
+    pub fn new<T: Into<String>>(id: T) -> Frame {
         Frame { 
-            uuid: util::uuid(), id: id.into_cow().into_owned(), version: 3, encoding: Encoding::UTF16, 
-            flags: FrameFlags::new(), content: UnknownContent(Vec::new()), offset: 0 
+            uuid: ::util::uuid(), id: id.into(), encoding: Encoding::UTF16, 
+            flags: Flags::new(), content: Content::Unknown(Vec::new()), offset: 0 
         }
     }
-    
-    /// Creates a new frame with the specified identifier and version.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Frame;
-    ///
-    /// let frame = Frame::with_version("TALB".to_string(), 4);
-    /// assert_eq!(frame.version(), 4);
-    /// ```
-    pub fn with_version<T: IntoCow<'a, str>>(id: T, version: u8) -> Frame {
-        let mut frame = Frame::new(id);
-        frame.version = version;
-        frame
-    }
-
-    /// Returns an encoding compatible with the current version based on the requested encoding.
+   
+    /// Returns an encoding compatible with the version based on the requested encoding.
     #[inline]
-    fn compatible_encoding(&self, requested_encoding: Encoding) -> Encoding {
-        if self.version < 4 {
+    fn compatible_encoding(requested_encoding: Encoding, version: u8) -> Encoding {
+        if version < 4 {
             match requested_encoding {
                 Encoding::Latin1 => Encoding::Latin1,
                 _ => Encoding::UTF16, // if UTF16BE or UTF8 is requested, just return UTF16
@@ -133,19 +106,6 @@ impl<'a> Frame {
 
     // Getters/Setters
     #[inline]
-    /// Returns the encoding.
-    pub fn encoding(&self) -> Encoding {
-        self.encoding
-    }
-
-    #[inline]
-    /// Sets the encoding. If the encoding is not compatible with the frame version, another
-    /// encoding will be chosen.
-    pub fn set_encoding(&mut self, encoding: Encoding) {
-        self.encoding = self.compatible_encoding(encoding);
-    }
-
-    #[inline]
     /// Returns whether the compression flag is set.
     pub fn compression(&self) -> bool {
         self.flags.compression
@@ -155,9 +115,7 @@ impl<'a> Frame {
     /// Sets the compression flag. 
     pub fn set_compression(&mut self, compression: bool) {
         self.flags.compression = compression;
-        if compression && self.version >= 4 {
-            self.flags.data_length_indicator = true;
-        }
+        self.flags.data_length_indicator = compression;
     }
 
     #[inline]
@@ -184,80 +142,20 @@ impl<'a> Frame {
         self.flags.file_alter_preservation = file_alter_preservation;
     }
 
-    /// Returns the version of the tag which this frame belongs to.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Frame;
-    ///
-    /// let frame = Frame::with_version("USLT".to_string(), 4);
-    /// assert_eq!(frame.version(), 4)
-    /// ```
-    #[inline]
-    pub fn version(&self) -> u8 {
-        self.version
-    }
-
-    /// Sets the version of the tag. This converts the frame identifier from the previous version
-    /// to the corresponding frame identifier in the new version.
-    ///
-    /// Returns true if the conversion was successful. Returns false if the frame identifier could
-    /// not be converted.
-    pub fn set_version(&mut self, version: u8) -> bool {
-        if self.version == version || (self.version == 3 && version == 4) || (self.version == 4 && version == 3) {
-            return true;
-        }
-
-        if (self.version == 3 || self.version == 4) && version == 2 {
-            // attempt to convert the id
-            self.id = match util::convert_id_3_to_2(&self.id[..]) {
-                Some(id) => id.to_string(),
-                None => {
-                    debug!("no ID3v2.3 to ID3v2.3 mapping for {}", self.id);
-                    return false;
-                }
-            }
-        } else if self.version == 2 && (version == 3 || version == 4) {
-            // attempt to convert the id
-            self.id = match util::convert_id_2_to_3(&self.id[..]) {
-                Some(id) => id.to_string(),
-                None => {
-                    debug!("no ID3v2.2 to ID3v2.3 mapping for {}", self.id);
-                    return false;
-                }
-            };
-
-            // if the new version is v2.4 and the frame is compressed, we must enable the
-            // data_length_indicator flag
-            if version == 4 && self.flags.compression {
-                self.flags.data_length_indicator = true;
-            }
-        } else {
-            // not sure when this would ever occur but lets just say the conversion failed
-            return false;
-        }
-
-        let encoding = self.compatible_encoding(self.encoding);
-        self.set_encoding(encoding);
-
-        self.version = version;
-        true
-    }
-
     /// Generates a new uuid for this frame.
     ///
     /// # Example
     /// ```
     /// use id3::Frame;
     ///
-    /// let mut frame = Frame::new("TYER".to_string());
+    /// let mut frame = Frame::new("TYER");
     /// let prev_uuid = frame.uuid.clone();
     /// frame.generate_uuid();
     /// assert!(prev_uuid != frame.uuid);
     /// ```
     #[inline]
     pub fn generate_uuid(&mut self) {
-        self.uuid = util::uuid();
+        self.uuid = ::util::uuid();
     }
 
     /// Attempts to read a frame from the reader.
@@ -266,32 +164,32 @@ impl<'a> Frame {
     /// then `None` is returned.
     ///
     /// Only reading from version 2, 3, and 4 is supported. Attempting to read any other version
-    /// will return an `InvalidInputError`. 
+    /// will return an `InvalidInput`. 
     #[inline]
-    pub fn read_from(reader: &mut Reader, version: u8) -> TagResult<Option<(u32, Frame)>> {
+    pub fn read_from(reader: &mut Read, version: u8) -> ::Result<Option<(u32, Frame)>> {
         match version {
-            2 => FrameStream::read(reader, None::<FrameV2>),
-            3 => FrameStream::read(reader, None::<FrameV3>),
-            4 => FrameStream::read(reader, None::<FrameV4>),
-            _ =>  Err(TagError::new(InvalidInputError, "unsupported id3 tag version"))
+            2 => FrameV2::read(reader),
+            3 => FrameV3::read(reader),
+            4 => FrameV4::read(reader),
+            _ =>  Err(::Error::new(::ErrorKind::InvalidInput, "unsupported id3 tag version"))
         }
     }
 
     /// Attempts to write the frame to the writer.
     #[inline]
-    pub fn write_to(&self, writer: &mut Writer) -> TagResult<u32> {
-        match self.version {
-            2 => FrameStream::write(writer, self, None::<FrameV2>),
-            3 => FrameStream::write(writer, self, None::<FrameV3>),
-            4 => FrameStream::write(writer, self, None::<FrameV4>),
-            _ =>  Err(TagError::new(InvalidInputError, "unsupported id3 tag version"))
+    pub fn write_to(&self, writer: &mut Write, version: u8) -> ::Result<u32> {
+        match version {
+            2 => FrameV2::write(writer, self),
+            3 => FrameV3::write(writer, self),
+            4 => FrameV4::write(writer, self),
+            _ =>  Err(::Error::new(::ErrorKind::InvalidInput, "unsupported id3 tag version"))
         }
     }
   
     /// Creates a vector representation of the content suitable for writing to an ID3 tag.
     #[inline]
-    pub fn content_to_bytes(&self) -> Vec<u8> {
-        let request = EncoderRequest { version: self.version, encoding: self.encoding, content: &self.content };
+    pub fn content_to_bytes(&self, version: u8) -> Vec<u8> {
+        let request = EncoderRequest { version: version, encoding: Frame::compatible_encoding(self.encoding, version), content: &self.content };
         parsers::encode(request)
     }
 
@@ -300,7 +198,7 @@ impl<'a> Frame {
     /// true then decompression will be performed.
     ///
     /// Returns `Err` if the data is invalid for the frame type.
-    pub fn parse_data(&mut self, data: &[u8]) -> TagResult<()> {
+    pub fn parse_data(&mut self, data: &[u8]) -> ::Result<()> {
         let decompressed_opt = if self.flags.compression {
             Some(flate::inflate_bytes_zlib(data).unwrap())
         } else {
@@ -320,13 +218,6 @@ impl<'a> Frame {
 
         Ok(())
     }
-
-    /// Reparses the frame's data.
-    #[inline]
-    pub fn reparse(&mut self) -> TagResult<()> {
-        let data = self.content_to_bytes();
-        self.parse_data(&data[..])
-    }
     // }}}
 
     /// Returns a string representing the parsed content.
@@ -335,28 +226,27 @@ impl<'a> Frame {
     ///
     /// # Example
     /// ```
-    /// use id3::frame::{self, Frame};
-    /// use id3::Content::{ExtendedTextContent, TextContent};
+    /// use id3::frame::{self, Frame, Content};
     ///
     /// let mut title_frame = Frame::new("TIT2");
-    /// title_frame.content = TextContent("title".to_string());
+    /// title_frame.content = Content::Text("title".to_string());
     /// assert_eq!(&title_frame.text().unwrap()[..], "title");
     ///
-    /// let mut txxx_frame = Frame::new("TXXX".to_string());
-    /// txxx_frame.content = ExtendedTextContent(frame::ExtendedText { 
+    /// let mut txxx_frame = Frame::new("TXXX");
+    /// txxx_frame.content = Content::ExtendedText(frame::ExtendedText { 
     ///     key: "key".to_string(), 
     ///     value: "value".to_string()
     /// });
     /// assert_eq!(&txxx_frame.text().unwrap()[..], "key: value");
     /// ```
-    pub fn text(&self) -> Option<String> {
+    pub fn text(&self) -> Option<Cow<str>> {
         match self.content {
-            TextContent(ref content) => Some(content.clone()),
-            LinkContent(ref content) => Some(content.clone()), 
-            LyricsContent(ref content) => Some(content.text.clone()),
-            ExtendedTextContent(ref content) => Some(format!("{}: {}", content.key, content.value)), 
-            ExtendedLinkContent(ref content) => Some(format!("{}: {}", content.description, content.link)), 
-            CommentContent(ref content) => Some(format!("{}: {}", content.description, content.text)),
+            Content::Text(ref content) => Some(Cow::Borrowed(&content[..])),
+            Content::Link(ref content) => Some(Cow::Borrowed(&content[..])), 
+            Content::Lyrics(ref content) => Some(Cow::Borrowed(&content.text[..])),
+            Content::ExtendedText(ref content) => Some(Cow::Owned(format!("{}: {}", content.key, content.value))), 
+            Content::ExtendedLink(ref content) => Some(Cow::Owned(format!("{}: {}", content.description, content.link))), 
+            Content::Comment(ref content) => Some(Cow::Owned(format!("{}: {}", content.description, content.text))),
             _ => None
         }
     }
@@ -364,19 +254,26 @@ impl<'a> Frame {
     /// Returns a string describing the frame type.
     #[inline]
     pub fn description(&self) -> &str {
-        util::frame_description(&self.id[..])
+        ::util::frame_description(&self.id[..])
     }
 }
  
 // Tests {{{
 #[cfg(test)]
 mod tests {
-    use frame::{Frame, FrameFlags, Encoding};
-    use util;
+    use frame::{Frame, Flags, Encoding};
+    
+    fn u32_to_bytes(n: u32) -> Vec<u8> {
+        vec!(((n & 0xFF000000) >> 24) as u8, 
+             ((n & 0xFF0000) >> 16) as u8, 
+             ((n & 0xFF00) >> 8) as u8, 
+             (n & 0xFF) as u8
+            )
+    }
 
     #[test]
     fn test_frame_flags_to_bytes_v3() {
-        let mut flags = FrameFlags::new();
+        let mut flags = Flags::new();
         assert_eq!(flags.to_bytes(0x3), vec!(0x0, 0x0));
         flags.tag_alter_preservation = true;
         flags.file_alter_preservation = true;
@@ -389,7 +286,7 @@ mod tests {
 
     #[test]
     fn test_frame_flags_to_bytes_v4() {
-        let mut flags = FrameFlags::new();
+        let mut flags = Flags::new();
         assert_eq!(flags.to_bytes(0x4), vec!(0x0, 0x0));
         flags.tag_alter_preservation = true;
         flags.file_alter_preservation = true;
@@ -408,21 +305,21 @@ mod tests {
         let text = "album";
         let encoding = Encoding::UTF16;
 
-        let mut frame = Frame::with_version(id.to_string(), 2);
+        let mut frame = Frame::new(id);
 
         let mut data = Vec::new();
         data.push(encoding as u8);
-        data.extend(util::string_to_utf16(text).into_iter());
+        data.extend(::util::string_to_utf16(text).into_iter());
 
         frame.parse_data(&data[..]).unwrap();
 
         let mut bytes = Vec::new();
         bytes.push_all(id.as_bytes());
-        bytes.push_all(&util::u32_to_bytes(data.len() as u32)[1..]);
+        bytes.push_all(&u32_to_bytes(data.len() as u32)[1..]);
         bytes.extend(data.into_iter());
 
         let mut writer = Vec::new();
-        frame.write_to(&mut writer).unwrap();
+        frame.write_to(&mut writer, 2).unwrap();
         assert_eq!(writer, bytes);
     }
 
@@ -432,22 +329,22 @@ mod tests {
         let text = "album";
         let encoding = Encoding::UTF16;
 
-        let mut frame = Frame::with_version(id.to_string(), 4);
+        let mut frame = Frame::new(id);
 
         let mut data = Vec::new();
         data.push(encoding as u8);
-        data.extend(util::string_to_utf16(text).into_iter());
+        data.extend(::util::string_to_utf16(text).into_iter());
 
         frame.parse_data(&data[..]).unwrap();
 
         let mut bytes = Vec::new();
         bytes.push_all(id.as_bytes());
-        bytes.extend(util::u32_to_bytes(data.len() as u32).into_iter());
+        bytes.extend(u32_to_bytes(data.len() as u32).into_iter());
         bytes.push_all(&[0x00, 0x00]);
         bytes.extend(data.into_iter());
 
         let mut writer = Vec::new();
-        frame.write_to(&mut writer).unwrap();
+        frame.write_to(&mut writer, 3).unwrap();
         assert_eq!(writer, bytes);
     }
 
@@ -457,25 +354,25 @@ mod tests {
         let text = "album";
         let encoding = Encoding::UTF16;
 
-        let mut frame = Frame::with_version(id.to_string(), 4);
+        let mut frame = Frame::new(id);
 
         frame.flags.tag_alter_preservation = true;
         frame.flags.file_alter_preservation = true; 
 
         let mut data = Vec::new();
         data.push(encoding as u8);
-        data.extend(util::string_to_utf16(text).into_iter());
+        data.extend(::util::string_to_utf16(text).into_iter());
 
         frame.parse_data(&data[..]).unwrap();
 
         let mut bytes = Vec::new();
         bytes.push_all(id.as_bytes());
-        bytes.extend(util::u32_to_bytes(util::synchsafe(data.len() as u32)).into_iter());
+        bytes.extend(u32_to_bytes(::util::synchsafe(data.len() as u32)).into_iter());
         bytes.push_all(&[0x60, 0x00]);
         bytes.extend(data.into_iter());
 
         let mut writer = Vec::new();
-        frame.write_to(&mut writer).unwrap();
+        frame.write_to(&mut writer, 4).unwrap();
         assert_eq!(writer, bytes);
     }
 }

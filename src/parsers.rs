@@ -1,8 +1,4 @@
-use audiotag::{TagError, TagResult};
-use audiotag::ErrorKind::{InvalidInputError, StringDecodingError, UnsupportedFeatureError};
-
 use frame::{Encoding, Picture, PictureType, Content};
-use frame::Content::*;
 use util;
 
 /// The result of a successfully parsed frame.
@@ -35,19 +31,19 @@ pub struct EncoderRequest<'a> {
 /// Creates a vector representation of the request.
 pub fn encode(request: EncoderRequest) -> Vec<u8> {
     match request.content {
-        &TextContent(_) => text_to_bytes(request),
-        &ExtendedTextContent(_) => extended_text_to_bytes(request),
-        &LinkContent(_) => weblink_to_bytes(request),
-        &ExtendedLinkContent(_) => extended_weblink_to_bytes(request),
-        &LyricsContent(_) => lyrics_to_bytes(request),
-        &CommentContent(_) => comment_to_bytes(request),
-        &PictureContent(_) => picture_to_bytes(request),
-        &UnknownContent(ref data) => data.clone()
+        &Content::Text(_) => text_to_bytes(request),
+        &Content::ExtendedText(_) => extended_text_to_bytes(request),
+        &Content::Link(_) => weblink_to_bytes(request),
+        &Content::ExtendedLink(_) => extended_weblink_to_bytes(request),
+        &Content::Lyrics(_) => lyrics_to_bytes(request),
+        &Content::Comment(_) => comment_to_bytes(request),
+        &Content::Picture(_) => picture_to_bytes(request),
+        &Content::Unknown(ref data) => data.clone()
     }
 }
 
 /// Attempts to decode the request.
-pub fn decode(request: DecoderRequest) -> TagResult<DecoderResult> {
+pub fn decode(request: DecoderRequest) -> ::Result<DecoderResult> {
     match request.id {
         "APIC" => parse_apic_v3(request.data),
         "PIC" => parse_apic_v2(request.data),
@@ -64,7 +60,7 @@ pub fn decode(request: DecoderRequest) -> TagResult<DecoderResult> {
                 } 
             }
 
-            Ok(DecoderResult::new(Encoding::UTF16, UnknownContent(request.data.to_vec())))
+            Ok(DecoderResult::new(Encoding::UTF16, Content::Unknown(request.data.to_vec())))
         }
     }
 }
@@ -74,7 +70,7 @@ struct EncodingParams<'a> {
     delim_len: u8,
     string_func: Box<Fn(&mut Vec<u8>, &str) + 'a>
 }
-
+    
 macro_rules! encode_part {
     ($buf:ident, encoding($encoding:expr)) => { $buf.push($encoding as u8) };
     ($buf:ident, $params:ident, string($string:expr)) => { ($params.string_func)(&mut $buf, &$string[..]) };
@@ -206,7 +202,7 @@ impl<'a> DecodingParams<'a> {
 macro_rules! assert_data {
     ($bytes:ident) => {
         if $bytes.len() == 0 {
-            return Err(TagError::new(InvalidInputError, "frame does not contain any data"))
+            return Err(::Error::new(::ErrorKind::InvalidInput, "frame does not contain any data"))
         }
     }
 }
@@ -218,7 +214,7 @@ macro_rules! find_delim {
         } else {
             match util::find_delim($encoding, $bytes, $i) {
                 Some(i) => (i, i + util::delim_len($encoding)),
-                None => return Err(TagError::new(InvalidInputError, "delimiter not found"))
+                None => return Err(::Error::new(::ErrorKind::InvalidInput, "delimiter not found"))
             }
         }
     };
@@ -233,10 +229,10 @@ macro_rules! decode_part {
 
             match ($params.string_func)(&$bytes[start..end]) {
                 Some(string) => string,
-                None => return Err(TagError::new(
-                        StringDecodingError($bytes[start..end].to_vec()), 
+                None => return Err(::Error::new(
+                        ::ErrorKind::StringDecoding($bytes[start..end].to_vec()), 
                         match $params.encoding {
-                            Encoding::Latin1 | ::frame::Encoding::UTF8 => "string is not valid utf8",
+                            Encoding::Latin1 | Encoding::UTF8 => "string is not valid utf8",
                             Encoding::UTF16 => "string is not valid utf16",
                             Encoding::UTF16BE => "string is not valid utf16-be"
                         }))
@@ -246,7 +242,7 @@ macro_rules! decode_part {
     ($bytes:ident, $params:ident, $i:ident, fixed_string($len:expr)) => {
         {
             if $i + $len >= $bytes.len() {
-                return Err(TagError::new(InvalidInputError, "insufficient data"));
+                return Err(::Error::new(::ErrorKind::InvalidInput, "insufficient data"));
             }
 
             let start = $i;
@@ -268,7 +264,7 @@ macro_rules! decode_part {
             use std::num::FromPrimitive;
 
             if $i + 1 >= $bytes.len() {
-                return Err(TagError::new(InvalidInputError, "insufficient data"));
+                return Err(::Error::new(::ErrorKind::InvalidInput, "insufficient data"));
             }
 
             let start = $i;
@@ -276,7 +272,7 @@ macro_rules! decode_part {
 
             let picture_type: PictureType = match FromPrimitive::from_u8($bytes[start]) {
                 Some(t) => t,
-                None => return Err(TagError::new(InvalidInputError, "invalid picture type"))
+                None => return Err(::Error::new(::ErrorKind::InvalidInput, "invalid picture type"))
             };
             picture_type
         }
@@ -303,7 +299,7 @@ macro_rules! decode {
             let mut i = 1;
             Ok(DecoderResult { 
                 encoding: encoding, 
-                content: concat_idents!($result_type, Content)( $result_type {
+                content: Content::$result_type( $result_type {
                     $($field: decode_part!($bytes, params, i, $part ( $($params)* ) ),)+
                 })
             })
@@ -312,8 +308,8 @@ macro_rules! decode {
 }
 
 /// Attempts to parse the data as an ID3v2.2 picture frame.
-/// Returns a `PictureContent`.
-fn parse_apic_v2(data: &[u8]) -> TagResult<DecoderResult> {
+/// Returns a `Content::Picture`.
+fn parse_apic_v2(data: &[u8]) -> ::Result<DecoderResult> {
     assert_data!(data);
 
     let mut picture = Picture::new();
@@ -328,7 +324,7 @@ fn parse_apic_v2(data: &[u8]) -> TagResult<DecoderResult> {
         "JPG" => "image/jpeg".to_string(),
         other => {
             debug!("can't determine MIME type for `{}`", other);
-            return Err(TagError::new(UnsupportedFeatureError, 
+            return Err(::Error::new(::ErrorKind::UnsupportedFeature, 
                                      "can't determine MIME type for image format"))
         }
     }; 
@@ -337,54 +333,54 @@ fn parse_apic_v2(data: &[u8]) -> TagResult<DecoderResult> {
     picture.description = decode_part!(data, params, i, string(true));
     picture.data = decode_part!(data, params, i, bytes());
 
-    Ok(DecoderResult::new(encoding, PictureContent(picture)))
+    Ok(DecoderResult::new(encoding, Content::Picture(picture)))
 }
 
 /// Attempts to parse the data as an ID3v2.3/ID3v2.4 picture frame.
-/// Returns a `PictureContent`.
-fn parse_apic_v3(data: &[u8]) -> TagResult<DecoderResult> {
+/// Returns a `Content::Picture`.
+fn parse_apic_v3(data: &[u8]) -> ::Result<DecoderResult> {
     return decode!(data, Picture, mime_type: latin1(true), picture_type : picture_type(), 
                    description: string(true), data: bytes());
 }
 
 /// Attempts to parse the data as a comment frame.
-/// Returns a `CommentContent`.
-fn parse_comm(data: &[u8]) -> TagResult<DecoderResult> {
+/// Returns a `Content::Comment`.
+fn parse_comm(data: &[u8]) -> ::Result<DecoderResult> {
     return decode!(data, Comment, lang: fixed_string(3), description: string(true), 
                    text: string(false));
 }
 
 /// Attempts to parse the data as a text frame.
-/// Returns a `TextContent`.
-fn parse_text(data: &[u8]) -> TagResult<DecoderResult> {
+/// Returns a `Conetnt::Text`.
+fn parse_text(data: &[u8]) -> ::Result<DecoderResult> {
     assert_data!(data);
     let encoding = try_encoding!(data[0]);
     let params = DecodingParams::for_encoding(encoding);
     let mut i = 1;
-    Ok(DecoderResult::new(encoding, TextContent(decode_part!(data, params, i, string(false)))))
+    Ok(DecoderResult::new(encoding, Content::Text(decode_part!(data, params, i, string(false)))))
 }
 
 /// Attempts to parse the data as a user defined text frame.
-/// Returns an `ExtendedTextContent`.
-fn parse_txxx(data: &[u8]) -> TagResult<DecoderResult> {
+/// Returns an `Content::ExtendedText`.
+fn parse_txxx(data: &[u8]) -> ::Result<DecoderResult> {
     return decode!(data, ExtendedText, key: string(true), value: string(false));
 }
 
 /// Attempts to parse the data as a web link frame.
-/// Returns a `LinkContent`.
-fn parse_weblink(data: &[u8]) -> TagResult<DecoderResult> {
-    Ok(DecoderResult::new(Encoding::Latin1, LinkContent(try_string!(data.to_vec()))))
+/// Returns a `Content::Link`.
+fn parse_weblink(data: &[u8]) -> ::Result<DecoderResult> {
+    Ok(DecoderResult::new(Encoding::Latin1, Content::Link(try_string!(data.to_vec()))))
 }
 
 /// Attempts to parse the data as a user defined web link frame.
-/// Returns an `ExtendedLinkContent`.
-fn parse_wxxx(data: &[u8]) -> TagResult<DecoderResult> {
+/// Returns an `Content::ExtendedLink`.
+fn parse_wxxx(data: &[u8]) -> ::Result<DecoderResult> {
     return decode!(data, ExtendedLink, description: string(true), link: string(false));
 }
 
 /// Attempts to parse the data as an unsynchronized lyrics text frame.
-/// Returns a `LyricsContent`.
-fn parse_uslt(data: &[u8]) -> TagResult<DecoderResult> {
+/// Returns a `Content::Lyrics`.
+fn parse_uslt(data: &[u8]) -> ::Result<DecoderResult> {
     return decode!(data, Lyrics, lang: fixed_string(3), description: string(true), 
                    text: string(false));
 }
@@ -397,10 +393,7 @@ mod tests {
     use parsers::{DecoderRequest, EncoderRequest};
     use util;
     use frame::{self, Picture, PictureType, Encoding};
-    use frame::Content::{
-        PictureContent, CommentContent, TextContent, ExtendedTextContent, 
-        LinkContent, ExtendedLinkContent, LyricsContent
-    };
+    use frame::Content;
     use std::collections::HashMap;
 
     fn bytes_for_encoding(text: &str, encoding: Encoding) -> Vec<u8> {
@@ -453,7 +446,7 @@ mod tests {
                     }).unwrap().content.picture(), picture);
                     assert_eq!(parsers::encode(EncoderRequest { 
                         encoding: encoding, 
-                        content: &PictureContent(picture.clone()), 
+                        content: &Content::Picture(picture.clone()), 
                         version: 2 
                     }), data);
                 }
@@ -493,7 +486,7 @@ mod tests {
                     }).unwrap().content.picture(), picture);
                     assert_eq!(parsers::encode(EncoderRequest { 
                         encoding: encoding, 
-                        content: &PictureContent(picture.clone()), 
+                        content: &Content::Picture(picture.clone()), 
                         version: 3 }), data);
                 }
             }
@@ -527,7 +520,7 @@ mod tests {
                     }).unwrap().content.comment(), content);
                     assert_eq!(parsers::encode(EncoderRequest { 
                         encoding: encoding, 
-                        content: &CommentContent(content), version: 3 
+                        content: &Content::Comment(content), version: 3 
                     }), data);
                 }
             }
@@ -568,7 +561,7 @@ mod tests {
                 }).unwrap().content.text()[..], text);
                 assert_eq!(parsers::encode(EncoderRequest { 
                     encoding: encoding, 
-                    content: &TextContent(text.to_string()), 
+                    content: &Content::Text(text.to_string()), 
                     version: 3 
                 } ), data);
             }
@@ -600,7 +593,7 @@ mod tests {
                     }).unwrap().content.extended_text(), content);
                     assert_eq!(parsers::encode(EncoderRequest { 
                         encoding: encoding, 
-                        content: &ExtendedTextContent(content), 
+                        content: &Content::ExtendedText(content), 
                         version: 3
                     }), data);
                 }
@@ -635,7 +628,7 @@ mod tests {
             }).unwrap().content.link()[..], link);
             assert_eq!(parsers::encode(EncoderRequest { 
                 encoding: Encoding::Latin1, 
-                content: &LinkContent(link.to_string()), 
+                content: &Content::Link(link.to_string()), 
                 version: 3 
             }), data);
         }
@@ -666,7 +659,7 @@ mod tests {
                     }).unwrap().content.extended_link(), content);
                     assert_eq!(parsers::encode(EncoderRequest { 
                         encoding: encoding, 
-                        content: &ExtendedLinkContent(content), 
+                        content: &Content::ExtendedLink(content), 
                         version: 3
                     }), data);
                 }
@@ -716,7 +709,7 @@ mod tests {
                     }).unwrap().content.lyrics(), content);
                     assert_eq!(parsers::encode(EncoderRequest { 
                         encoding: encoding, 
-                        content: &LyricsContent(content), 
+                        content: &Content::Lyrics(content), 
                         version: 3 
                     }), data);
                 }

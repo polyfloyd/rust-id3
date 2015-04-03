@@ -26,16 +26,6 @@ pub fn unsynchsafe(n: u32) -> u32 {
     (n & 0xFF | (n & 0xFF00) >> 1 | (n & 0xFF0000) >> 2 | (n & 0xFF000000) >> 3)
 }
 
-/// Returns a vector representation of a `u32` value.
-#[inline]
-pub fn u32_to_bytes(n: u32) -> Vec<u8> {
-    vec!(((n & 0xFF000000) >> 24) as u8, 
-         ((n & 0xFF0000) >> 16) as u8, 
-         ((n & 0xFF00) >> 8) as u8, 
-         (n & 0xFF) as u8
-        )
-}
-
 /// Returns a string created from the vector using the specified encoding.
 /// Returns `None` if the vector is not a valid string of the specified
 /// encoding type.
@@ -78,7 +68,7 @@ pub fn string_from_utf16le(data: &[u8]) -> Option<String> {
     }
 
     if cfg!(target_endian = "little") {
-        let buf = unsafe { transmute::<_, &[u16]>(data) };
+        let buf = unsafe { transmute::<_, &[u16]>(&data[..]) };
         String::from_utf16(&buf[..data.len() / 2]).ok()
     } else {
         let mut buf: Vec<u16> = Vec::with_capacity(data.len() / 2);
@@ -98,7 +88,7 @@ pub fn string_from_utf16be(data: &[u8]) -> Option<String> {
         return None;
     }
     if cfg!(target_endian = "big") {
-        let buf = unsafe { transmute::<_, &[u16]>(data) };
+        let buf = unsafe { transmute::<_, &[u16]>(&data[..]) };
         String::from_utf16(&buf[..data.len() / 2]).ok()
     } else {
         let mut buf: Vec<u16> = Vec::with_capacity(data.len() / 2);
@@ -514,10 +504,5 @@ mod tests {
 
         assert_eq!(util::find_delim(Encoding::UTF16BE, &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0x0, 0xFF, 0xFF], 2).unwrap(), 4);
         assert!(util::find_delim(Encoding::UTF16BE, &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0xFF, 0xFF], 2).is_none());
-    }
-
-    #[test]
-    fn test_u32_to_bytes() {
-        assert_eq!(util::u32_to_bytes(0x4B92DF71), vec!(0x4B as u8, 0x92 as u8, 0xDF as u8, 0x71 as u8));
     }
 }

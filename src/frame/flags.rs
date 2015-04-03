@@ -1,6 +1,6 @@
 /// Flags used in ID3 frames.
-#[derive(Copy)]
-pub struct FrameFlags {
+#[derive(Copy, Clone)]
+pub struct Flags {
     /// Indicates whether or not this frame should be discarded if the tag is altered.
     /// A value of `true` indicates the frame should be discarded.
     pub tag_alter_preservation: bool,
@@ -26,11 +26,11 @@ pub struct FrameFlags {
     pub data_length_indicator: bool
 }
 
-impl FrameFlags {
-    /// Returns a new `FrameFlags` with all flags set to false.
+impl Flags {
+    /// Returns a new `Flags` with all flags set to false.
     #[inline]
-    pub fn new() -> FrameFlags {
-        FrameFlags { 
+    pub fn new() -> Flags {
+        Flags { 
             tag_alter_preservation: false, file_alter_preservation: false, read_only: false, compression: false, 
             encryption: false, grouping_identity: false, unsynchronization: false, data_length_indicator: false 
         }

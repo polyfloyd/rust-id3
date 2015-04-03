@@ -8,6 +8,4 @@ log = "*"
 phf_macros = "*"
 phf = "*"
 rand = "*"
-
-[dependencies.audiotag]
-git = "https://github.com/jamesrhurst/rust-audiotag.git"
+byteorder = "*"

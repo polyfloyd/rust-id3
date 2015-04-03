@@ -1,4 +1,7 @@
-use std::old_io::{SeekEnd, IoResult, Reader, Writer, Seek};
+extern crate byteorder;
+
+use std::io::{self, Read, Seek, SeekFrom};
+use self::byteorder::ReadBytesExt;
 
 static TAG: &'static [u8] = b"TAG";
 pub static TAG_OFFSET: i64 = 128;
@@ -71,40 +74,42 @@ impl ID3v1 {
 /// ID3v1 tag reading helpers.
 trait ID3v1Helpers {
     /// Read `n` bytes starting at an offset from the end.
-    fn read_from_end(&mut self, n:usize, offset:i64) -> IoResult<Vec<u8>>;
+    fn read_from_end(&mut self, n:usize, offset:i64) -> io::Result<Vec<u8>>;
 
     /// Read a null-terminated ISO-8859-1 string of size at most `n`, at an offset from the end.
-    fn read_str(&mut self, n: usize, offset: i64) -> IoResult<String>;
+    fn read_str(&mut self, n: usize, offset: i64) -> io::Result<String>;
 }
 
-impl<R: Reader + Seek> ID3v1Helpers for R {
+impl<R: Read + Seek> ID3v1Helpers for R {
     #[inline]
-    fn read_from_end(&mut self, n: usize, offset:i64) -> IoResult<Vec<u8>> {
-        try!(self.seek(-offset, SeekEnd));
-        self.read_exact(n)
+    fn read_from_end(&mut self, n: usize, offset:i64) -> io::Result<Vec<u8>> {
+        try!(self.seek(SeekFrom::End(-offset)));
+        let mut buf = Vec::<u8>::with_capacity(n);
+        try!(self.take(n as u64).read_to_end(&mut buf));
+        Ok(buf)
     }
 
     #[inline]
-    fn read_str(&mut self, n: usize, offset: i64) -> IoResult<String> {
+    fn read_str(&mut self, n: usize, offset: i64) -> io::Result<String> {
         self.read_from_end(n, offset).map(|vec| extract_nz_88591(vec))
     }
 }
 
 /// Checks for the existence of the bytes denoting an ID3v1 metadata block tag.
 #[inline]
-pub fn probe_tag<R: Reader + Seek>(reader: &mut R) -> IoResult<bool> {
+pub fn probe_tag<R: Read + Seek>(reader: &mut R) -> io::Result<bool> {
     let tag = try!(reader.read_from_end(TAG.len(), TAG_OFFSET));
     Ok(TAG == &tag[..])
 }
 
 /// Checks for the existence of the bytes denoting an ID3v1 extended metadata tag.
 #[inline]
-pub fn probe_xtag<R: Reader + Seek>(reader: &mut R) -> IoResult<bool> {
+pub fn probe_xtag<R: Read + Seek>(reader: &mut R) -> io::Result<bool> {
     let xtag = try!(reader.read_from_end(TAGPLUS.len(), TAGPLUS_OFFSET));
     Ok(TAGPLUS == &xtag[..])
 }
 
-pub fn read<R: Reader + Seek>(reader: &mut R) -> IoResult<ID3v1> {
+pub fn read<R: Read + Seek>(reader: &mut R) -> io::Result<ID3v1> {
     macro_rules! maybe_read {
         ($prop:expr, $len:ident, $offset:ident) => {
             {
@@ -130,11 +135,11 @@ pub fn read<R: Reader + Seek>(reader: &mut R) -> IoResult<ID3v1> {
         maybe_read!(tag.year, YEAR_LEN, YEAR_OFFSET);
         maybe_read!(tag.comment, COMMENT_LEN, COMMENT_OFFSET);
         tag.track = {
-            try!(reader.seek(-TRACK_OFFSET, SeekEnd));
+            try!(reader.seek(SeekFrom::End(-TRACK_OFFSET)));
             // The track value is meaningful only if the guard byte is 0
-            let guard_byte = try!(reader.read_byte());
+            let guard_byte = try!(reader.read_u8());
             if guard_byte == 0 {
-                Some(try!(reader.read_byte()))
+                Some(try!(reader.read_u8()))
             } else {
                 // If the guard value is not 0, then the track value is
                 // not known.
@@ -142,8 +147,8 @@ pub fn read<R: Reader + Seek>(reader: &mut R) -> IoResult<ID3v1> {
             }
         };
         tag.genre = {
-            try!(reader.seek(-GENRE_OFFSET, SeekEnd));
-            Some(try!(reader.read_byte()))
+            try!(reader.seek(SeekFrom::End(-GENRE_OFFSET)));
+            Some(try!(reader.read_u8()))
         };
 
         // Try to read ID3v1 extended metadata.
@@ -153,8 +158,8 @@ pub fn read<R: Reader + Seek>(reader: &mut R) -> IoResult<ID3v1> {
             maybe_read!(tag.artist, XARTIST_LEN, XARTIST_OFFSET);
             maybe_read!(tag.album, XALBUM_LEN, XALBUM_OFFSET);
             tag.speed = {
-                try!(reader.seek(-SPEED_OFFSET, SeekEnd));
-                Some(try!(reader.read_byte()))
+                try!(reader.seek(SeekFrom::End(-SPEED_OFFSET)));
+                Some(try!(reader.read_u8()))
             };
             maybe_read!(tag.genre_str, GENRE_STR_LEN, GENRE_STR_OFFSET);
             maybe_read!(tag.start_time, START_TIME_LEN, START_TIME_OFFSET);

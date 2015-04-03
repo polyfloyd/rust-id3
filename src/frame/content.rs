@@ -1,107 +1,102 @@
-use self::Content::{
-    TextContent, ExtendedTextContent, LinkContent, ExtendedLinkContent, CommentContent,
-    LyricsContent, PictureContent, UnknownContent
-};
-
 #[derive(Debug)]
 /// The decoded contents of a frame.
 pub enum Content {
     /// A value containing the parsed contents of a text frame.
-    TextContent(String),
+    Text(String),
     /// A value containing the parsed contents of a user defined text frame (TXXX).
-    ExtendedTextContent(super::ExtendedText),
+    ExtendedText(super::ExtendedText),
     /// A value containing the parsed contents of a web link frame.
-    LinkContent(String),
+    Link(String),
     /// A value containing the parsed contents of a user defined web link frame (WXXX).
-    ExtendedLinkContent(super::ExtendedLink),
+    ExtendedLink(super::ExtendedLink),
     /// A value containing the parsed contents of a comment frame (COMM).
-    CommentContent(super::Comment),
+    Comment(super::Comment),
     /// A value containing the parsed contents of a lyrics frame (USLT).
-    LyricsContent(super::Lyrics),
+    Lyrics(super::Lyrics),
     /// A value containing the parsed contents of a picture frame (APIC).
-    PictureContent(super::Picture),
+    Picture(super::Picture),
     /// A value containing the bytes of a unknown frame.
-    UnknownContent(Vec<u8>),
+    Unknown(Vec<u8>),
 }
 
 impl Content {
-    /// Returns the `TextContent`.
-    /// Panics if the value is not `TextContent`.
+    /// Returns the `Text`.
+    /// Panics if the value is not `Text`.
     #[inline]
     pub fn text(&self) -> &String {
         match *self {
-            TextContent(ref content) => content,
-            _ => panic!("called `Content::text()` on a non `TextContent` value") 
+            Content::Text(ref content) => content,
+            _ => panic!("called `Content::text()` on a non `Text` value") 
         }
     }
 
-    /// Returns the `ExtendedTextContent`.
-    /// Panics if the value is not `ExtendedTextContent`.
+    /// Returns the `ExtendedText`.
+    /// Panics if the value is not `ExtendedText`.
     #[inline]
     pub fn extended_text(&self) -> &super::ExtendedText {
         match *self {
-            ExtendedTextContent(ref content) => content,
-            _ => panic!("called `Content::extended_text()` on a non `ExtendedTextContent` value") 
+            Content::ExtendedText(ref content) => content,
+            _ => panic!("called `Content::extended_text()` on a non `ExtendedText` value") 
         }
     }
 
-    /// Returns the `LinkContent`.
-    /// Panics if the value is not `LinkContent`.
+    /// Returns the `Link`.
+    /// Panics if the value is not `Link`.
     #[inline]
     pub fn link(&self) -> &String {
         match *self {
-            LinkContent(ref content) => content,
-            _ => panic!("called `Content::link()` on a non `LinkContent` value") 
+            Content::Link(ref content) => content,
+            _ => panic!("called `Content::link()` on a non `Link` value") 
         }
     }
 
-    /// Returns the `ExtendedLinkContent`.
-    /// Panics if the value is not `ExtendedLinkContent`.
+    /// Returns the `ExtendedLink`.
+    /// Panics if the value is not `ExtendedLink`.
     #[inline]
     pub fn extended_link(&self) -> &super::ExtendedLink {
         match *self {
-            ExtendedLinkContent(ref content) => content,
-            _ => panic!("called `Content::extended_link()` on a non `ExtendedLinkContent` value") 
+            Content::ExtendedLink(ref content) => content,
+            _ => panic!("called `Content::extended_link()` on a non `ExtendedLink` value") 
         }
     }
 
-    /// Returns the `CommentContent`.
-    /// Panics if the value is not `CommentContent`.
+    /// Returns the `Comment`.
+    /// Panics if the value is not `Comment`.
     #[inline]
     pub fn comment(&self) -> &super::Comment {
         match *self {
-            CommentContent(ref content) => content,
-            _ => panic!("called `Content::comment()` on a non `CommentContent` value") 
+            Content::Comment(ref content) => content,
+            _ => panic!("called `Content::comment()` on a non `Comment` value") 
         }
     }
 
-    /// Returns the `LyricsContent`.
-    /// Panics if the value is not `LyricsContent`.
+    /// Returns the `Lyrics`.
+    /// Panics if the value is not `Lyrics`.
     #[inline]
     pub fn lyrics(&self) -> &super::Lyrics {
         match *self {
-            LyricsContent(ref content) => content,
-            _ => panic!("called `Content::lyrics()` on a non `LyricsContent` value") 
+            Content::Lyrics(ref content) => content,
+            _ => panic!("called `Content::lyrics()` on a non `Lyrics` value") 
         }
     }
 
-    /// Returns the `PictureContent`.
-    /// Panics if the value is not `PictureContent`.
+    /// Returns the `Picture`.
+    /// Panics if the value is not `Picture`.
     #[inline]
     pub fn picture(&self) -> &super::Picture {
         match *self {
-            PictureContent(ref picture) => picture,
-            _ => panic!("called `Content::picture()` on a non `PictureContent` value") 
+            Content::Picture(ref picture) => picture,
+            _ => panic!("called `Content::picture()` on a non `Picture` value") 
         }
     }
 
-    /// Returns the `UnknownContent`.
-    /// Panics if the value is not `UnknownContent`.
+    /// Returns the `Unknown`.
+    /// Panics if the value is not `Unknown`.
     #[inline]
     pub fn unknown(&self) -> &[u8] {
         match *self {
-            UnknownContent(ref data) => &data[..],
-            _ => panic!("called `Content::unknown()` on a non `UnknownContent` value") 
+            Content::Unknown(ref data) => &data[..],
+            _ => panic!("called `Content::unknown()` on a non `Unknown` value") 
         }
     }
 }

@@ -1,6 +1,6 @@
 #rust-id3 [![Build Status](https://travis-ci.org/jamesrhurst/rust-id3.svg)](https://travis-ci.org/jamesrhurst/rust-id3)
 
-An ID3 tag reader/writer. The `ID3Tag` struct implements the [AudioTag](https://github.com/jamesrhurst/rust-audiotag) trait for reading, writing, and modification of common metadata elements.
+An ID3 tag reader/writer. The `Tag` struct implements the [AudioTag](https://github.com/jamesrhurst/rust-audiotag) trait for reading, writing, and modification of common metadata elements.
 
 Documentation is available via Rust CI at [http://www.rust-ci.org/jamesrhurst/rust-id3/doc/id3/](http://www.rust-ci.org/jamesrhurst/rust-id3/doc/id3/).
 
@@ -14,12 +14,12 @@ git = "https://github.com/jamesrhurst/rust-id3"
 ```
 
 ```rust
-use id3::AudioTag;
+use id3::Tag;
 
-let mut tag = AudioTag::read_from_path(&Path::new("music.mp3")).unwrap();
+let mut tag = Tag::read_from_path("music.mp3").unwrap();
 
 // print the artist the hard way
-println!("{}", tag.get_frame_by_id("TALB").unwrap().contents.text());
+println!("{}", tag.get("TALB").unwrap().contents.text());
 
 // or print it the easy way
 println!("{}", tag.artist().unwrap());

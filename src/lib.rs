@@ -3,14 +3,12 @@
 //! # Modifying an existing tag
 //!
 //! ```no_run
-//! #![feature(old_path)]
-//! use id3::{ID3Tag, AudioTag};
-//! use std::old_path::Path;
+//! use id3::Tag;
 //!
-//! let mut tag: ID3Tag = AudioTag::read_from_path(&Path::new("music.mp3")).unwrap();
+//! let mut tag= Tag::read_from_path("music.mp3").unwrap();
 //!
 //! // print the artist the hard way
-//! println!("{}", tag.get_frame_by_id("TALB").unwrap().content.text());
+//! println!("{}", tag.get("TALB").unwrap().content.text());
 //! 
 //! // or print it the easy way
 //! println!("{}", tag.artist().unwrap());
@@ -21,25 +19,21 @@
 //! # Creating a new tag
 //!
 //! ```no_run
-//! #![feature(old_path)]
-//! // you need to use AudioTag in order to use the trait features
-//! use id3::{ID3Tag, AudioTag, Frame};
-//! use id3::Content::TextContent;
-//! use id3::Encoding::UTF8;
-//! use std::old_path::Path;
+//! use id3::{Tag, Frame};
+//! use id3::frame::{Content, Encoding};
 //!
-//! let mut tag = ID3Tag::with_version(4);
+//! let mut tag = Tag::with_version(4);
 //! 
 //! // set the album the hard way
-//! let mut frame = Frame::with_version("TALB".to_string(), 4);
-//! frame.set_encoding(UTF8);
-//! frame.content = TextContent("album".to_string());
-//! tag.add_frame(frame);
+//! let mut frame = Frame::new("TALB");
+//! frame.encoding = Encoding::UTF8;
+//! frame.content = Content::Text("album".to_string());
+//! tag.push(frame);
 //!
 //! // or set it the easy way
-//! tag.set_album("album".to_string());
+//! tag.set_album("album");
 //!
-//! tag.write_to_path(&Path::new("music.mp3")).unwrap();
+//! tag.write_to_path("music.mp3").unwrap();
 //! ```
 
 #![crate_name = "id3"]
@@ -47,27 +41,26 @@
 #![warn(missing_docs)]
 #![feature(plugin)]
 #![plugin(phf_macros)]
-#![feature(core, old_io, collections, rustc_private, concat_idents, old_path, into_cow, step_by, str_char)]
+#![feature(core, collections, str_char, step_by, rustc_private)]
 
 #[macro_use] 
 extern crate log;
 
 extern crate phf;
-extern crate audiotag;
 
-pub use self::audiotag::{AudioTag, TagResult, TagError, ErrorKind};
-pub use tag::ID3Tag;
-pub use frame::{Frame, FrameFlags, Encoding, Content};
+pub use tag::Tag;
+pub use frame::Frame;
+pub use error::{Result, Error, ErrorKind};
 
 #[macro_use]
 mod macros;
-
 /// Utilities used for reading/writing ID3 tags.
 pub mod util;
 
 /// Contains types and methods for operating on ID3 frames.
 pub mod frame;
 
+mod error;
 mod id3v1;
 mod tag;
 mod parsers;
