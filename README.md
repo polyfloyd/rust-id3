@@ -2,7 +2,7 @@
 
 An ID3 tag reader/writer. 
 
-Documentation is available via Rust CI at [http://www.rust-ci.org/jamesrhurst/rust-id3/doc/id3/](http://www.rust-ci.org/jamesrhurst/rust-id3/doc/id3/).
+Documentation is available at [http://jamesrhurst.github.io/rust-id3/](http://jamesrhurst.github.io/rust-id3/)
 
 ##Usage
 
