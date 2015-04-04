@@ -1961,10 +1961,10 @@ impl<'a> Tag {
         self.path_changed = self.path.is_none() || &**self.path.as_ref().unwrap() != path.as_ref();
 
         let mut file = try!(OpenOptions::new().truncate(true).write(true).create(true).open(&path));
-        self.write_to(&mut file).unwrap();
+        try!(self.write_to(&mut file));
         
         match data_opt {
-            Some(data) => file.write_all(&data[..]).unwrap(),
+            Some(data) => try!(file.write_all(&data[..])),
             None => {}
         }
 
