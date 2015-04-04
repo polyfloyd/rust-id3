@@ -1,14 +1,18 @@
 language: rust
 
+script:
+- cargo build
+- cargo test
+
+after_success: |
+  [ $TRAVIS_BRANCH = master ] &&
+  [ $TRAVIS_PULL_REQUEST = false ] &&
+  cargo doc &&
+  echo '<meta http-equiv=refresh content=0;url=id3/index.html>' > target/doc/index.html &&
+  sudo pip install ghp-import &&
+  ghp-import -n target/doc &&
+  git push -fq https://${TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages
+
 env:
   global:
-    - secure: l6L4c/XxVQOjmKTXWs9TjbiRNb9p8jspQvJV3pq91R9ebZxz8CUe2+0JAIDzVaVzSIxsiFFpesZ+/X2yZk9knr0pnZgibqZxy5JzvFUyUaugksIUfB8VB2tHSHipbsIJYxBA8K+knPvY/jH6Wv6EA0FbRHmkaFa1Mas6FRVGjnI=1
-
-script:
-    - cargo build
-    - cargo test
-    - cargo doc
-
-after_script:
-    - cd target
-    - curl http://www.rust-ci.org/artifacts/put?t=$RUSTCI_TOKEN | sh
+    secure: AmtMxqwNpwpsqbKKRu8EdamqMYbG7KkUq9Nox34xCcoYRLrOOxrpeudo322jfRRCp4VX/iac+7B02xlnDE3zNkGtlV6rR3iM2q++PuKTmLZKC0kdVq/4/5eP45pTGO9bV9wr3z8AzpeMw36NXo9dzaJl2FZeAF3Xbsh+2KeLXyU=
