@@ -1,10 +1,10 @@
 extern crate std;
 extern crate rand;
 
-use phf;
 use self::rand::Rng;
 use frame::Encoding;
 use std::mem::transmute;
+use std::collections::HashMap;
 
 /// Returns a random sequence of 16 bytes, intended to be used as a UUID.
 #[inline]
@@ -183,75 +183,79 @@ pub fn delim_len(encoding: Encoding) -> usize {
     }
 }
 
-static ID_2_TO_3: phf::Map<&'static str, &'static str> = phf_map! {
-    "BUF" => "RBUF",
+lazy_static! {
+    static ref ID_2_TO_3: HashMap<&'static str, &'static str> = {
+        let mut m = HashMap::new();
+        m.insert("BUF", "RBUF");
 
-    "CNT" => "PCNT",
-    "COM" => "COMM",
-    "CRA" => "AENC",
+        m.insert("CNT", "PCNT");
+        m.insert("COM", "COMM");
+        m.insert("CRA", "AENC");
 
-    "ETC" => "ETCO",
+        m.insert("ETC", "ETCO");
 
-    "GEO" => "GEOB",
+        m.insert("GEO", "GEOB");
 
-    "IPL" => "IPLS",
+        m.insert("IPL", "IPLS");
 
-    "LNK" => "LINK",
+        m.insert("LNK", "LINK");
 
-    "MCI" => "MCDI",
-    "MLL" => "MLLT",
+        m.insert("MCI", "MCDI");
+        m.insert("MLL", "MLLT");
 
-    "PIC" => "APIC",
-    "POP" => "POPM",
+        m.insert("PIC", "APIC");
+        m.insert("POP", "POPM");
 
-    "REV" => "RVRB",
+        m.insert("REV", "RVRB");
 
-    "SLT" => "SYLT",
-    "STC" => "SYTC",
+        m.insert("SLT", "SYLT");
+        m.insert("STC", "SYTC");
 
-    "TAL" => "TALB",
-    "TBP" => "TBPM",
-    "TCM" => "TCOM",
-    "TCO" => "TCON",
-    "TCR" => "TCOP",
-    "TDY" => "TDLY",
-    "TEN" => "TENC",
-    "TFT" => "TFLT",
-    "TKE" => "TKEY",
-    "TLA" => "TLAN",
-    "TLE" => "TLEN",
-    "TMT" => "TMED",
-    "TOA" => "TOPE",
-    "TOF" => "TOFN",
-    "TOL" => "TOLY",
-    "TOT" => "TOAL",
-    "TP1" => "TPE1",
-    "TP2" => "TPE2",
-    "TP3" => "TPE3",
-    "TP4" => "TPE4",
-    "TPA" => "TPOS",
-    "TPB" => "TPUB",
-    "TRC" => "TSRC",
-    "TRK" => "TRCK",
-    "TSS" => "TSSE",
-    "TT1" => "TIT1",
-    "TT2" => "TIT2",
-    "TT3" => "TIT3",
-    "TXT" => "TEXT",
-    "TXX" => "TXXX",
-    "TYE" => "TYER",
+        m.insert("TAL", "TALB");
+        m.insert("TBP", "TBPM");
+        m.insert("TCM", "TCOM");
+        m.insert("TCO", "TCON");
+        m.insert("TCR", "TCOP");
+        m.insert("TDY", "TDLY");
+        m.insert("TEN", "TENC");
+        m.insert("TFT", "TFLT");
+        m.insert("TKE", "TKEY");
+        m.insert("TLA", "TLAN");
+        m.insert("TLE", "TLEN");
+        m.insert("TMT", "TMED");
+        m.insert("TOA", "TOPE");
+        m.insert("TOF", "TOFN");
+        m.insert("TOL", "TOLY");
+        m.insert("TOT", "TOAL");
+        m.insert("TP1", "TPE1");
+        m.insert("TP2", "TPE2");
+        m.insert("TP3", "TPE3");
+        m.insert("TP4", "TPE4");
+        m.insert("TPA", "TPOS");
+        m.insert("TPB", "TPUB");
+        m.insert("TRC", "TSRC");
+        m.insert("TRK", "TRCK");
+        m.insert("TSS", "TSSE");
+        m.insert("TT1", "TIT1");
+        m.insert("TT2", "TIT2");
+        m.insert("TT3", "TIT3");
+        m.insert("TXT", "TEXT");
+        m.insert("TXX", "TXXX");
+        m.insert("TYE", "TYER");
 
-    "UFI" => "UFID",
-    "ULT" => "USLT",
+        m.insert("UFI", "UFID");
+        m.insert("ULT", "USLT");
 
-    "WAF" => "WOAF",
-    "WAR" => "WOAR",
-    "WAS" => "WOAS",
-    "WCM" => "WCOM",
-    "WCP" => "WCOP",
-    "WPB" => "WPUB",
-    "WXX" => "WXXX",
-};
+        m.insert("WAF", "WOAF");
+        m.insert("WAR", "WOAR");
+        m.insert("WAS", "WOAS");
+        m.insert("WCM", "WCOM");
+        m.insert("WCP", "WCOP");
+        m.insert("WPB", "WPUB");
+        m.insert("WXX", "WXXX");
+        m
+    };
+}
 
 /// Returns the coresponding ID3v2.3/ID3v2.4 ID given the ID3v2.2 ID. 
 #[inline]
@@ -259,75 +263,79 @@ pub fn convert_id_2_to_3(id: &str) -> Option<&'static str> {
     ID_2_TO_3.get(id).map(|t| *t)
 }
 
-static ID_3_TO_2: phf::Map<&'static str, &'static str> = phf_map! {
-    "RBUF" => "BUF",
-              
-    "PCNT" => "CNT",
-    "COMM" => "COM",
-    "AENC" => "CRA",
-              
-    "ETCO" => "ETC",
-              
-    "GEOB" => "GEO",
-              
-    "IPLS" => "IPL",
-              
-    "LINK" => "LNK",
-              
-    "MCDI" => "MCI",
-    "MLLT" => "MLL",
-              
-    "APIC" => "PIC",
-    "POPM" => "POP",
-              
-    "RVRB" => "REV",
-              
-    "SYLT" => "SLT",
-    "SYTC" => "STC",
-              
-    "TALB" => "TAL",
-    "TBPM" => "TBP",
-    "TCOM" => "TCM",
-    "TCON" => "TCO",
-    "TCOP" => "TCR",
-    "TDLY" => "TDY",
-    "TENC" => "TEN",
-    "TFLT" => "TFT",
-    "TKEY" => "TKE",
-    "TLAN" => "TLA",
-    "TLEN" => "TLE",
-    "TMED" => "TMT",
-    "TOPE" => "TOA",
-    "TOFN" => "TOF",
-    "TOLY" => "TOL",
-    "TOAL" => "TOT",
-    "TPE1" => "TP1",
-    "TPE2" => "TP2",
-    "TPE3" => "TP3",
-    "TPE4" => "TP4",
-    "TPOS" => "TPA",
-    "TPUB" => "TPB",
-    "TSRC" => "TRC",
-    "TRCK" => "TRK",
-    "TSSE" => "TSS",
-    "TIT1" => "TT1",
-    "TIT2" => "TT2",
-    "TIT3" => "TT3",
-    "TEXT" => "TXT",
-    "TXXX" => "TXX",
-    "TYER" => "TYE",
-              
-    "UFID" => "UFI",
-    "USLT" => "ULT",
-              
-    "WOAF" => "WAF",
-    "WOAR" => "WAR",
-    "WOAS" => "WAS",
-    "WCOM" => "WCM",
-    "WCOP" => "WCP",
-    "WPUB" => "WPB",
-    "WXXX" => "WXX",
-};
+lazy_static! {
+    static ref ID_3_TO_2: HashMap<&'static str, &'static str> = {
+        let mut m = HashMap::new();
+        m.insert("RBUF", "BUF");
+
+        m.insert("PCNT", "CNT");
+        m.insert("COMM", "COM");
+        m.insert("AENC", "CRA");
+
+        m.insert("ETCO", "ETC");
+
+        m.insert("GEOB", "GEO");
+
+        m.insert("IPLS", "IPL");
+
+        m.insert("LINK", "LNK");
+
+        m.insert("MCDI", "MCI");
+        m.insert("MLLT", "MLL");
+
+        m.insert("APIC", "PIC");
+        m.insert("POPM", "POP");
+
+        m.insert("RVRB", "REV");
+
+        m.insert("SYLT", "SLT");
+        m.insert("SYTC", "STC");
+
+        m.insert("TALB", "TAL");
+        m.insert("TBPM", "TBP");
+        m.insert("TCOM", "TCM");
+        m.insert("TCON", "TCO");
+        m.insert("TCOP", "TCR");
+        m.insert("TDLY", "TDY");
+        m.insert("TENC", "TEN");
+        m.insert("TFLT", "TFT");
+        m.insert("TKEY", "TKE");
+        m.insert("TLAN", "TLA");
+        m.insert("TLEN", "TLE");
+        m.insert("TMED", "TMT");
+        m.insert("TOPE", "TOA");
+        m.insert("TOFN", "TOF");
+        m.insert("TOLY", "TOL");
+        m.insert("TOAL", "TOT");
+        m.insert("TPE1", "TP1");
+        m.insert("TPE2", "TP2");
+        m.insert("TPE3", "TP3");
+        m.insert("TPE4", "TP4");
+        m.insert("TPOS", "TPA");
+        m.insert("TPUB", "TPB");
+        m.insert("TSRC", "TRC");
+        m.insert("TRCK", "TRK");
+        m.insert("TSSE", "TSS");
+        m.insert("TIT1", "TT1");
+        m.insert("TIT2", "TT2");
+        m.insert("TIT3", "TT3");
+        m.insert("TEXT", "TXT");
+        m.insert("TXXX", "TXX");
+        m.insert("TYER", "TYE");
+
+        m.insert("UFID", "UFI");
+        m.insert("USLT", "ULT");
+
+        m.insert("WOAF", "WAF");
+        m.insert("WOAR", "WAR");
+        m.insert("WOAS", "WAS");
+        m.insert("WCOM", "WCM");
+        m.insert("WCOP", "WCP");
+        m.insert("WPUB", "WPB");
+        m.insert("WXXX", "WXX");
+        m
+    };
+}
 
 /// Returns the coresponding ID3v2.2 ID given the ID3v2.3/ID3v2.3 ID. 
 #[inline]
@@ -335,115 +343,119 @@ pub fn convert_id_3_to_2(id: &str) -> Option<&'static str> {
     ID_3_TO_2.get(id).map(|t| *t)
 }
 
-static FRAME_DESCRIPTIONS: phf::Map<&'static str, &'static str> = phf_map! {
-    "AENC" => "Audio encryption",
-    "APIC" => "Attached picture",
-    "ASPI" => "Audio seek point index",
+lazy_static! {
+    static ref FRAME_DESCRIPTIONS: HashMap<&'static str, &'static str> = {
+        let mut m = HashMap::new();
+        m.insert("AENC", "Audio encryption");
+        m.insert("APIC", "Attached picture");
+        m.insert("ASPI", "Audio seek point index");
 
-    "COMM" => "Comments",
-    "COMR" => "Commercial frame",
+        m.insert("COMM", "Comments");
+        m.insert("COMR", "Commercial frame");
 
-    "ENCR" => "Encryption method registration",
-    "EQU2" => "Equalisation (2)",
-    "EQUA" => "Equalization",
-    "ETCO" => "Event timing codes",
+        m.insert("ENCR", "Encryption method registration");
+        m.insert("EQU2", "Equalisation (2)");
+        m.insert("EQUA", "Equalization");
+        m.insert("ETCO", "Event timing codes");
 
-    "IPLS" => "Involved people list",
+        m.insert("IPLS", "Involved people list");
 
-    "GEOB" => "General encapsulated object",
-    "GRID" => "Group identification registration",
+        m.insert("GEOB", "General encapsulated object");
+        m.insert("GRID", "Group identification registration");
 
-    "LINK" => "Linked information",
+        m.insert("LINK", "Linked information");
 
-    "MCDI" => "Music CD identifier",
-    "MLLT" => "MPEG location lookup table",
+        m.insert("MCDI", "Music CD identifier");
+        m.insert("MLLT", "MPEG location lookup table");
 
-    "OWNE" => "Ownership frame",
+        m.insert("OWNE", "Ownership frame");
 
-    "PRIV" => "Private frame",
-    "PCNT" => "Play counter",
-    "POPM" => "Popularimeter",
-    "POSS" => "Position synchronisation frame",
+        m.insert("PRIV", "Private frame");
+        m.insert("PCNT", "Play counter");
+        m.insert("POPM", "Popularimeter");
+        m.insert("POSS", "Position synchronisation frame");
 
-    "RBUF" => "Recommended buffer size",
-    "RVA2" => "Relative volume adjustment (2)",
-    "RVAD" => "Relative volume adjustment",
-    "RVRB" => "Reverb",
+        m.insert("RBUF", "Recommended buffer size");
+        m.insert("RVA2", "Relative volume adjustment (2)");
+        m.insert("RVAD", "Relative volume adjustment");
+        m.insert("RVRB", "Reverb");
 
-    "SEEK" => "Seek frame",
-    "SIGN" => "Signature frame",
-    "SYLT" => "Synchronised lyric/text",
-    "SYTC" => "Synchronised tempo codes",
+        m.insert("SEEK", "Seek frame");
+        m.insert("SIGN", "Signature frame");
+        m.insert("SYLT", "Synchronised lyric/text");
+        m.insert("SYTC", "Synchronised tempo codes");
 
-    "TALB" => "Album/Movie/Show title",
-    "TBPM" => "BPM (beats per minute)",
-    "TCOM" => "Composer",
-    "TCON" => "Content type",
-    "TCOP" => "Copyright message",
-    "TDAT" => "Date",
-    "TDEN" => "Encoding time",
-    "TDLY" => "Playlist delay",
-    "TDOR" => "Original release time",
-    "TDRC" => "Recording time",
-    "TDRL" => "Release time",
-    "TDTG" => "Tagging time",
-    "TENC" => "Encoded by",
-    "TEXT" => "Lyricist/Text writer",
-    "TFLT" => "File type",
-    "TIME" => "Time",
-    "TIPL" => "Involved people list",
-    "TIT1" => "Content group description",
-    "TIT2" => "Title/songname/content description",
-    "TIT3" => "Subtitle/Description refinement",
-    "TKEY" => "Initial key",
-    "TLAN" => "Language(s)",
-    "TLEN" => "Length",
-    "TMCL" => "Musician credits list",
-    "TMED" => "Media type",
-    "TMOO" => "Mood",
-    "TOAL" => "Original album/movie/show title",
-    "TOFN" => "Original filename",
-    "TOLY" => "Original lyricist(s)/text writer(s)",
-    "TOPE" => "Original artist(s)/performer(s)",
-    "TORY" => "Original release year",
-    "TOWN" => "File owner/licensee",
-    "TPE1" => "Lead performer(s)/Soloist(s)",
-    "TPE2" => "Band/orchestra/accompaniment",
-    "TPE3" => "Conductor/performer refinement",
-    "TPE4" => "Interpreted, remixed, or otherwise modified by",
-    "TPOS" => "Part of a set",
-    "TPRO" => "Produced notice",
-    "TPUB" => "Publisher",
-    "TRCK" => "Track number/Position in set",
-    "TRDA" => "Recording dates",
-    "TRSN" => "Internet radio station name",
-    "TRSO" => "Internet radio station owner",
-    "TSIZ" => "Size",
-    "TSO2" => "Album artist sort order",
-    "TSOA" => "Album sort order",
-    "TSOC" => "Composer sort order",
-    "TSOP" => "Performer sort order",
-    "TSOT" => "Title sort order",
-    "TSRC" => "ISRC (international standard recording code)",
-    "TSSE" => "Software/Hardware and settings used for encoding",
-    "TYER" => "Year",
-    "TSST" => "Set subtitle",
-    "TXXX" => "User defined text information frame",
+        m.insert("TALB", "Album/Movie/Show title");
+        m.insert("TBPM", "BPM (beats per minute)");
+        m.insert("TCOM", "Composer");
+        m.insert("TCON", "Content type");
+        m.insert("TCOP", "Copyright message");
+        m.insert("TDAT", "Date");
+        m.insert("TDEN", "Encoding time");
+        m.insert("TDLY", "Playlist delay");
+        m.insert("TDOR", "Original release time");
+        m.insert("TDRC", "Recording time");
+        m.insert("TDRL", "Release time");
+        m.insert("TDTG", "Tagging time");
+        m.insert("TENC", "Encoded by");
+        m.insert("TEXT", "Lyricist/Text writer");
+        m.insert("TFLT", "File type");
+        m.insert("TIME", "Time");
+        m.insert("TIPL", "Involved people list");
+        m.insert("TIT1", "Content group description");
+        m.insert("TIT2", "Title/songname/content description");
+        m.insert("TIT3", "Subtitle/Description refinement");
+        m.insert("TKEY", "Initial key");
+        m.insert("TLAN", "Language(s)");
+        m.insert("TLEN", "Length");
+        m.insert("TMCL", "Musician credits list");
+        m.insert("TMED", "Media type");
+        m.insert("TMOO", "Mood");
+        m.insert("TOAL", "Original album/movie/show title");
+        m.insert("TOFN", "Original filename");
+        m.insert("TOLY", "Original lyricist(s)/text writer(s)");
+        m.insert("TOPE", "Original artist(s)/performer(s)");
+        m.insert("TORY", "Original release year");
+        m.insert("TOWN", "File owner/licensee");
+        m.insert("TPE1", "Lead performer(s)/Soloist(s)");
+        m.insert("TPE2", "Band/orchestra/accompaniment");
+        m.insert("TPE3", "Conductor/performer refinement");
+        m.insert("TPE4", "Interpreted, remixed, or otherwise modified by");
+        m.insert("TPOS", "Part of a set");
+        m.insert("TPRO", "Produced notice");
+        m.insert("TPUB", "Publisher");
+        m.insert("TRCK", "Track number/Position in set");
+        m.insert("TRDA", "Recording dates");
+        m.insert("TRSN", "Internet radio station name");
+        m.insert("TRSO", "Internet radio station owner");
+        m.insert("TSIZ", "Size");
+        m.insert("TSO2", "Album artist sort order");
+        m.insert("TSOA", "Album sort order");
+        m.insert("TSOC", "Composer sort order");
+        m.insert("TSOP", "Performer sort order");
+        m.insert("TSOT", "Title sort order");
+        m.insert("TSRC", "ISRC (international standard recording code)");
+        m.insert("TSSE", "Software/Hardware and settings used for encoding");
+        m.insert("TYER", "Year");
+        m.insert("TSST", "Set subtitle");
+        m.insert("TXXX", "User defined text information frame");
 
-    "UFID" => "Unique file identifier",
-    "USER" => "Terms of use",
-    "USLT" => "Unsynchronised lyric/text transcription",
+        m.insert("UFID", "Unique file identifier");
+        m.insert("USER", "Terms of use");
+        m.insert("USLT", "Unsynchronised lyric/text transcription");
 
-    "WCOM" => "Commercial information",
-    "WCOP" => "Copyright/Legal information",
-    "WOAF" => "Official audio file webpage",
-    "WOAR" => "Official artist/performer webpage",
-    "WOAS" => "Official audio source webpage",
-    "WORS" => "Official Internet radio station homepage",
-    "WPAY" => "Payment",
-    "WPUB" => "Publishers official webpage",
-    "WXXX" => "User defined URL link frame",
-};
+        m.insert("WCOM", "Commercial information");
+        m.insert("WCOP", "Copyright/Legal information");
+        m.insert("WOAF", "Official audio file webpage");
+        m.insert("WOAR", "Official artist/performer webpage");
+        m.insert("WOAS", "Official audio source webpage");
+        m.insert("WORS", "Official Internet radio station homepage");
+        m.insert("WPAY", "Payment");
+        m.insert("WPUB", "Publishers official webpage");
+        m.insert("WXXX", "User defined URL link frame");
+        m
+    };
+}
 
 /// Returns a string describing the frame type.
 #[inline]

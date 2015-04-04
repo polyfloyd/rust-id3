@@ -5,7 +5,6 @@ authors = ["James Hurst <jamesrhurst@users.noreply.github.com>"]
 
 [dependencies]
 log = "*"
-phf_macros = "*"
-phf = "*"
 rand = "*"
 byteorder = "*"
+lazy_static = "*"

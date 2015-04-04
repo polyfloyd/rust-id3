@@ -39,14 +39,13 @@
 #![crate_name = "id3"]
 #![crate_type = "rlib"]
 #![warn(missing_docs)]
-#![feature(plugin)]
-#![plugin(phf_macros)]
 #![feature(core, collections, str_char, step_by, rustc_private)]
 
 #[macro_use] 
-extern crate log;
+extern crate lazy_static;
 
-extern crate phf;
+#[macro_use] 
+extern crate log;
 
 pub use tag::Tag;
 pub use frame::Frame;
