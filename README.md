@@ -1,6 +1,6 @@
 #rust-id3 [![Build Status](https://travis-ci.org/jamesrhurst/rust-id3.svg)](https://travis-ci.org/jamesrhurst/rust-id3)
 
-An ID3 tag reader/writer. 
+rust-id3 is a library to read and write [ID3](http://id3.org/) tags.
 
 Documentation is available at [http://jamesrhurst.github.io/rust-id3/](http://jamesrhurst.github.io/rust-id3/)
 
