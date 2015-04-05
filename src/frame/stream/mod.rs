@@ -22,7 +22,7 @@ macro_rules! id_or_padding {
 }
 
 /// A trait for reading and writing frames.
-pub trait FrameStream : ::std::marker::MarkerTrait {
+pub trait FrameStream {
     /// Returns a tuple containing the number of bytes read and a frame. If pading is encountered
     /// then `None` is returned.
     fn read(reader: &mut Read) -> ::Result<Option<(u32, Frame)>>;
