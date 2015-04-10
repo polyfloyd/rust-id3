@@ -90,7 +90,7 @@ impl Flags {
     /// Creates a byte representation of the flags suitable for writing to an ID3 tag.
     pub fn to_byte(&self, version: u8) -> u8 {
         let mut byte = 0;
-       
+
         if self.unsynchronization {
             byte |= 0x80;
         }
@@ -225,7 +225,7 @@ impl<'a> Tag {
         if tag_v1.artist.is_some() {
             tag.set_artist(tag_v1.artist.unwrap());
         }
-        
+
         if tag_v1.album.is_some() {
             tag.set_album(tag_v1.album.unwrap());
         }
@@ -250,11 +250,11 @@ impl<'a> Tag {
             // TODO maybe convert this from the genre id into a string
             tag.set_genre(format!("{}", tag_v1.genre.unwrap()));
         }
-        
+
         Ok(tag)
     }
 
-    /// Attempts to read an ID3v1 tag from the data as the specified path. The tag will be
+    /// Attempts to read an ID3v1 tag from the file at the specified path. The tag will be
     /// converted into an ID3v2.3 tag upon success.
     pub fn read_from_path_v1<P: AsRef<Path>>(path: P) -> ::Result<Tag> {
         let mut file = try!(File::open(&path));
@@ -303,19 +303,19 @@ impl<'a> Tag {
         if self.version[0] == version {
             return;
         }
-        
+
         let mut remove_uuid = Vec::new();
         for mut frame in self.frames.iter_mut() {
             if !Tag::convert_frame_version(&mut frame, self.version[0], version) {
                 remove_uuid.push(frame.uuid.clone());
             }
         }
-        
+
         self.frames.retain(|frame: &Frame| !remove_uuid.contains(&frame.uuid));
 
         self.version = [version, 0];
         self.modified_offset = 0;
- 
+
     }
 
     fn convert_frame_version(frame: &mut Frame, old_version: u8, new_version: u8) -> bool {
@@ -497,7 +497,7 @@ impl<'a> Tag {
         let id = id.into();
 
         self.remove(&id[..]);
-       
+
         let mut frame = Frame::new(id);
         frame.encoding = encoding;
         frame.content = Content::Text(text.into());
@@ -521,19 +521,17 @@ impl<'a> Tag {
     /// assert_eq!(tag.frames().len(), 0);
     /// ```
     pub fn remove_uuid(&mut self, uuid: &[u8]) {
-        let mut modified_offset = self.modified_offset;
-        {
-            let mut set_modified_offset = |offset: u32| {
-                if offset != 0 {
-                    modified_offset = min(modified_offset, offset);
+        self.modified_offset = {
+            let mut modified_offset = self.modified_offset;
+            self.frames.retain(|frame| { 
+                let keep = &frame.uuid[..] != uuid; 
+                if !keep && frame.offset != 0 {
+                    modified_offset = min(modified_offset, frame.offset);
                 }
-                false
-            };
-            self.frames.retain(|frame| {
-                &frame.uuid[..] != uuid || set_modified_offset(frame.offset)
+                keep
             });
-        }
-        self.modified_offset = modified_offset;
+            modified_offset
+        };
     }
 
     /// Removes all frames with the specified identifier.
@@ -557,19 +555,17 @@ impl<'a> Tag {
     /// assert_eq!(tag.frames().len(), 0);
     /// ```   
     pub fn remove(&mut self, id: &str) {
-        let mut modified_offset = self.modified_offset;
-        {
-            let mut set_modified_offset = |offset: u32| {
-                if offset != 0 {
-                    modified_offset = min(modified_offset, offset);
-                }
-                false
-            };
+        self.modified_offset = {
+            let mut modified_offset = self.modified_offset;
             self.frames.retain(|frame| {
-                &frame.id[..] != id || set_modified_offset(frame.offset)
+                let keep = &frame.id[..] != id;
+                if !keep && frame.offset != 0 {
+                    modified_offset = min(modified_offset, frame.offset);
+                }
+                keep
             });
-        }
-        self.modified_offset = modified_offset;
+            modified_offset
+        };
     }
 
     /// Returns the `Content::Text` string for the frame with the specified identifier.
@@ -673,7 +669,7 @@ impl<'a> Tag {
             key: key, 
             value: value.into()
         });
-        
+
         self.frames.push(frame);
     }
 
@@ -897,15 +893,16 @@ impl<'a> Tag {
         let mut out = Vec::new();
         for frame in self.get_all(self.comment_id()).iter() {
             match frame.content {
-                Content::Comment(ref comment) => out.push((&comment.description[..], 
-                                                         &comment.text[..])),
+                Content::Comment(ref comment) => {
+                    out.push((&comment.description[..], &comment.text[..]));
+                },
                 _ => { }
             }
         }
 
         out
     }
- 
+
     /// Adds a comment (COMM).
     ///
     /// # Example
@@ -956,7 +953,7 @@ impl<'a> Tag {
             description: description, 
             text: text.into() 
         });
-       
+
         self.frames.push(frame);
     }
 
@@ -1124,7 +1121,7 @@ impl<'a> Tag {
             None => None
         }
     }
-   
+
     /// Returns the artist (TPE1).
     ///
     /// # Example
@@ -1196,7 +1193,7 @@ impl<'a> Tag {
         self.remove(id);
     }
 
-     /// Sets the album artist (TPE2).
+    /// Sets the album artist (TPE2).
     ///
     /// # Example
     /// ```
@@ -1717,10 +1714,10 @@ impl<'a> Tag {
             description: description.into(), 
             text: text.into() 
         });
-        
+
         self.frames.push(frame);
     }
- 
+
     #[inline]
     /// Removes the lyrics text (USLT) from the tag.
     ///
@@ -1827,7 +1824,7 @@ impl<'a> Tag {
         }
 
         tag.size = ::util::unsynchsafe(try!(reader.read_u32::<BigEndian>()));
-        
+
         let mut offset = 10;
 
         // TODO actually use the extended header data
@@ -1865,7 +1862,7 @@ impl<'a> Tag {
     /// Attempts to write the ID3 tag to the writer.
     pub fn write_to(&mut self, writer: &mut Write) -> ::Result<()> {
         let path_changed = self.path_changed;
-        
+
         // remove frames which have the flags indicating they should be removed 
         self.frames.retain(|frame| {
             !(frame.offset != 0 
@@ -1874,7 +1871,7 @@ impl<'a> Tag {
                       && (frame.file_alter_preservation() 
                           || DEFAULT_FILE_DISCARD.contains(&&frame.id[..])))))
         });
-            
+
         let mut data_cache: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
         let mut size = 0;
 
@@ -1927,45 +1924,110 @@ impl<'a> Tag {
         Ok(tag)
     }
 
-    /// Attempts to write the ID3 tag from the file at the indicated path.
+    /// Attempts to write the ID3 tag from the file at the indicated path. If the specified path is
+    /// the same path which the tag was read from, then the tag will be written to the padding if
+    /// possible.
     pub fn write_to_path<P: AsRef<Path>>(&mut self, path: P) -> ::Result<()> {
-        let data_opt = {
-            match File::open(&path) {
-                Ok(mut file) => {
-                    // remove the ID3v1 tag if the remove_v1 flag is set
-                    let remove_bytes = if self.remove_v1 {
-                        if try!(::id3v1::probe_xtag(&mut file)) {
-                            Some(::id3v1::TAGPLUS_OFFSET as usize)
-                        } else if try!(::id3v1::probe_tag(&mut file)) {
-                            Some(::id3v1::TAG_OFFSET as usize)
+        let mut write_new_file = true;
+        if self.path.is_some() && path.as_ref() == self.path.as_ref().unwrap().as_path() {
+            // remove any old frames that have the tag_alter_presevation flag
+            self.modified_offset = {
+                let mut modified_offset = self.modified_offset;
+                self.frames.retain(|frame| {
+                    let keep = frame.offset == 0 || !frame.tag_alter_preservation();
+                    if !keep {
+                        modified_offset = min(modified_offset, frame.offset);
+                    }
+                    keep
+                });
+                modified_offset
+            };
+
+            let mut data_cache: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
+            let mut size = 0;
+
+            for frame in self.frames.iter() {
+                let mut frame_writer = Vec::new();
+                size += try!(frame.write_to(&mut frame_writer, self.version[0]));
+                data_cache.insert(frame.uuid.clone(), frame_writer);
+            }
+
+            debug!("modified offset: {}", self.modified_offset); 
+
+            if size <= self.size && self.modified_offset >= 10 {
+                debug!("writing using padding");
+
+                let mut writer = try!(OpenOptions::new().create(true).write(true).open(self.path.as_ref().unwrap()));
+
+                let mut offset = self.modified_offset;
+                try!(writer.seek(SeekFrom::Start(offset as u64)));
+
+                for frame in self.frames.iter_mut() {
+                    if frame.offset == 0 || frame.offset > self.modified_offset {
+                        debug!("writing {}", frame.id);
+                        frame.offset = offset;
+                        offset += match data_cache.get(&frame.uuid) {
+                            Some(data) => { 
+                                try!(writer.write_all(&data[..]));
+                                data.len() as u32
+                            },
+                            None => try!(frame.write_to(&mut writer, self.version[0]))
+                        }
+                    }
+                }
+
+                if self.offset > offset {
+                    for _ in offset..self.offset {
+                        try!(writer.write_u8(0));
+                    }
+                }
+
+                write_new_file = false;
+
+                self.offset = offset;
+                self.modified_offset = self.offset;
+            }
+        } 
+
+        if write_new_file {
+            let data_opt = {
+                match File::open(&path) {
+                    Ok(mut file) => {
+                        // remove the ID3v1 tag if the remove_v1 flag is set
+                        let remove_bytes = if self.remove_v1 {
+                            if try!(::id3v1::probe_xtag(&mut file)) {
+                                Some(::id3v1::TAGPLUS_OFFSET as usize)
+                            } else if try!(::id3v1::probe_tag(&mut file)) {
+                                Some(::id3v1::TAG_OFFSET as usize)
+                            } else {
+                                None
+                            }
                         } else {
                             None
+                        };
+
+                        let mut data = Tag::skip_metadata(&mut file);
+                        match remove_bytes {
+                            Some(n) => if n <= data.len() {
+                                data = data[..data.len() - n].to_vec();
+                            },
+                            None => {}
                         }
-                    } else {
-                        None
-                    };
-
-                    let mut data = Tag::skip_metadata(&mut file);
-                    match remove_bytes {
-                        Some(n) => if n <= data.len() {
-                            data = data[..data.len() - n].to_vec();
-                        },
-                        None => {}
+                        Some(data)
                     }
-                    Some(data)
+                    Err(_) => None
                 }
-                Err(_) => None
+            };
+
+            self.path_changed = self.path.is_none() || &**self.path.as_ref().unwrap() != path.as_ref();
+
+            let mut file = try!(OpenOptions::new().truncate(true).write(true).create(true).open(&path));
+            try!(self.write_to(&mut file));
+
+            match data_opt {
+                Some(data) => try!(file.write_all(&data[..])),
+                None => {}
             }
-        };
-
-        self.path_changed = self.path.is_none() || &**self.path.as_ref().unwrap() != path.as_ref();
-
-        let mut file = try!(OpenOptions::new().truncate(true).write(true).create(true).open(&path));
-        try!(self.write_to(&mut file));
-        
-        match data_opt {
-            Some(data) => try!(file.write_all(&data[..])),
-            None => {}
         }
 
         self.path = Some(path.as_ref().to_path_buf());
@@ -1981,70 +2043,8 @@ impl<'a> Tag {
             return Err(::Error::new(::ErrorKind::InvalidInput, "attempted to save file which was not read from a path"))
         }
 
-        // remove any old frames that have the tag_alter_presevation flag
-        let mut modified_offset = self.modified_offset;
-        {
-            let mut set_modified_offset = |offset: u32| {
-                if offset != 0 {
-                    modified_offset = min(modified_offset, offset);
-                }
-                false
-            };       
-            self.frames.retain(|frame| {
-                frame.offset == 0 || !frame.tag_alter_preservation() 
-                    || set_modified_offset(frame.offset)
-            });
-        }
-        self.modified_offset = modified_offset;
-
-        let mut data_cache: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
-        let mut size = 0;
-
-        for frame in self.frames.iter() {
-            let mut frame_writer = Vec::new();
-            size += try!(frame.write_to(&mut frame_writer, self.version[0]));
-            data_cache.insert(frame.uuid.clone(), frame_writer);
-        }
-
-        debug!("modified offset: {}", self.modified_offset); 
-       
-        if size <= self.size && self.modified_offset >= 10 {
-            debug!("writing using padding");
-
-            let mut writer = try!(OpenOptions::new().create(true).write(true).open(self.path.as_ref().unwrap()));
-
-            let mut offset = self.modified_offset;
-            try!(writer.seek(SeekFrom::Start(offset as u64)));
-
-            for frame in self.frames.iter_mut() {
-                if frame.offset == 0 || frame.offset > self.modified_offset {
-                    debug!("writing {}", frame.id);
-                    frame.offset = offset;
-                    offset += match data_cache.get(&frame.uuid) {
-                        Some(data) => { 
-                            try!(writer.write_all(&data[..]));
-                            data.len() as u32
-                        },
-                        None => try!(frame.write_to(&mut writer, self.version[0]))
-                    }
-                }
-            }
-
-            if self.offset > offset {
-                for _ in offset..self.offset {
-                    try!(writer.write_u8(0));
-                }
-            }
-
-            self.offset = offset;
-            self.modified_offset = self.offset;
-
-            Ok(())
-        } else {
-            debug!("rewriting file");
-            let path = self.path.clone().unwrap();
-            self.write_to_path(&path)
-        }
+        let path = self.path.clone().unwrap();
+        self.write_to_path(path)
     }
     //}}}
 }
