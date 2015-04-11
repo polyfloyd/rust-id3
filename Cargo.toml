@@ -2,6 +2,12 @@
 name = "id3"
 version = "0.0.1"
 authors = ["James Hurst <jamesrhurst@users.noreply.github.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/jamesrhurst/rust-id3"
+repository = "https://github.com/jamesrhurst/rust-id3"
+documentation = "https://jamesrhurst.github.io/rust-id3"
+description = "A library for reading and writing ID3 metadata."
 
 [dependencies]
 log = "*"
