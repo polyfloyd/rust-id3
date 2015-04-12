@@ -1,16 +1,17 @@
-extern crate flate;
+extern crate flate2;
 extern crate byteorder;
 
 use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
-use frame::stream::FrameStream;
 use frame::Frame;
+use self::flate2::write::ZlibEncoder;
+use self::flate2::Compression;
 
 #[allow(dead_code)]
 pub enum FrameV3 {}
 
-impl FrameStream for FrameV3 {
-    fn read(reader: &mut Read) -> ::Result<Option<(u32, Frame)>> {
+impl FrameV3 {
+    pub fn read(reader: &mut Read) -> ::Result<Option<(u32, Frame)>> {
         let id = id_or_padding!(reader, 4);
         let mut frame = Frame::new(id);
         debug!("reading {}", frame.id); 
@@ -46,24 +47,26 @@ impl FrameStream for FrameV3 {
         Ok(Some((10 + content_size, frame)))
     }
 
-    fn write(writer: &mut Write, frame: &Frame) -> ::Result<u32> {
+    pub fn write(writer: &mut Write, frame: &Frame) -> ::Result<u32> {
         let mut content_bytes = frame.content_to_bytes(3);
         let mut content_size = content_bytes.len() as u32;
         let decompressed_size = content_size;
 
         if frame.flags.compression {
             debug!("[{}] compressing frame content", frame.id);
-            content_bytes = flate::deflate_bytes_zlib(&content_bytes[..])[..].to_vec();
+            let mut encoder = ZlibEncoder::new(Vec::new(), Compression::Default);
+            try!(encoder.write_all(&content_bytes[..]));
+            content_bytes = try!(encoder.finish());
             content_size = content_bytes.len() as u32 + 4;
         }
 
-        try!(writer.write(frame.id[..4].as_bytes()));
+        try!(writer.write_all(frame.id[..4].as_bytes()));
         try!(writer.write_u32::<BigEndian>(content_size));
-        try!(writer.write(&frame.flags.to_bytes(0x3)[..]));
+        try!(writer.write_all(&frame.flags.to_bytes(0x3)[..]));
         if frame.flags.compression {
             try!(writer.write_u32::<BigEndian>(decompressed_size));
         }
-        try!(writer.write(&content_bytes[..]));
+        try!(writer.write_all(&content_bytes[..]));
 
         Ok(10 + content_size)
     }

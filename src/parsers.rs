@@ -53,9 +53,9 @@ pub fn decode(request: DecoderRequest) -> ::Result<DecoderResult> {
         "USLT" | "ULT" => parse_uslt(request.data),
         _ => {
             if request.id[..].len() > 0 {
-                if request.id[..].char_at(0) == 'T' {
+                if request.id[..].chars().next().unwrap() == 'T' {
                     return parse_text(request.data);
-                } else if request.id[..].char_at(0) == 'W' {
+                } else if request.id[..].chars().next().unwrap() == 'W' {
                     return parse_weblink(request.data);
                 } 
             }
@@ -75,7 +75,7 @@ macro_rules! encode_part {
     ($buf:ident, encoding($encoding:expr)) => { $buf.push($encoding as u8) };
     ($buf:ident, $params:ident, string($string:expr)) => { ($params.string_func)(&mut $buf, &$string[..]) };
     ($buf:ident, $params:ident, delim($ignored:expr)) => { for _ in 0..$params.delim_len { $buf.push(0); } };
-    ($buf:ident, $params:ident, bytes($bytes:expr)) => { $buf.push_all(&$bytes[..]); };
+    ($buf:ident, $params:ident, bytes($bytes:expr)) => { $buf.extend($bytes.iter().cloned()); };
     ($buf:ident, $params:ident, byte($byte:expr)) => { $buf.push($byte as u8) };
 }
 
@@ -86,7 +86,7 @@ macro_rules! encode {
                 Encoding::Latin1 | Encoding::UTF8 => EncodingParams { 
                     delim_len: 1,
                     string_func: Box::new(|buf: &mut Vec<u8>, string: &str| 
-                        buf.push_all(string.as_bytes()))
+                        buf.extend(string.bytes()))
                 },
                 Encoding::UTF16 => EncodingParams {
                     delim_len: 2,
@@ -171,7 +171,7 @@ fn picture_to_bytes(request: EncoderRequest) -> Vec<u8> {
 // Decoders {{{
 struct DecodingParams<'a> {
     encoding: Encoding,
-    string_func: Box<Fn(&[u8]) -> Option<String> + 'a>
+    string_func: Box<Fn(&[u8]) -> ::Result<String> + 'a>
 }
 
 impl<'a> DecodingParams<'a> {
@@ -179,19 +179,19 @@ impl<'a> DecodingParams<'a> {
         match encoding {
             Encoding::Latin1 | Encoding::UTF8 => DecodingParams {
                 encoding: Encoding::UTF8,
-                string_func: Box::new(|bytes: &[u8]| -> Option<String> {
-                    String::from_utf8(bytes.to_vec()).ok()
+                string_func: Box::new(|bytes: &[u8]| -> ::Result<String> {
+                    Ok(try!(String::from_utf8(bytes.to_vec())))
                 })
             },
             Encoding::UTF16 => DecodingParams {
                 encoding: Encoding::UTF16,
-                string_func: Box::new(|bytes: &[u8]| -> Option<String> {
+                string_func: Box::new(|bytes: &[u8]| -> ::Result<String> {
                     util::string_from_utf16(bytes)
                 })
             },
             Encoding::UTF16BE => DecodingParams {
                 encoding: Encoding::UTF16BE,
-                string_func: Box::new(|bytes: &[u8]| -> Option<String> {
+                string_func: Box::new(|bytes: &[u8]| -> ::Result<String> {
                     util::string_from_utf16be(bytes)
                 })
             }
@@ -227,16 +227,7 @@ macro_rules! decode_part {
             let (end, with_delim) = find_delim!($bytes, $params.encoding, $i, $terminated);
             $i = with_delim; Some(&$i);
 
-            match ($params.string_func)(&$bytes[start..end]) {
-                Some(string) => string,
-                None => return Err(::Error::new(
-                        ::ErrorKind::StringDecoding($bytes[start..end].to_vec()), 
-                        match $params.encoding {
-                            Encoding::Latin1 | Encoding::UTF8 => "string is not valid utf8",
-                            Encoding::UTF16 => "string is not valid utf16",
-                            Encoding::UTF16BE => "string is not valid utf16-be"
-                        }))
-            }
+            try!(($params.string_func)(&$bytes[start..end]))
         }
     };
     ($bytes:ident, $params:ident, $i:ident, fixed_string($len:expr)) => {
@@ -261,7 +252,7 @@ macro_rules! decode_part {
     };
     ($bytes:ident, $params:ident, $i:ident, picture_type()) => {
         {
-            use std::num::FromPrimitive;
+            use ::num::FromPrimitive;
 
             if $i + 1 >= $bytes.len() {
                 return Err(::Error::new(::ErrorKind::InvalidInput, "insufficient data"));
@@ -270,7 +261,7 @@ macro_rules! decode_part {
             let start = $i;
             $i += 1;
 
-            let picture_type: PictureType = match FromPrimitive::from_u8($bytes[start]) {
+            let picture_type = match PictureType::from_u8($bytes[start]) {
                 Some(t) => t,
                 None => return Err(::Error::new(::ErrorKind::InvalidInput, "invalid picture type"))
             };
@@ -434,11 +425,11 @@ mod tests {
                     println!("`{}`, `{}`, `{:?}`", mime_type, description, encoding);
                     let mut data = Vec::new();
                     data.push(encoding as u8);
-                    data.push_all(format.as_bytes());
+                    data.extend(format.bytes());
                     data.push(picture_type as u8);
                     data.extend(bytes_for_encoding(description, encoding).into_iter());
                     data.extend(delim_for_encoding(encoding).into_iter());
-                    data.push_all(&picture_data[..]);
+                    data.extend(picture_data.iter().cloned());
 
                     assert_eq!(*parsers::decode(DecoderRequest { 
                         id: "PIC", 
@@ -473,12 +464,12 @@ mod tests {
                     println!("`{}`, `{}`, `{:?}`", mime_type, description, encoding);
                     let mut data = Vec::new();
                     data.push(encoding as u8);
-                    data.push_all(mime_type.as_bytes());
+                    data.extend(mime_type.bytes());
                     data.push(0x0);
                     data.push(picture_type as u8);
                     data.extend(bytes_for_encoding(description, encoding).into_iter());
                     data.extend(delim_for_encoding(encoding).into_iter());
-                    data.push_all(&picture_data[..]);
+                    data.extend(picture_data.iter().cloned());
                     
                     assert_eq!(*parsers::decode(DecoderRequest { 
                         id: "APIC", 
@@ -504,7 +495,7 @@ mod tests {
                     println!("`{}`, `{}`, `{:?}`", description, comment, encoding);
                     let mut data = Vec::new();
                     data.push(encoding as u8);
-                    data.push_all(b"eng");
+                    data.extend(b"eng".iter().cloned());
                     data.extend(bytes_for_encoding(description, encoding).into_iter());
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(bytes_for_encoding(comment, encoding).into_iter());
@@ -533,7 +524,7 @@ mod tests {
             println!("`{:?}`", encoding);
             let mut data = Vec::new();
             data.push(encoding as u8);
-            data.push_all(b"eng");
+            data.extend(b"eng".iter().cloned());
             data.extend(bytes_for_encoding(description, encoding).into_iter());
             data.extend(bytes_for_encoding(comment, encoding).into_iter());
             assert!(parsers::decode(DecoderRequest { 
@@ -693,7 +684,7 @@ mod tests {
                     println!("`{}`, `{}, `{:?}`", description, text, encoding);
                     let mut data = Vec::new();
                     data.push(encoding as u8);
-                    data.push_all(b"eng");
+                    data.extend(b"eng".iter().cloned());
                     data.extend(bytes_for_encoding(description, encoding).into_iter());
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(bytes_for_encoding(text, encoding).into_iter());
@@ -723,7 +714,7 @@ mod tests {
             println!("`{:?}`", encoding);
             let mut data = Vec::new();
             data.push(encoding as u8);
-            data.push_all(b"eng");
+            data.extend(b"eng".iter().cloned());
             data.extend(bytes_for_encoding(description, encoding).into_iter());
             data.extend(bytes_for_encoding(lyrics, encoding).into_iter());
             assert!(parsers::decode(DecoderRequest { 

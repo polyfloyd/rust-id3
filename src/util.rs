@@ -1,9 +1,13 @@
 extern crate std;
 extern crate rand;
+extern crate num;
+extern crate encoding;
 
+use self::encoding::{DecoderTrap, EncoderTrap};
+use self::encoding::Encoding as StrEncoding;
+use self::encoding::all::{UTF_16BE, UTF_16LE};
 use self::rand::Rng;
 use frame::Encoding;
-use std::mem::transmute;
 use std::collections::HashMap;
 
 /// Returns a random sequence of 16 bytes, intended to be used as a UUID.
@@ -30,7 +34,7 @@ pub fn unsynchsafe(n: u32) -> u32 {
 /// Returns `None` if the vector is not a valid string of the specified
 /// encoding type.
 #[inline]
-pub fn string_from_encoding(encoding: Encoding, data: &[u8]) -> Option<String> {
+pub fn string_from_encoding(encoding: Encoding, data: &[u8]) -> ::Result<String> { 
     match encoding {
         Encoding::Latin1 | Encoding::UTF8 => string_from_utf8(data),
         Encoding::UTF16 => string_from_utf16(data),
@@ -41,16 +45,15 @@ pub fn string_from_encoding(encoding: Encoding, data: &[u8]) -> Option<String> {
 /// Returns a string created from the vector using UTF-8 encoding, removing any trailing null
 /// bytes.
 /// Returns `None` if the vector is not a valid UTF-8 string.
-pub fn string_from_utf8(data: &[u8]) -> Option<String> {
-    let data: Vec<u8> = data.iter().take_while(|&c| *c != 0).map(|c| *c).collect();
-    String::from_utf8(data).ok()
+pub fn string_from_utf8(data: &[u8]) -> ::Result<String> {
+    Ok(try!(String::from_utf8(data.iter().take_while(|c| **c != 0).cloned().collect())))
 }
 
 /// Returns a string created from the vector using UTF-16 (with byte order mark) encoding.
 /// Returns `None` if the vector is not a valid UTF-16 string.
-pub fn string_from_utf16(data: &[u8]) -> Option<String> {
-    if data.len() < 2 || data.len() % 2 != 0 { 
-        return None;
+pub fn string_from_utf16(data: &[u8]) -> ::Result<String> {
+    if data.len() < 2 { 
+        return Err(::Error::new(::ErrorKind::StringDecoding(data.to_vec()), "data is not valid utf16"))
     }
 
     if data[0] == 0xFF && data[1] == 0xFE { // little endian
@@ -62,54 +65,30 @@ pub fn string_from_utf16(data: &[u8]) -> Option<String> {
 
 /// Returns a string created from the vector using UTF-16LE encoding.
 /// Returns `None` if the vector is not a valid UTF-16LE string.
-pub fn string_from_utf16le(data: &[u8]) -> Option<String> {
-    if data.len() % 2 != 0 { 
-        return None;
-    }
-
-    if cfg!(target_endian = "little") {
-        let buf = unsafe { transmute::<_, &[u16]>(&data[..]) };
-        String::from_utf16(&buf[..data.len() / 2]).ok()
-    } else {
-        let mut buf: Vec<u16> = Vec::with_capacity(data.len() / 2);
-
-        for i in (0..data.len()).step_by(2) {
-            buf.push(data[i] as u16 | (data[i + 1] as u16) << 8);
-        }
-
-        String::from_utf16(&buf[..]).ok()
+pub fn string_from_utf16le(data: &[u8]) -> ::Result<String> {
+    match UTF_16LE.decode(data, DecoderTrap::Strict) {
+        Ok(string) => Ok(string),
+        Err(_) => Err(::Error::new(::ErrorKind::StringDecoding(data.to_vec()), "data is not valid utf16-le"))
     }
 }
 
 /// Returns a string created from the vector using UTF-16BE encoding.
 /// Returns `None` if the vector is not a valid UTF-16BE string.
-pub fn string_from_utf16be(data: &[u8]) -> Option<String> {
-    if data.len() % 2 != 0 { 
-        return None;
-    }
-    if cfg!(target_endian = "big") {
-        let buf = unsafe { transmute::<_, &[u16]>(&data[..]) };
-        String::from_utf16(&buf[..data.len() / 2]).ok()
-    } else {
-        let mut buf: Vec<u16> = Vec::with_capacity(data.len() / 2);
-
-        for i in (0..data.len()).step_by(2) {
-            buf.push((data[i] as u16) << 8 | data[i + 1] as u16);
-        }
-
-        String::from_utf16(&buf[..]).ok()
+pub fn string_from_utf16be(data: &[u8]) -> ::Result<String> {
+    match UTF_16BE.decode(data, DecoderTrap::Strict) {
+        Ok(string) => Ok(string),
+        Err(_) => Err(::Error::new(::ErrorKind::StringDecoding(data.to_vec()), "data is not valid utf16-be"))
     }
 }
 
 /// Returns a UTF-16 (with native byte order) vector representation of the string.
 pub fn string_to_utf16(text: &str) -> Vec<u8> {
-    let mut out: Vec<u8> = Vec::with_capacity(2 + text.len() * 2);
-
+    let mut out = Vec::with_capacity(2 + text.len() * 2);
     if cfg!(target_endian = "little") {
-        out.push_all(&[0xFF, 0xFE]); // add little endian BOM
+        out.extend([0xFF, 0xFE].iter().cloned()); // add little endian BOM
         out.extend(string_to_utf16le(text).into_iter());
     } else {
-        out.push_all(&[0xFE, 0xFF]); // add big endian BOM
+        out.extend([0xFE, 0xFF].iter().cloned()); // add big endian BOM
         out.extend(string_to_utf16be(text).into_iter());
     }
     out
@@ -117,24 +96,12 @@ pub fn string_to_utf16(text: &str) -> Vec<u8> {
 
 /// Returns a UTF-16BE vector representation of the string.
 pub fn string_to_utf16be(text: &str) -> Vec<u8> {
-    let mut out: Vec<u8> = Vec::with_capacity(text.len() * 2);
-    for c in text[..].utf16_units() {
-        out.push(((c & 0xFF00) >> 8) as u8);
-        out.push((c & 0x00FF) as u8);
-    }
-
-    out
+    UTF_16BE.encode(text, EncoderTrap::Replace).unwrap()
 }
 
 /// Returns a UTF-16LE vector representation of the string.
 pub fn string_to_utf16le(text: &str) -> Vec<u8> {
-    let mut out: Vec<u8> = Vec::with_capacity(text.len() * 2);
-    for c in text.utf16_units() {
-        out.push((c & 0x00FF) as u8);
-        out.push(((c & 0xFF00) >> 8) as u8);
-    }
-
-    out
+    UTF_16LE.encode(text, EncoderTrap::Replace).unwrap()
 }
 
 /// Returns the index of the first delimiter for the specified encoding.

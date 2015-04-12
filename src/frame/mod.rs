@@ -1,5 +1,5 @@
 extern crate std;
-extern crate flate;
+extern crate flate2;
 
 use std::io::{Read, Write};
 use std::borrow::Cow;
@@ -9,7 +9,9 @@ pub use self::content::Content;
 pub use self::flags::Flags;
 pub use self::picture::{Picture, PictureType};
 
-use self::stream::{FrameStream, FrameV2, FrameV3, FrameV4};
+use self::flate2::read::ZlibDecoder;
+
+use self::stream::{FrameV2, FrameV3, FrameV4};
     
 use parsers::{self, DecoderRequest, EncoderRequest};
 
@@ -200,7 +202,10 @@ impl Frame {
     /// Returns `Err` if the data is invalid for the frame type.
     pub fn parse_data(&mut self, data: &[u8]) -> ::Result<()> {
         let decompressed_opt = if self.flags.compression {
-            Some(flate::inflate_bytes_zlib(data).unwrap())
+            let mut decoder = ZlibDecoder::new(data);
+            let mut decompressed = Vec::new();
+            try!(decoder.read_to_end(&mut decompressed));
+            Some(decompressed)
         } else {
             None
         };
@@ -314,8 +319,8 @@ mod tests {
         frame.parse_data(&data[..]).unwrap();
 
         let mut bytes = Vec::new();
-        bytes.push_all(id.as_bytes());
-        bytes.push_all(&u32_to_bytes(data.len() as u32)[1..]);
+        bytes.extend(id.bytes());
+        bytes.extend((&u32_to_bytes(data.len() as u32)[1..]).iter().cloned());
         bytes.extend(data.into_iter());
 
         let mut writer = Vec::new();
@@ -338,9 +343,9 @@ mod tests {
         frame.parse_data(&data[..]).unwrap();
 
         let mut bytes = Vec::new();
-        bytes.push_all(id.as_bytes());
+        bytes.extend(id.bytes());
         bytes.extend(u32_to_bytes(data.len() as u32).into_iter());
-        bytes.push_all(&[0x00, 0x00]);
+        bytes.extend([0x00, 0x00].iter().cloned());
         bytes.extend(data.into_iter());
 
         let mut writer = Vec::new();
@@ -366,9 +371,9 @@ mod tests {
         frame.parse_data(&data[..]).unwrap();
 
         let mut bytes = Vec::new();
-        bytes.push_all(id.as_bytes());
+        bytes.extend(id.bytes());
         bytes.extend(u32_to_bytes(::util::synchsafe(data.len() as u32)).into_iter());
-        bytes.push_all(&[0x60, 0x00]);
+        bytes.extend([0x60, 0x00].iter().cloned());
         bytes.extend(data.into_iter());
 
         let mut writer = Vec::new();

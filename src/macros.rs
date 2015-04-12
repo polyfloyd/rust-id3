@@ -10,9 +10,9 @@ macro_rules! try_delim {
 macro_rules! try_encoding {
     ($c:expr) => {
         {
-            use std::num::FromPrimitive;
+            use ::num::FromPrimitive;
 
-            let encoding: ::frame::Encoding = match FromPrimitive::from_u8($c) {
+            let encoding = match Encoding::from_u8($c) {
                 Some(encoding) => encoding,
                 None => return Err(::Error::new(::ErrorKind::InvalidInput, "invalid encoding byte"))
             };

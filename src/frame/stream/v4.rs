@@ -1,16 +1,17 @@
-extern crate flate;
+extern crate flate2;
 extern crate byteorder;
 
 use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
-use frame::stream::FrameStream;
 use frame::Frame;
+use self::flate2::write::ZlibEncoder;
+use self::flate2::Compression;
 
 #[allow(dead_code)]
 pub enum FrameV4 {}
 
-impl FrameStream for FrameV4 {
-    fn read(reader: &mut Read) -> ::Result<Option<(u32, Frame)>> {
+impl FrameV4 {
+    pub fn read(reader: &mut Read) -> ::Result<Option<(u32, Frame)>> {
         let id = id_or_padding!(reader, 4);
         let mut frame = Frame::new(id);
         debug!("reading {}", frame.id);
@@ -51,14 +52,16 @@ impl FrameStream for FrameV4 {
         Ok(Some((10 + content_size, frame)))
     }
 
-    fn write(writer: &mut Write, frame: &Frame) -> ::Result<u32> {
+    pub fn write(writer: &mut Write, frame: &Frame) -> ::Result<u32> {
         let mut content_bytes = frame.content_to_bytes(4);
         let mut content_size = content_bytes.len() as u32;
         let decompressed_size = content_size;
 
         if frame.flags.compression {
             debug!("[{}] compressing frame content", frame.id);
-            content_bytes = flate::deflate_bytes_zlib(&content_bytes[..])[..].to_vec();
+            let mut encoder = ZlibEncoder::new(Vec::new(), Compression::Default);
+            try!(encoder.write_all(&content_bytes[..]));
+            content_bytes = try!(encoder.finish());
             content_size = content_bytes.len() as u32;
         }
 
@@ -66,14 +69,14 @@ impl FrameStream for FrameV4 {
             content_size += 4;
         }
 
-        try!(writer.write(frame.id[..4].as_bytes()));
+        try!(writer.write_all(frame.id[..4].as_bytes()));
         try!(writer.write_u32::<BigEndian>(::util::synchsafe(content_size)));;
-        try!(writer.write(&frame.flags.to_bytes(0x4)[..]));
+        try!(writer.write_all(&frame.flags.to_bytes(0x4)[..]));
         if frame.flags.data_length_indicator {
             debug!("[{}] adding data length indicator", frame.id);
             try!(writer.write_u32::<BigEndian>(::util::synchsafe(decompressed_size)));
         }
-        try!(writer.write(&content_bytes[..]));
+        try!(writer.write_all(&content_bytes[..]));
 
         Ok(10 + content_size)
     }
