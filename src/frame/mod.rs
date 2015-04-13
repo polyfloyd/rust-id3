@@ -154,24 +154,29 @@ impl Frame {
     /// Returns a tuple containing the number of bytes read and a frame. If pading is encountered
     /// then `None` is returned.
     ///
-    /// Only reading from version 2, 3, and 4 is supported. Attempting to read any other version
-    /// will return an `InvalidInput`. 
+    /// Only reading from versions 2, 3, and 4 is supported. Attempting to read any other version
+    /// will return an error with kind `UnsupportedVersion`. 
     pub fn read_from(reader: &mut Read, version: u8) -> ::Result<Option<(u32, Frame)>> {
         match version {
             2 => FrameV2::read(reader),
             3 => FrameV3::read(reader),
             4 => FrameV4::read(reader),
-            _ =>  Err(::Error::new(::ErrorKind::InvalidInput, "unsupported id3 tag version"))
+            _ =>  Err(::Error::new(::ErrorKind::UnsupportedVersion, "unsupported id3 tag version"))
         }
     }
 
     /// Attempts to write the frame to the writer.
+    ///
+    /// Returns the number of bytes written.
+    ///
+    /// Only writing to versions 2, 3, and 4 is supported. Attempting to write using any other
+    /// version will return an error with kind `UnsupportedVersion`.
     pub fn write_to(&self, writer: &mut Write, version: u8) -> ::Result<u32> {
         match version {
             2 => FrameV2::write(writer, self),
             3 => FrameV3::write(writer, self),
             4 => FrameV4::write(writer, self),
-            _ =>  Err(::Error::new(::ErrorKind::InvalidInput, "unsupported id3 tag version"))
+            _ =>  Err(::Error::new(::ErrorKind::UnsupportedVersion, "unsupported id3 tag version"))
         }
     }
   

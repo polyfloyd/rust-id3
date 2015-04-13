@@ -19,6 +19,12 @@ pub enum ErrorKind {
     /// An error kind indicating that a string decoding error has occurred. Contains the invalid
     /// bytes.
     StringDecoding(Vec<u8>),
+    /// An error kind indicating that the reader does not contain an ID3 tag.
+    NoTag,
+    /// An error kind indicating that the reader contains an unsupported ID3 tag version.
+    UnsupportedVersion,
+    /// An error kind indicating that parsing error has occurred.
+    Parsing,
     /// An error kind indicating that some input was invalid.
     InvalidInput,
     /// An error kind indicating that a feature is not supported.

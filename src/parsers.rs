@@ -202,7 +202,7 @@ impl<'a> DecodingParams<'a> {
 macro_rules! assert_data {
     ($bytes:ident) => {
         if $bytes.len() == 0 {
-            return Err(::Error::new(::ErrorKind::InvalidInput, "frame does not contain any data"))
+            return Err(::Error::new(::ErrorKind::Parsing, "frame does not contain any data"))
         }
     }
 }
@@ -214,7 +214,7 @@ macro_rules! find_delim {
         } else {
             match ::util::find_delim($encoding, $bytes, $i) {
                 Some(i) => (i, i + ::util::delim_len($encoding)),
-                None => return Err(::Error::new(::ErrorKind::InvalidInput, "delimiter not found"))
+                None => return Err(::Error::new(::ErrorKind::Parsing, "delimiter not found"))
             }
         }
     };
@@ -233,7 +233,7 @@ macro_rules! decode_part {
     ($bytes:ident, $params:ident, $i:ident, fixed_string($len:expr)) => {
         {
             if $i + $len >= $bytes.len() {
-                return Err(::Error::new(::ErrorKind::InvalidInput, "insufficient data"));
+                return Err(::Error::new(::ErrorKind::Parsing, "insufficient data"));
             }
 
             let start = $i;
@@ -255,7 +255,7 @@ macro_rules! decode_part {
             use ::num::FromPrimitive;
 
             if $i + 1 >= $bytes.len() {
-                return Err(::Error::new(::ErrorKind::InvalidInput, "insufficient data"));
+                return Err(::Error::new(::ErrorKind::Parsing, "insufficient data"));
             }
 
             let start = $i;
@@ -263,7 +263,7 @@ macro_rules! decode_part {
 
             let picture_type = match PictureType::from_u8($bytes[start]) {
                 Some(t) => t,
-                None => return Err(::Error::new(::ErrorKind::InvalidInput, "invalid picture type"))
+                None => return Err(::Error::new(::ErrorKind::Parsing, "invalid picture type"))
             };
             picture_type
         }
@@ -286,7 +286,7 @@ macro_rules! decode {
 
             let encoding = match Encoding::from_u8($bytes[0]) {
                 Some(encoding) => encoding,
-                None => return Err(::Error::new(::ErrorKind::InvalidInput, "invalid encoding byte"))
+                None => return Err(::Error::new(::ErrorKind::Parsing, "invalid encoding byte"))
             };
 
             let params = DecodingParams::for_encoding(encoding);
@@ -311,7 +311,7 @@ fn parse_apic_v2(data: &[u8]) -> ::Result<DecoderResult> {
    
     let encoding = match Encoding::from_u8(data[0]) {
         Some(encoding) => encoding,
-        None => return Err(::Error::new(::ErrorKind::InvalidInput, "invalid encoding byte"))
+        None => return Err(::Error::new(::ErrorKind::Parsing, "invalid encoding byte"))
     };
 
     let params = DecodingParams::for_encoding(encoding);
@@ -355,7 +355,7 @@ fn parse_text(data: &[u8]) -> ::Result<DecoderResult> {
     assert_data!(data);
     let encoding = match Encoding::from_u8(data[0]) {
         Some(encoding) => encoding,
-        None => return Err(::Error::new(::ErrorKind::InvalidInput, "invalid encoding byte"))
+        None => return Err(::Error::new(::ErrorKind::Parsing, "invalid encoding byte"))
     };
 
     let params = DecodingParams::for_encoding(encoding);

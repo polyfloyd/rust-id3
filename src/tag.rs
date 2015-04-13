@@ -1756,7 +1756,7 @@ impl<'a> Tag {
         try!(reader.read(&mut identifier));
         if &identifier[..] != b"ID3" {
             debug!("no id3 tag found");
-            return Err(::Error::new(::ErrorKind::InvalidInput, "buffer does not contain an id3 tag"))
+            return Err(::Error::new(::ErrorKind::NoTag, "reader does not contain an id3 tag"))
         }
 
         try!(reader.read(&mut tag.version));
@@ -1764,7 +1764,7 @@ impl<'a> Tag {
         debug!("tag version {}", tag.version[0]);
 
         if tag.version[0] < 2 || tag.version[0] > 4 {
-            return Err(::Error::new(::ErrorKind::InvalidInput, "unsupported id3 tag version"));
+            return Err(::Error::new(::ErrorKind::UnsupportedVersion , "unsupported id3 tag version"));
         }
 
         tag.flags = Flags::from_byte(try!(reader.read_u8()), tag.version[0]);
@@ -2002,8 +2002,8 @@ impl<'a> Tag {
         Ok(())
     }
 
-    /// Attempts to save the tag back to the file which it was read from. An `Error::InvalidInput`
-    /// will be returned if this is called on a tag which was not read from a file.
+    /// Attempts to save the tag back to the file which it was read from. An error with kind
+    /// `InvalidInput` will be returned if this is called on a tag which was not read from a file.
     pub fn save(&mut self) -> ::Result<()> {
         if self.path.is_none() {
             return Err(::Error::new(::ErrorKind::InvalidInput, "attempted to save file which was not read from a path"))
