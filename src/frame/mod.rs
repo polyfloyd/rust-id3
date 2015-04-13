@@ -161,7 +161,7 @@ impl Frame {
             2 => FrameV2::read(reader),
             3 => FrameV3::read(reader),
             4 => FrameV4::read(reader),
-            _ =>  Err(::Error::new(::ErrorKind::UnsupportedVersion, "unsupported id3 tag version"))
+            _ =>  Err(::Error::new(::ErrorKind::UnsupportedVersion(version), "unsupported id3 tag version"))
         }
     }
 
@@ -176,7 +176,7 @@ impl Frame {
             2 => FrameV2::write(writer, self),
             3 => FrameV3::write(writer, self),
             4 => FrameV4::write(writer, self),
-            _ =>  Err(::Error::new(::ErrorKind::UnsupportedVersion, "unsupported id3 tag version"))
+            _ =>  Err(::Error::new(::ErrorKind::UnsupportedVersion(version), "unsupported id3 tag version"))
         }
     }
   

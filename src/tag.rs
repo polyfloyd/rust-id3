@@ -1764,7 +1764,7 @@ impl<'a> Tag {
         debug!("tag version {}", tag.version[0]);
 
         if tag.version[0] < 2 || tag.version[0] > 4 {
-            return Err(::Error::new(::ErrorKind::UnsupportedVersion , "unsupported id3 tag version"));
+            return Err(::Error::new(::ErrorKind::UnsupportedVersion(tag.version[0]) , "unsupported id3 tag version"));
         }
 
         tag.flags = Flags::from_byte(try!(reader.read_u8()), tag.version[0]);
