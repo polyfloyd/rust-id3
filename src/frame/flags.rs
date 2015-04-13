@@ -28,7 +28,6 @@ pub struct Flags {
 
 impl Flags {
     /// Returns a new `Flags` with all flags set to false.
-    #[inline]
     pub fn new() -> Flags {
         Flags { 
             tag_alter_preservation: false, file_alter_preservation: false, read_only: false, compression: false, 
@@ -98,7 +97,6 @@ impl Flags {
 
     /// Returns a vector representation suitable for writing to a file containing an ID3 tag
     /// of the specified version.
-    #[inline]
     pub fn to_bytes(&self, version: u8) -> Vec<u8> {
         match version {
             3 => self.to_bytes_v3(),

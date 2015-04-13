@@ -81,7 +81,6 @@ trait ID3v1Helpers {
 }
 
 impl<R: Read + Seek> ID3v1Helpers for R {
-    #[inline]
     fn read_from_end(&mut self, n: usize, offset:i64) -> io::Result<Vec<u8>> {
         try!(self.seek(SeekFrom::End(-offset)));
         let mut buf = Vec::<u8>::with_capacity(n);
@@ -89,21 +88,18 @@ impl<R: Read + Seek> ID3v1Helpers for R {
         Ok(buf)
     }
 
-    #[inline]
     fn read_str(&mut self, n: usize, offset: i64) -> io::Result<String> {
         self.read_from_end(n, offset).map(|vec| extract_nz_88591(vec))
     }
 }
 
 /// Checks for the existence of the bytes denoting an ID3v1 metadata block tag.
-#[inline]
 pub fn probe_tag<R: Read + Seek>(reader: &mut R) -> io::Result<bool> {
     let tag = try!(reader.read_from_end(TAG.len(), TAG_OFFSET));
     Ok(TAG == &tag[..])
 }
 
 /// Checks for the existence of the bytes denoting an ID3v1 extended metadata tag.
-#[inline]
 pub fn probe_xtag<R: Read + Seek>(reader: &mut R) -> io::Result<bool> {
     let xtag = try!(reader.read_from_end(TAGPLUS.len(), TAGPLUS_OFFSET));
     Ok(TAGPLUS == &xtag[..])
@@ -176,7 +172,6 @@ pub fn read<R: Read + Seek>(reader: &mut R) -> io::Result<ID3v1> {
 ///
 /// This function cannot fail, because UTF-8 is compatible with ISO-8859-1
 /// at the code point level.
-#[inline]
 fn extract_nz_88591(s: Vec<u8>) -> String {
     // This works because the ISO 8859-1 code points match the unicode code
     // points. So,`c as char` will map correctly from ISO to unicode.

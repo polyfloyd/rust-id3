@@ -22,7 +22,6 @@ pub enum Content {
 impl Content {
     /// Returns the `Text`.
     /// Panics if the value is not `Text`.
-    #[inline]
     pub fn text(&self) -> &String {
         match *self {
             Content::Text(ref content) => content,
@@ -32,7 +31,6 @@ impl Content {
 
     /// Returns the `ExtendedText`.
     /// Panics if the value is not `ExtendedText`.
-    #[inline]
     pub fn extended_text(&self) -> &super::ExtendedText {
         match *self {
             Content::ExtendedText(ref content) => content,
@@ -42,7 +40,6 @@ impl Content {
 
     /// Returns the `Link`.
     /// Panics if the value is not `Link`.
-    #[inline]
     pub fn link(&self) -> &String {
         match *self {
             Content::Link(ref content) => content,
@@ -52,7 +49,6 @@ impl Content {
 
     /// Returns the `ExtendedLink`.
     /// Panics if the value is not `ExtendedLink`.
-    #[inline]
     pub fn extended_link(&self) -> &super::ExtendedLink {
         match *self {
             Content::ExtendedLink(ref content) => content,
@@ -62,7 +58,6 @@ impl Content {
 
     /// Returns the `Comment`.
     /// Panics if the value is not `Comment`.
-    #[inline]
     pub fn comment(&self) -> &super::Comment {
         match *self {
             Content::Comment(ref content) => content,
@@ -72,7 +67,6 @@ impl Content {
 
     /// Returns the `Lyrics`.
     /// Panics if the value is not `Lyrics`.
-    #[inline]
     pub fn lyrics(&self) -> &super::Lyrics {
         match *self {
             Content::Lyrics(ref content) => content,
@@ -82,7 +76,6 @@ impl Content {
 
     /// Returns the `Picture`.
     /// Panics if the value is not `Picture`.
-    #[inline]
     pub fn picture(&self) -> &super::Picture {
         match *self {
             Content::Picture(ref picture) => picture,
@@ -92,7 +85,6 @@ impl Content {
 
     /// Returns the `Unknown`.
     /// Panics if the value is not `Unknown`.
-    #[inline]
     pub fn unknown(&self) -> &[u8] {
         match *self {
             Content::Unknown(ref data) => &data[..],

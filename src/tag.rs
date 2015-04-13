@@ -67,7 +67,6 @@ pub struct Flags {
 // Flags {{{
 impl Flags {
     /// Creates a new `Flags` with all flags set to false.
-    #[inline]
     pub fn new() -> Flags {
         Flags { 
             unsynchronization: false, extended_header: false, experimental: false, 
@@ -131,7 +130,6 @@ impl Flags {
 // Tag {{{
 impl<'a> Tag {
     /// Creates a new ID3v2.3 tag with no frames. 
-    #[inline]
     pub fn new() -> Tag {
         Tag { 
             path: None, path_changed: true, version: [3, 0], size: 0, flags: Flags::new(), 
@@ -142,7 +140,6 @@ impl<'a> Tag {
     /// Creates a new ID3 tag with the specified version.
     ///
     /// ID3v2 versions 2 to 4 are supported. Passing any other version will cause a panic.
-    #[inline]
     pub fn with_version(version: u8) -> Tag {
         if version < 2 || version > 4 {
             panic!("attempted to set unsupported version");
@@ -153,57 +150,46 @@ impl<'a> Tag {
     }
 
     // Frame ID Querying {{{
-    #[inline]
     fn artist_id(&self) -> &'static str {
         if self.version[0] == 2 { "TP1" } else { "TPE1" }
     }
 
-    #[inline]
     fn album_artist_id(&self) -> &'static str {
         if self.version[0] == 2 { "TP2" } else { "TPE2" }
     }
 
-    #[inline]
     fn album_id(&self) -> &'static str {
         if self.version[0] == 2 { "TAL" } else { "TALB" }
     }
 
-    #[inline]
     fn title_id(&self) -> &'static str {
         if self.version[0] == 2 { "TT2" } else { "TIT2" }
     }
 
-    #[inline]
     fn genre_id(&self) -> &'static str {
         if self.version[0] == 2 { "TCO" } else { "TCON" }
     }
 
-    #[inline]
     fn year_id(&self) -> &'static str {
         if self.version[0] == 2 { "TYE" } else { "TYER" }
     }
 
-    #[inline]
     fn track_id(&self) -> &'static str {
         if self.version[0] == 2 { "TRK" } else { "TRCK" }
     }
 
-    #[inline]
     fn lyrics_id(&self) -> &'static str {
         if self.version[0] == 2 { "ULT" } else { "USLT" }
     }
 
-    #[inline]
     fn picture_id(&self) -> &'static str {
         if self.version[0] == 2 { "PIC" } else { "APIC" }
     }
 
-    #[inline]
     fn comment_id(&self) -> &'static str {
         if self.version[0] == 2 { "COM" } else { "COMM" }
     }
 
-    #[inline]
     fn txxx_id(&self) -> &'static str {
         if self.version[0] == 2 { "TXX" } else { "TXXX" }
     }
@@ -282,7 +268,6 @@ impl<'a> Tag {
     /// let tag = Tag::with_version(3);
     /// assert_eq!(tag.version(), 3);
     /// ```
-    #[inline]
     pub fn version(&self) -> u8 {
         self.version[0]
     }
@@ -376,13 +361,8 @@ impl<'a> Tag {
     /// let mut tag_v4 = Tag::with_version(4);
     /// assert_eq!(tag_v4.default_encoding(), UTF8);
     /// ```
-    #[inline]
     pub fn default_encoding(&self) -> Encoding {
-        if self.version[0] >= 4 {
-            Encoding::UTF8
-        } else {
-            Encoding::UTF16
-        }
+        if self.version[0] >= 4 { Encoding::UTF8 } else { Encoding::UTF16 }
     }
 
     /// Returns a vector of references to all frames in the tag.
@@ -398,7 +378,6 @@ impl<'a> Tag {
     ///
     /// assert_eq!(tag.frames().len(), 2);
     /// ```
-    #[inline]
     pub fn frames(&'a self) -> &'a Vec<Frame> {
         &self.frames
     }
@@ -484,7 +463,6 @@ impl<'a> Tag {
     /// tag.add_text_frame("TCON", "Metal");
     /// assert_eq!(&tag.get("TCON").unwrap().content.text()[..], "Metal");
     /// ```
-    #[inline]
     pub fn add_text_frame<K: Into<String>, V: Into<String>>(&mut self, id: K, text: V) {
         let encoding = self.default_encoding();
         self.add_text_frame_enc(id, text, encoding);
@@ -644,7 +622,6 @@ impl<'a> Tag {
     /// assert!(tag.txxx().contains(&("key1", "value1")));
     /// assert!(tag.txxx().contains(&("key2", "value2")));
     /// ```
-    #[inline]
     pub fn add_txxx<K: Into<String>, V: Into<String>>(&mut self, key: K, value: V) {
         let encoding = self.default_encoding();
         self.add_txxx_enc(key, value, encoding);
@@ -792,7 +769,6 @@ impl<'a> Tag {
     /// assert_eq!(tag.pictures().len(), 1);
     /// assert_eq!(&tag.pictures()[0].mime_type[..], "image/png");
     /// ```
-    #[inline]
     pub fn add_picture<T: Into<String>>(&mut self, mime_type: T, picture_type: PictureType, data: Vec<u8>) {
         self.add_picture_enc(mime_type, picture_type, "", data, Encoding::Latin1);
     }
@@ -926,7 +902,6 @@ impl<'a> Tag {
     /// assert!(tag.comments().contains(&("key1", "value1")));
     /// assert!(tag.comments().contains(&("key2", "value2")));
     /// ```
-    #[inline]
     pub fn add_comment<K: Into<String>, V: Into<String>>(&mut self, description: K, text: V) {
         let encoding = self.default_encoding();
         self.add_comment_enc("eng", description, text, encoding);
@@ -1078,7 +1053,6 @@ impl<'a> Tag {
     /// tag.set_year(2014);
     /// assert_eq!(tag.year().unwrap(), 2014);
     /// ```
-    #[inline]
     pub fn set_year(&mut self, year: usize) {
         let id = self.year_id();
         self.add_text_frame_enc(id, format!("{}", year), Encoding::Latin1);
@@ -1095,7 +1069,6 @@ impl<'a> Tag {
     /// tag.set_year_enc(2014, UTF16);
     /// assert_eq!(tag.year().unwrap(), 2014);
     /// ```
-    #[inline]
     pub fn set_year_enc(&mut self, year: usize, encoding: Encoding) {
         let id = self.year_id();
         self.add_text_frame_enc(id, format!("{}", year), encoding);
@@ -1144,7 +1117,6 @@ impl<'a> Tag {
     /// tag.push(frame);
     /// assert_eq!(tag.artist().unwrap(), "artist");
     /// ```
-    #[inline]
     pub fn artist(&self) -> Option<&str> {
         self.text_for_frame_id(self.artist_id())
     }
@@ -1159,7 +1131,6 @@ impl<'a> Tag {
     /// tag.set_artist("artist");
     /// assert_eq!(tag.artist().unwrap(), "artist");
     /// ```
-    #[inline]
     pub fn set_artist<T: Into<String>>(&mut self, artist: T) {
         let encoding = self.default_encoding();
         self.set_artist_enc(artist, encoding);
@@ -1176,7 +1147,6 @@ impl<'a> Tag {
     /// tag.set_artist_enc("artist", UTF16);
     /// assert_eq!(tag.artist().unwrap(), "artist");
     /// ```
-    #[inline]
     pub fn set_artist_enc<T: Into<String>>(&mut self, artist: T, encoding: Encoding) {
         let id = self.artist_id();
         self.add_text_frame_enc(id, artist, encoding);
@@ -1195,7 +1165,6 @@ impl<'a> Tag {
     /// tag.remove_artist();
     /// assert!(tag.artist().is_none());
     /// ```
-    #[inline]
     pub fn remove_artist(&mut self) {
         let id = self.artist_id();
         self.remove(id);
@@ -1215,7 +1184,6 @@ impl<'a> Tag {
     /// tag.push(frame);
     /// assert_eq!(tag.album_artist().unwrap(), "artist");
     /// ```
-    #[inline]
     pub fn album_artist(&self) -> Option<&str> {
         self.text_for_frame_id(self.album_artist_id())
     }
@@ -1230,7 +1198,6 @@ impl<'a> Tag {
     /// tag.set_album_artist("artist");
     /// assert_eq!(tag.album_artist().unwrap(), "artist");
     /// ```
-    #[inline]
     pub fn set_album_artist<T: Into<String>>(&mut self, album_artist: T) {
         let encoding = self.default_encoding();
         self.set_album_artist_enc(album_artist, encoding);
@@ -1247,7 +1214,6 @@ impl<'a> Tag {
     /// tag.set_album_artist_enc("album artist", UTF16);
     /// assert_eq!(tag.album_artist().unwrap(), "album artist");
     /// ```
-    #[inline]
     pub fn set_album_artist_enc<T: Into<String>>(&mut self, album_artist: T, encoding: Encoding) {
         self.remove("TSOP");
         let id = self.album_artist_id();
@@ -1267,7 +1233,6 @@ impl<'a> Tag {
     /// tag.remove_album_artist();
     /// assert!(tag.album_artist().is_none());
     /// ```
-    #[inline]
     pub fn remove_album_artist(&mut self) {
         let id = self.album_artist_id();
         self.remove(id);
@@ -1287,7 +1252,6 @@ impl<'a> Tag {
     /// tag.push(frame);
     /// assert_eq!(tag.album().unwrap(), "album");
     /// ```
-    #[inline]
     pub fn album(&self) -> Option<&str> {
         self.text_for_frame_id(self.album_id())
     }
@@ -1302,7 +1266,6 @@ impl<'a> Tag {
     /// tag.set_album("album");
     /// assert_eq!(tag.album().unwrap(), "album");
     /// ```
-    #[inline]
     pub fn set_album<T: Into<String>>(&mut self, album: T) {
         let encoding = self.default_encoding();
         self.set_album_enc(album, encoding);
@@ -1319,7 +1282,6 @@ impl<'a> Tag {
     /// tag.set_album_enc("album", UTF16);
     /// assert_eq!(tag.album().unwrap(), "album");
     /// ```
-    #[inline]
     pub fn set_album_enc<T: Into<String>>(&mut self, album: T, encoding: Encoding) {
         let id = self.album_id();
         self.add_text_frame_enc(id, album, encoding);
@@ -1338,7 +1300,6 @@ impl<'a> Tag {
     /// tag.remove_album();
     /// assert!(tag.album().is_none());
     /// ```
-    #[inline]
     pub fn remove_album(&mut self) {
         self.remove("TSOP");
         let id = self.album_id();
@@ -1359,7 +1320,6 @@ impl<'a> Tag {
     /// tag.push(frame);
     /// assert_eq!(tag.title().unwrap(), "title");
     /// ```
-    #[inline]
     pub fn title(&self) -> Option<&str> {
         self.text_for_frame_id(self.title_id())
     }
@@ -1374,7 +1334,6 @@ impl<'a> Tag {
     /// tag.set_title("title");
     /// assert_eq!(tag.title().unwrap(), "title");
     /// ```
-    #[inline]
     pub fn set_title<T: Into<String>>(&mut self, title: T) {
         let encoding = self.default_encoding();
         self.set_title_enc(title, encoding);
@@ -1391,7 +1350,6 @@ impl<'a> Tag {
     /// tag.set_title_enc("title", UTF16);
     /// assert_eq!(tag.title().unwrap(), "title");
     /// ```
-    #[inline]
     pub fn set_title_enc<T: Into<String>>(&mut self, title: T, encoding: Encoding) {
         self.remove("TSOT");
         let id = self.title_id();
@@ -1411,7 +1369,6 @@ impl<'a> Tag {
     /// tag.remove_title();
     /// assert!(tag.title().is_none());
     /// ```
-    #[inline]
     pub fn remove_title(&mut self) {
         let id = self.title_id();
         self.remove(id);
@@ -1431,7 +1388,6 @@ impl<'a> Tag {
     /// tag.push(frame);
     /// assert_eq!(tag.genre().unwrap(), "genre");
     /// ```
-    #[inline]
     pub fn genre(&self) -> Option<&str> {
         self.text_for_frame_id(self.genre_id())
     }
@@ -1446,7 +1402,6 @@ impl<'a> Tag {
     /// tag.set_genre("genre");
     /// assert_eq!(tag.genre().unwrap(), "genre");
     /// ```
-    #[inline]
     pub fn set_genre<T: Into<String>>(&mut self, genre: T) {
         let encoding = self.default_encoding();
         self.set_genre_enc(genre, encoding);
@@ -1463,7 +1418,6 @@ impl<'a> Tag {
     /// tag.set_genre_enc("genre", UTF16);
     /// assert_eq!(tag.genre().unwrap(), "genre");
     /// ```
-    #[inline]
     pub fn set_genre_enc<T: Into<String>>(&mut self, genre: T, encoding: Encoding) {
         let id = self.genre_id();
         self.add_text_frame_enc(id, genre, encoding);
@@ -1482,7 +1436,6 @@ impl<'a> Tag {
     /// tag.remove_genre();
     /// assert!(tag.genre().is_none());
     /// ```
-    #[inline]
     pub fn remove_genre(&mut self) {
         let id = self.genre_id();
         self.remove(id);
@@ -1510,7 +1463,6 @@ impl<'a> Tag {
     /// tag.push(frame_invalid);
     /// assert!(tag.track().is_none());
     /// ```
-    #[inline]
     pub fn track(&self) -> Option<u32> {
         self.track_pair().and_then(|(track, _)| Some(track))
     }
@@ -1525,7 +1477,6 @@ impl<'a> Tag {
     /// tag.set_year(2014);
     /// assert_eq!(tag.year().unwrap(), 2014);
     /// ```
-    #[inline]
     pub fn set_track(&mut self, track: u32) {
         self.set_track_enc(track, Encoding::Latin1);
     }
@@ -1564,7 +1515,6 @@ impl<'a> Tag {
     /// tag.remove_genre();
     /// assert!(tag.genre().is_none());
     /// ```
-    #[inline]
     pub fn remove_track(&mut self) {
         let id = self.track_id();
         self.remove(id);
@@ -1592,7 +1542,6 @@ impl<'a> Tag {
     /// tag.push(frame_invalid);
     /// assert!(tag.total_tracks().is_none());
     /// ```
-    #[inline]
     pub fn total_tracks(&self) -> Option<u32> {
         self.track_pair().and_then(|(_, total_tracks)| total_tracks)
     }
@@ -1607,7 +1556,6 @@ impl<'a> Tag {
     /// tag.set_total_tracks(10);
     /// assert_eq!(tag.total_tracks().unwrap(), 10);
     /// ```
-    #[inline]
     pub fn set_total_tracks(&mut self, total_tracks: u32) {
         self.set_total_tracks_enc(total_tracks, Encoding::Latin1);
     }
@@ -1693,7 +1641,6 @@ impl<'a> Tag {
     /// tag.set_lyrics("lyrics");
     /// assert_eq!(tag.lyrics().unwrap(), "lyrics");
     /// ```
-    #[inline]
     pub fn set_lyrics<T: Into<String>>(&mut self, text: T) {
         let encoding = self.default_encoding();
         self.set_lyrics_enc("eng", "", text, encoding);
@@ -1726,7 +1673,6 @@ impl<'a> Tag {
         self.frames.push(frame);
     }
 
-    #[inline]
     /// Removes the lyrics text (USLT) from the tag.
     ///
     /// # Exmaple

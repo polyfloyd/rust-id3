@@ -72,12 +72,10 @@ pub struct Frame {
 }
 
 impl PartialEq for Frame {
-    #[inline]
     fn eq(&self, other: &Frame) -> bool {
         &self.uuid[..] == &other.uuid[..]
     }
 
-    #[inline]
     fn ne(&self, other: &Frame) -> bool {
         &self.uuid[..] != &other.uuid[..]
     }
@@ -85,7 +83,6 @@ impl PartialEq for Frame {
 
 impl Frame {
     /// Creates a new ID3v2.3 frame with the specified identifier.
-    #[inline]
     pub fn new<T: Into<String>>(id: T) -> Frame {
         Frame { 
             uuid: ::util::uuid(), id: id.into(), encoding: Encoding::UTF16, 
@@ -94,7 +91,6 @@ impl Frame {
     }
    
     /// Returns an encoding compatible with the version based on the requested encoding.
-    #[inline]
     fn compatible_encoding(requested_encoding: Encoding, version: u8) -> Encoding {
         if version < 4 {
             match requested_encoding {
@@ -107,38 +103,32 @@ impl Frame {
     }
 
     // Getters/Setters
-    #[inline]
     /// Returns whether the compression flag is set.
     pub fn compression(&self) -> bool {
         self.flags.compression
     }
 
-    #[inline]
     /// Sets the compression flag. 
     pub fn set_compression(&mut self, compression: bool) {
         self.flags.compression = compression;
         self.flags.data_length_indicator = compression;
     }
 
-    #[inline]
     /// Returns whether the tag_alter_preservation flag is set.
     pub fn tag_alter_preservation(&self) -> bool {
         self.flags.tag_alter_preservation
     }
 
-    #[inline]
     /// Sets the tag_alter_preservation flag.
     pub fn set_tag_alter_preservation(&mut self, tag_alter_preservation: bool) {
         self.flags.tag_alter_preservation = tag_alter_preservation;
     }
 
-    #[inline]
     /// Returns whether the file_alter_preservation flag is set.
     pub fn file_alter_preservation(&self) -> bool {
         self.flags.file_alter_preservation
     }
 
-    #[inline]
     /// Sets the file_alter_preservation flag.
     pub fn set_file_alter_preservation(&mut self, file_alter_preservation: bool) {
         self.flags.file_alter_preservation = file_alter_preservation;
@@ -155,7 +145,6 @@ impl Frame {
     /// frame.generate_uuid();
     /// assert!(prev_uuid != frame.uuid);
     /// ```
-    #[inline]
     pub fn generate_uuid(&mut self) {
         self.uuid = ::util::uuid();
     }
@@ -167,7 +156,6 @@ impl Frame {
     ///
     /// Only reading from version 2, 3, and 4 is supported. Attempting to read any other version
     /// will return an `InvalidInput`. 
-    #[inline]
     pub fn read_from(reader: &mut Read, version: u8) -> ::Result<Option<(u32, Frame)>> {
         match version {
             2 => FrameV2::read(reader),
@@ -178,7 +166,6 @@ impl Frame {
     }
 
     /// Attempts to write the frame to the writer.
-    #[inline]
     pub fn write_to(&self, writer: &mut Write, version: u8) -> ::Result<u32> {
         match version {
             2 => FrameV2::write(writer, self),
@@ -189,7 +176,6 @@ impl Frame {
     }
   
     /// Creates a vector representation of the content suitable for writing to an ID3 tag.
-    #[inline]
     pub fn content_to_bytes(&self, version: u8) -> Vec<u8> {
         let request = EncoderRequest { version: version, encoding: Frame::compatible_encoding(self.encoding, version), content: &self.content };
         parsers::encode(request)
@@ -254,12 +240,6 @@ impl Frame {
             Content::Comment(ref content) => Some(Cow::Owned(format!("{}: {}", content.description, content.text))),
             _ => None
         }
-    }
-
-    /// Returns a string describing the frame type.
-    #[inline]
-    pub fn description(&self) -> &str {
-        ::util::frame_description(&self.id[..])
     }
 }
  

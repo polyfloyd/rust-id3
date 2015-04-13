@@ -11,12 +11,10 @@ use frame::Encoding;
 use std::collections::HashMap;
 
 /// Returns a random sequence of 16 bytes, intended to be used as a UUID.
-#[inline]
 pub fn uuid() -> Vec<u8> {
     rand::thread_rng().gen_iter::<u8>().take(16).collect()
 }
 /// Returns the synchsafe varaiant of a `u32` value.
-#[inline]
 pub fn synchsafe(n: u32) -> u32 {
     let mut x: u32 = n & 0x7F | (n & 0xFFFFFF80) << 1;
     x = x & 0x7FFF | (x & 0xFFFF8000) << 1;
@@ -25,7 +23,6 @@ pub fn synchsafe(n: u32) -> u32 {
 }
 
 /// Returns the unsynchsafe varaiant of a `u32` value.
-#[inline]
 pub fn unsynchsafe(n: u32) -> u32 {
     (n & 0xFF | (n & 0xFF00) >> 1 | (n & 0xFF0000) >> 2 | (n & 0xFF000000) >> 3)
 }
@@ -33,7 +30,6 @@ pub fn unsynchsafe(n: u32) -> u32 {
 /// Returns a string created from the vector using the specified encoding.
 /// Returns `None` if the vector is not a valid string of the specified
 /// encoding type.
-#[inline]
 pub fn string_from_encoding(encoding: Encoding, data: &[u8]) -> ::Result<String> { 
     match encoding {
         Encoding::Latin1 | Encoding::UTF8 => string_from_utf8(data),
@@ -142,7 +138,6 @@ pub fn find_delim(encoding: Encoding, data: &[u8], index: usize) -> Option<usize
 }
 
 /// Returns the delimiter length for the specified encoding.
-#[inline]
 pub fn delim_len(encoding: Encoding) -> usize {
     match encoding {
         Encoding::Latin1 | Encoding::UTF8 => 1,
@@ -225,7 +220,6 @@ lazy_static! {
 }
 
 /// Returns the coresponding ID3v2.3/ID3v2.4 ID given the ID3v2.2 ID. 
-#[inline]
 pub fn convert_id_2_to_3(id: &str) -> Option<&'static str> {
     ID_2_TO_3.get(id).map(|t| *t)
 }
@@ -305,132 +299,8 @@ lazy_static! {
 }
 
 /// Returns the coresponding ID3v2.2 ID given the ID3v2.3/ID3v2.3 ID. 
-#[inline]
 pub fn convert_id_3_to_2(id: &str) -> Option<&'static str> {
     ID_3_TO_2.get(id).map(|t| *t)
-}
-
-lazy_static! {
-    static ref FRAME_DESCRIPTIONS: HashMap<&'static str, &'static str> = {
-        let mut m = HashMap::new();
-        m.insert("AENC", "Audio encryption");
-        m.insert("APIC", "Attached picture");
-        m.insert("ASPI", "Audio seek point index");
-
-        m.insert("COMM", "Comments");
-        m.insert("COMR", "Commercial frame");
-
-        m.insert("ENCR", "Encryption method registration");
-        m.insert("EQU2", "Equalisation (2)");
-        m.insert("EQUA", "Equalization");
-        m.insert("ETCO", "Event timing codes");
-
-        m.insert("IPLS", "Involved people list");
-
-        m.insert("GEOB", "General encapsulated object");
-        m.insert("GRID", "Group identification registration");
-
-        m.insert("LINK", "Linked information");
-
-        m.insert("MCDI", "Music CD identifier");
-        m.insert("MLLT", "MPEG location lookup table");
-
-        m.insert("OWNE", "Ownership frame");
-
-        m.insert("PRIV", "Private frame");
-        m.insert("PCNT", "Play counter");
-        m.insert("POPM", "Popularimeter");
-        m.insert("POSS", "Position synchronisation frame");
-
-        m.insert("RBUF", "Recommended buffer size");
-        m.insert("RVA2", "Relative volume adjustment (2)");
-        m.insert("RVAD", "Relative volume adjustment");
-        m.insert("RVRB", "Reverb");
-
-        m.insert("SEEK", "Seek frame");
-        m.insert("SIGN", "Signature frame");
-        m.insert("SYLT", "Synchronised lyric/text");
-        m.insert("SYTC", "Synchronised tempo codes");
-
-        m.insert("TALB", "Album/Movie/Show title");
-        m.insert("TBPM", "BPM (beats per minute)");
-        m.insert("TCOM", "Composer");
-        m.insert("TCON", "Content type");
-        m.insert("TCOP", "Copyright message");
-        m.insert("TDAT", "Date");
-        m.insert("TDEN", "Encoding time");
-        m.insert("TDLY", "Playlist delay");
-        m.insert("TDOR", "Original release time");
-        m.insert("TDRC", "Recording time");
-        m.insert("TDRL", "Release time");
-        m.insert("TDTG", "Tagging time");
-        m.insert("TENC", "Encoded by");
-        m.insert("TEXT", "Lyricist/Text writer");
-        m.insert("TFLT", "File type");
-        m.insert("TIME", "Time");
-        m.insert("TIPL", "Involved people list");
-        m.insert("TIT1", "Content group description");
-        m.insert("TIT2", "Title/songname/content description");
-        m.insert("TIT3", "Subtitle/Description refinement");
-        m.insert("TKEY", "Initial key");
-        m.insert("TLAN", "Language(s)");
-        m.insert("TLEN", "Length");
-        m.insert("TMCL", "Musician credits list");
-        m.insert("TMED", "Media type");
-        m.insert("TMOO", "Mood");
-        m.insert("TOAL", "Original album/movie/show title");
-        m.insert("TOFN", "Original filename");
-        m.insert("TOLY", "Original lyricist(s)/text writer(s)");
-        m.insert("TOPE", "Original artist(s)/performer(s)");
-        m.insert("TORY", "Original release year");
-        m.insert("TOWN", "File owner/licensee");
-        m.insert("TPE1", "Lead performer(s)/Soloist(s)");
-        m.insert("TPE2", "Band/orchestra/accompaniment");
-        m.insert("TPE3", "Conductor/performer refinement");
-        m.insert("TPE4", "Interpreted, remixed, or otherwise modified by");
-        m.insert("TPOS", "Part of a set");
-        m.insert("TPRO", "Produced notice");
-        m.insert("TPUB", "Publisher");
-        m.insert("TRCK", "Track number/Position in set");
-        m.insert("TRDA", "Recording dates");
-        m.insert("TRSN", "Internet radio station name");
-        m.insert("TRSO", "Internet radio station owner");
-        m.insert("TSIZ", "Size");
-        m.insert("TSO2", "Album artist sort order");
-        m.insert("TSOA", "Album sort order");
-        m.insert("TSOC", "Composer sort order");
-        m.insert("TSOP", "Performer sort order");
-        m.insert("TSOT", "Title sort order");
-        m.insert("TSRC", "ISRC (international standard recording code)");
-        m.insert("TSSE", "Software/Hardware and settings used for encoding");
-        m.insert("TYER", "Year");
-        m.insert("TSST", "Set subtitle");
-        m.insert("TXXX", "User defined text information frame");
-
-        m.insert("UFID", "Unique file identifier");
-        m.insert("USER", "Terms of use");
-        m.insert("USLT", "Unsynchronised lyric/text transcription");
-
-        m.insert("WCOM", "Commercial information");
-        m.insert("WCOP", "Copyright/Legal information");
-        m.insert("WOAF", "Official audio file webpage");
-        m.insert("WOAR", "Official artist/performer webpage");
-        m.insert("WOAS", "Official audio source webpage");
-        m.insert("WORS", "Official Internet radio station homepage");
-        m.insert("WPAY", "Payment");
-        m.insert("WPUB", "Publishers official webpage");
-        m.insert("WXXX", "User defined URL link frame");
-        m
-    };
-}
-
-/// Returns a string describing the frame type.
-#[inline]
-pub fn frame_description(id: &str) -> &'static str {
-    match FRAME_DESCRIPTIONS.get(id).map(|t| *t){
-        Some(desc) => desc,
-        None => ""
-    }
 }
 
 // Tests {{{

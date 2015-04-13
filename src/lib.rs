@@ -48,8 +48,6 @@ pub use tag::Tag;
 pub use frame::Frame;
 pub use error::{Result, Error, ErrorKind};
 
-#[macro_use]
-mod macros;
 /// Utilities used for reading/writing ID3 tags.
 pub mod util;
 

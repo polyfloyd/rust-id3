@@ -11,7 +11,7 @@ macro_rules! id_or_padding {
                 return Ok(None);
             }
             try!($reader.read(&mut buf[1..]));
-            try_string!(buf.to_vec())
+            try!(String::from_utf8(buf.to_vec()))
         }
     };
 

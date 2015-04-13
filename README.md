@@ -11,8 +11,8 @@ A library for reading and writing ID3 metadata.
 Add the dependency to your `Cargo.toml`:
 
 ```toml
-[dependencies.id3]
-git = "https://github.com/jamesrhurst/rust-id3"
+[dependencies]
+id3 = "*"
 ```
 
 ```rust

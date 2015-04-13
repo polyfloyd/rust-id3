@@ -1,5 +1,7 @@
+extern crate num;
+
 use frame::{Encoding, Picture, PictureType, Content};
-use util;
+use self::num::FromPrimitive;  
 
 /// The result of a successfully parsed frame.
 pub struct DecoderResult {
@@ -11,7 +13,6 @@ pub struct DecoderResult {
 
 impl DecoderResult {
     /// Creates a new `DecoderResult` with the provided encoding and content.
-    #[inline]
     pub fn new(encoding: Encoding, content: Content) -> DecoderResult {
         DecoderResult { encoding: encoding, content: content }
     }
@@ -91,12 +92,12 @@ macro_rules! encode {
                 Encoding::UTF16 => EncodingParams {
                     delim_len: 2,
                     string_func: Box::new(|buf: &mut Vec<u8>, string: &str| 
-                        buf.extend(util::string_to_utf16(string).into_iter()))
+                        buf.extend(::util::string_to_utf16(string).into_iter()))
                 },
                 Encoding::UTF16BE => EncodingParams {
                     delim_len: 2,
                     string_func: Box::new(|buf: &mut Vec<u8>, string: &str| 
-                        buf.extend(util::string_to_utf16be(string).into_iter()))
+                        buf.extend(::util::string_to_utf16be(string).into_iter()))
                 }
             };
             let mut buf = Vec::new();
@@ -158,7 +159,6 @@ fn picture_to_bytes_v2(request: EncoderRequest) -> Vec<u8> {
             string(picture.description), delim(0), bytes(picture.data)); 
 }
 
-#[inline]
 fn picture_to_bytes(request: EncoderRequest) -> Vec<u8> {
     if request.version == 2 {
         picture_to_bytes_v2(request)
@@ -186,13 +186,13 @@ impl<'a> DecodingParams<'a> {
             Encoding::UTF16 => DecodingParams {
                 encoding: Encoding::UTF16,
                 string_func: Box::new(|bytes: &[u8]| -> ::Result<String> {
-                    util::string_from_utf16(bytes)
+                    ::util::string_from_utf16(bytes)
                 })
             },
             Encoding::UTF16BE => DecodingParams {
                 encoding: Encoding::UTF16BE,
                 string_func: Box::new(|bytes: &[u8]| -> ::Result<String> {
-                    util::string_from_utf16be(bytes)
+                    ::util::string_from_utf16be(bytes)
                 })
             }
         }
@@ -212,8 +212,8 @@ macro_rules! find_delim {
         if !$terminated {
             ($bytes.len(), $bytes.len())
         } else {
-            match util::find_delim($encoding, $bytes, $i) {
-                Some(i) => (i, i + util::delim_len($encoding)),
+            match ::util::find_delim($encoding, $bytes, $i) {
+                Some(i) => (i, i + ::util::delim_len($encoding)),
                 None => return Err(::Error::new(::ErrorKind::InvalidInput, "delimiter not found"))
             }
         }
@@ -239,7 +239,7 @@ macro_rules! decode_part {
             let start = $i;
             $i += $len;
 
-            try_string!($bytes[start..$i].to_vec())
+            try!(String::from_utf8($bytes[start..$i].to_vec()))
         }
     };
     ($bytes:ident, $params:ident, $i:ident, latin1($terminated:expr)) => {
@@ -247,7 +247,7 @@ macro_rules! decode_part {
             let start = $i;
             let (end, with_delim) = find_delim!($bytes, Encoding::Latin1, $i, $terminated);
             $i = with_delim; Some(&$i);
-            try_string!($bytes[start..end].to_vec())
+            try!(String::from_utf8($bytes[start..end].to_vec()))
         }
     };
     ($bytes:ident, $params:ident, $i:ident, picture_type()) => {
@@ -284,7 +284,11 @@ macro_rules! decode {
 
             assert_data!($bytes);
 
-            let encoding = try_encoding!($bytes[0]);
+            let encoding = match Encoding::from_u8($bytes[0]) {
+                Some(encoding) => encoding,
+                None => return Err(::Error::new(::ErrorKind::InvalidInput, "invalid encoding byte"))
+            };
+
             let params = DecodingParams::for_encoding(encoding);
             
             let mut i = 1;
@@ -305,7 +309,11 @@ fn parse_apic_v2(data: &[u8]) -> ::Result<DecoderResult> {
 
     let mut picture = Picture::new();
    
-    let encoding = try_encoding!(data[0]);
+    let encoding = match Encoding::from_u8(data[0]) {
+        Some(encoding) => encoding,
+        None => return Err(::Error::new(::ErrorKind::InvalidInput, "invalid encoding byte"))
+    };
+
     let params = DecodingParams::for_encoding(encoding);
    
     let mut i = 1;
@@ -345,7 +353,11 @@ fn parse_comm(data: &[u8]) -> ::Result<DecoderResult> {
 /// Returns a `Conetnt::Text`.
 fn parse_text(data: &[u8]) -> ::Result<DecoderResult> {
     assert_data!(data);
-    let encoding = try_encoding!(data[0]);
+    let encoding = match Encoding::from_u8(data[0]) {
+        Some(encoding) => encoding,
+        None => return Err(::Error::new(::ErrorKind::InvalidInput, "invalid encoding byte"))
+    };
+
     let params = DecodingParams::for_encoding(encoding);
     let mut i = 1;
     Ok(DecoderResult::new(encoding, Content::Text(decode_part!(data, params, i, string(false)))))
@@ -360,7 +372,7 @@ fn parse_txxx(data: &[u8]) -> ::Result<DecoderResult> {
 /// Attempts to parse the data as a web link frame.
 /// Returns a `Content::Link`.
 fn parse_weblink(data: &[u8]) -> ::Result<DecoderResult> {
-    Ok(DecoderResult::new(Encoding::Latin1, Content::Link(try_string!(data.to_vec()))))
+    Ok(DecoderResult::new(Encoding::Latin1, Content::Link(try!(String::from_utf8(data.to_vec())))))
 }
 
 /// Attempts to parse the data as a user defined web link frame.
@@ -382,7 +394,6 @@ fn parse_uslt(data: &[u8]) -> ::Result<DecoderResult> {
 mod tests {
     use parsers;
     use parsers::{DecoderRequest, EncoderRequest};
-    use util;
     use frame::{self, Picture, PictureType, Encoding};
     use frame::Content;
     use std::collections::HashMap;
@@ -390,8 +401,8 @@ mod tests {
     fn bytes_for_encoding(text: &str, encoding: Encoding) -> Vec<u8> {
         match encoding {
             Encoding::Latin1 | Encoding::UTF8 => text.as_bytes().to_vec(),
-            Encoding::UTF16 => util::string_to_utf16(text),
-            Encoding::UTF16BE => util::string_to_utf16be(text)
+            Encoding::UTF16 => ::util::string_to_utf16(text),
+            Encoding::UTF16BE => ::util::string_to_utf16be(text)
         }
     }
 

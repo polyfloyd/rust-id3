@@ -1,7 +1,7 @@
 [package]
 name = "id3"
-version = "0.0.1"
-authors = ["James Hurst <jamesrhurst@users.noreply.github.com>"]
+version = "0.1.0"
+authors = ["James Hurst <jamesrhurst@outlook.com>"]
 license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/jamesrhurst/rust-id3"

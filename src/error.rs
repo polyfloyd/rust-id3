@@ -70,7 +70,7 @@ impl From<io::Error> for Error {
 
 impl From<FromUtf8Error> for Error {
     fn from(err: FromUtf8Error) -> Error {
-        Error { kind: ErrorKind::StringDecoding(err.into_bytes()), description: "" }
+        Error { kind: ErrorKind::StringDecoding(err.into_bytes()), description: "data is not valid utf-8" }
     }
 }
 
