@@ -1,6 +1,7 @@
 #rust-id3 
 
 [![Build Status](https://travis-ci.org/jamesrhurst/rust-id3.svg)](https://travis-ci.org/jamesrhurst/rust-id3)
+[![](http://meritbadge.herokuapp.com/id3)](https://crates.io/crates/id3)
 
 A library for reading and writing ID3 metadata.
 
