@@ -193,6 +193,10 @@ impl<'a> Tag {
     fn txxx_id(&self) -> &'static str {
         if self.version[0] == 2 { "TXX" } else { "TXXX" }
     }
+
+    fn disc_id(&self) -> &'static str {
+        if self.version[0] == 2 { "TPA" } else { "TPOS" }
+    }
     // }}}
 
     // id3v1 {{{
@@ -1074,35 +1078,6 @@ impl<'a> Tag {
         self.add_text_frame_enc(id, format!("{}", year), encoding);
     }
 
-    /// Returns the (track, total_tracks) tuple.
-    fn track_pair(&self) -> Option<(u32, Option<u32>)> {
-        match self.get(self.track_id()) {
-            Some(frame) => {
-                match frame.content {
-                    Content::Text(ref text) => {
-                        let split: Vec<&str> = text[..].splitn(2, '/').collect();
-
-                        let total_tracks = if split.len() == 2 {
-                            match split[1].parse::<u32>() {
-                                Ok(total_tracks) => Some(total_tracks),
-                                Err(_) => return None
-                            }
-                        } else {
-                            None
-                        };
-
-                        match split[0].parse::<u32>() {
-                            Ok(track) => Some((track, total_tracks)),
-                            Err(_) => None
-                        }
-                    },
-                    _ => None
-                }
-            },
-            None => None
-        }
-    }
-
     /// Returns the artist (TPE1).
     ///
     /// # Example
@@ -1441,6 +1416,225 @@ impl<'a> Tag {
         self.remove(id);
     }
 
+    /// Returns the (disc, total_discs) tuple.
+    fn disc_pair(&self) -> Option<(u32, Option<u32>)> {
+        match self.get(self.disc_id()) {
+            Some(frame) => {
+                match frame.content {
+                    Content::Text(ref text) => {
+                        let split: Vec<&str> = text[..].splitn(2, '/').collect();
+
+                        let total_discs = if split.len() == 2 {
+                            match split[1].parse::<u32>() {
+                                Ok(total_discs) => Some(total_discs),
+                                Err(_) => return None
+                            }
+                        } else {
+                            None
+                        };
+
+                        match split[0].parse::<u32>() {
+                            Ok(disc) => Some((disc, total_discs)),
+                            Err(_) => None
+                        }
+                    },
+                    _ => None
+                }
+            },
+            None => None
+        }
+    }
+    
+    /// Returns the disc number (TPOS).
+    ///
+    /// # Example
+    /// ```
+    /// use id3::{Tag, Frame};
+    /// use id3::frame::Content;
+    ///
+    /// let mut tag = Tag::new();
+    /// assert!(tag.disc().is_none());
+    ///
+    /// let mut frame_valid = Frame::new("TPOS");
+    /// frame_valid.content = Content::Text("4".to_string());
+    /// tag.push(frame_valid);
+    /// assert_eq!(tag.disc().unwrap(), 4);
+    ///
+    /// tag.remove("TPOS");
+    ///
+    /// let mut frame_invalid = Frame::new("TPOS");
+    /// frame_invalid.content = Content::Text("nope".to_string());
+    /// tag.push(frame_invalid);
+    /// assert!(tag.disc().is_none());
+    /// ```
+    pub fn disc(&self) -> Option<u32> {
+        self.disc_pair().and_then(|(disc, _)| Some(disc))
+    }
+
+    /// Sets the disc (TPOS).
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_disc(2);
+    /// assert_eq!(tag.disc().unwrap(), 2);
+    /// ```
+    pub fn set_disc(&mut self, disc: u32) {
+        self.set_disc_enc(disc, Encoding::Latin1);
+    }
+
+    /// Sets the disc number (TPOS) using the specified text encoding.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    /// use id3::frame::Encoding::UTF16;
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_disc_enc(2, UTF16);
+    /// assert_eq!(tag.disc().unwrap(), 2);
+    /// ```
+    pub fn set_disc_enc(&mut self, disc: u32, encoding: Encoding) {
+        let text = match self.disc_pair().and_then(|(_, total_discs)| total_discs) {
+            Some(n) => format!("{}/{}", disc, n),
+            None => format!("{}", disc)
+        };
+
+        let id = self.disc_id();
+        self.add_text_frame_enc(id, text, encoding);
+    }
+
+    /// Removes the disc number (TPOS).
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_disc(3);
+    /// assert!(tag.disc().is_some());
+    ///
+    /// tag.remove_disc();
+    /// assert!(tag.disc().is_none());
+    /// ```
+    pub fn remove_disc(&mut self) {
+        let id = self.disc_id();
+        self.remove(id);
+    }
+
+    /// Returns the total number of discs (TPOS).
+    ///
+    /// # Example
+    /// ```
+    /// use id3::{Tag, Frame};
+    /// use id3::frame::Content;
+    ///
+    /// let mut tag = Tag::new();
+    /// assert!(tag.disc().is_none());
+    ///
+    /// let mut frame_valid = Frame::new("TPOS");
+    /// frame_valid.content = Content::Text("4/10".to_string());
+    /// tag.push(frame_valid);
+    /// assert_eq!(tag.total_discs().unwrap(), 10);
+    ///
+    /// tag.remove("TPOS");
+    ///
+    /// let mut frame_invalid = Frame::new("TPOS");
+    /// frame_invalid.content = Content::Text("4/nope".to_string());
+    /// tag.push(frame_invalid);
+    /// assert!(tag.total_discs().is_none());
+    /// ```
+    pub fn total_discs(&self) -> Option<u32> {
+        self.disc_pair().and_then(|(_, total_discs)| total_discs)
+    }
+
+    /// Sets the total number of discs (TPOS).
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_total_discs(10);
+    /// assert_eq!(tag.total_discs().unwrap(), 10);
+    /// ```
+    pub fn set_total_discs(&mut self, total_discs: u32) {
+        self.set_total_discs_enc(total_discs, Encoding::Latin1);
+    }
+
+    /// Sets the total number of discs (TPOS) using the specified text encoding.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    /// use id3::frame::Encoding::UTF16;
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_total_discs_enc(12, UTF16);
+    /// assert_eq!(tag.total_discs().unwrap(), 12);
+    /// ```
+    pub fn set_total_discs_enc(&mut self, total_discs: u32, encoding: Encoding) {
+        let text = match self.disc_pair() {
+            Some((disc, _)) => format!("{}/{}", disc, total_discs),
+            None => format!("1/{}", total_discs)
+        };
+
+        let id = self.disc_id();
+        self.add_text_frame_enc(id, text, encoding);
+    }
+
+    /// Removes the total number of discs (TPOS).
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_total_discs(10);
+    /// assert!(tag.total_discs().is_some());
+    ///
+    /// tag.remove_total_discs();
+    /// assert!(tag.total_discs().is_none());
+    /// ```
+    pub fn remove_total_discs(&mut self) {
+        let id = self.disc_id();
+        match self.disc_pair() {
+            Some((disc, _)) => self.add_text_frame(id, format!("{}", disc)),
+            None => {}
+        }
+    }
+
+    /// Returns the (track, total_tracks) tuple.
+    fn track_pair(&self) -> Option<(u32, Option<u32>)> {
+        match self.get(self.track_id()) {
+            Some(frame) => {
+                match frame.content {
+                    Content::Text(ref text) => {
+                        let split: Vec<&str> = text[..].splitn(2, '/').collect();
+
+                        let total_tracks = if split.len() == 2 {
+                            match split[1].parse::<u32>() {
+                                Ok(total_tracks) => Some(total_tracks),
+                                Err(_) => return None
+                            }
+                        } else {
+                            None
+                        };
+
+                        match split[0].parse::<u32>() {
+                            Ok(track) => Some((track, total_tracks)),
+                            Err(_) => None
+                        }
+                    },
+                    _ => None
+                }
+            },
+            None => None
+        }
+    }
+
     /// Returns the track number (TRCK).
     ///
     /// # Example
@@ -1449,7 +1643,7 @@ impl<'a> Tag {
     /// use id3::frame::Content;
     ///
     /// let mut tag = Tag::new();
-    /// assert!(tag.year().is_none());
+    /// assert!(tag.track().is_none());
     ///
     /// let mut frame_valid = Frame::new("TRCK");
     /// frame_valid.content = Content::Text("4".to_string());
@@ -1474,8 +1668,8 @@ impl<'a> Tag {
     /// use id3::Tag;
     ///
     /// let mut tag = Tag::new();
-    /// tag.set_year(2014);
-    /// assert_eq!(tag.year().unwrap(), 2014);
+    /// tag.set_track(10);
+    /// assert_eq!(tag.track().unwrap(), 10);
     /// ```
     pub fn set_track(&mut self, track: u32) {
         self.set_track_enc(track, Encoding::Latin1);
@@ -1502,18 +1696,18 @@ impl<'a> Tag {
         self.add_text_frame_enc(id, text, encoding);
     }
 
-    /// Removes the genre (TCON).
+    /// Removes the track number (TRCK).
     ///
     /// # Example
     /// ```
     /// use id3::Tag;
     ///
     /// let mut tag = Tag::new();
-    /// tag.set_genre("genre");
-    /// assert!(tag.genre().is_some());
+    /// tag.set_track(10);
+    /// assert!(tag.track().is_some());
     ///
-    /// tag.remove_genre();
-    /// assert!(tag.genre().is_none());
+    /// tag.remove_track();
+    /// assert!(tag.track().is_none());
     /// ```
     pub fn remove_track(&mut self) {
         let id = self.track_id();
@@ -1528,7 +1722,7 @@ impl<'a> Tag {
     /// use id3::frame::Content;
     ///
     /// let mut tag = Tag::new();
-    /// assert!(tag.year().is_none());
+    /// assert!(tag.total_tracks().is_none());
     ///
     /// let mut frame_valid = Frame::new("TRCK");
     /// frame_valid.content = Content::Text("4/10".to_string());
