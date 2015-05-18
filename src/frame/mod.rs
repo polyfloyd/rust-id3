@@ -225,13 +225,13 @@ impl Frame {
     /// use id3::frame::{self, Frame, Content};
     ///
     /// let mut title_frame = Frame::new("TIT2");
-    /// title_frame.content = Content::Text("title".to_string());
+    /// title_frame.content = Content::Text("title".to_owned());
     /// assert_eq!(&title_frame.text().unwrap()[..], "title");
     ///
     /// let mut txxx_frame = Frame::new("TXXX");
     /// txxx_frame.content = Content::ExtendedText(frame::ExtendedText { 
-    ///     key: "key".to_string(), 
-    ///     value: "value".to_string()
+    ///     key: "key".to_owned(), 
+    ///     value: "value".to_owned()
     /// });
     /// assert_eq!(&txxx_frame.text().unwrap()[..], "key: value");
     /// ```

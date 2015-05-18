@@ -323,7 +323,7 @@ impl<'a> Tag {
         if (old_version == 3 || old_version == 4) && new_version == 2 {
             // attempt to convert the id
             frame.id = match ::util::convert_id_3_to_2(&frame.id[..]) {
-                Some(id) => id.to_string(),
+                Some(id) => id.to_owned(),
                 None => {
                     debug!("no ID3v2.3 to ID3v2.3 mapping for {}", frame.id);
                     return false;
@@ -332,7 +332,7 @@ impl<'a> Tag {
         } else if old_version == 2 && (new_version == 3 || new_version == 4) {
             // attempt to convert the id
             frame.id = match ::util::convert_id_2_to_3(&frame.id[..]) {
-                Some(id) => id.to_string(),
+                Some(id) => id.to_owned(),
                 None => {
                     debug!("no ID3v2.2 to ID3v2.3 mapping for {}", frame.id);
                     return false;
@@ -583,15 +583,15 @@ impl<'a> Tag {
     ///
     /// let mut frame = Frame::new("TXXX");
     /// frame.content = Content::ExtendedText(frame::ExtendedText { 
-    ///     key: "key1".to_string(),
-    ///     value: "value1".to_string()
+    ///     key: "key1".to_owned(),
+    ///     value: "value1".to_owned()
     /// });
     /// tag.push(frame);
     ///
     /// let mut frame = Frame::new("TXXX");
     /// frame.content = Content::ExtendedText(frame::ExtendedText { 
-    ///     key: "key2".to_string(),
-    ///     value: "value2".to_string()
+    ///     key: "key2".to_owned(),
+    ///     value: "value2".to_owned()
     /// }); 
     /// tag.push(frame);
     ///
@@ -859,17 +859,17 @@ impl<'a> Tag {
     ///
     /// let mut frame = Frame::new("COMM");
     /// frame.content = Content::Comment(Comment {
-    ///     lang: "eng".to_string(),
-    ///     description: "key1".to_string(),
-    ///     text: "value1".to_string()
+    ///     lang: "eng".to_owned(),
+    ///     description: "key1".to_owned(),
+    ///     text: "value1".to_owned()
     /// });
     /// tag.push(frame);
     ///
     /// let mut frame = Frame::new("COMM");
     /// frame.content = Content::Comment(Comment { 
-    ///     lang: "eng".to_string(),
-    ///     description: "key2".to_string(),
-    ///     text: "value2".to_string()
+    ///     lang: "eng".to_owned(),
+    ///     description: "key2".to_owned(),
+    ///     text: "value2".to_owned()
     /// });
     /// tag.push(frame);
     ///
@@ -1023,14 +1023,14 @@ impl<'a> Tag {
     /// assert!(tag.year().is_none());
     ///
     /// let mut frame_valid = Frame::new("TYER");
-    /// frame_valid.content = Content::Text("2014".to_string());
+    /// frame_valid.content = Content::Text("2014".to_owned());
     /// tag.push(frame_valid);
     /// assert_eq!(tag.year().unwrap(), 2014);
     ///
     /// tag.remove("TYER");
     ///
     /// let mut frame_invalid = Frame::new("TYER");
-    /// frame_invalid.content = Content::Text("nope".to_string());
+    /// frame_invalid.content = Content::Text("nope".to_owned());
     /// tag.push(frame_invalid);
     /// assert!(tag.year().is_none());
     /// ```
@@ -1088,7 +1088,7 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     ///
     /// let mut frame = Frame::new("TPE1");
-    /// frame.content = Content::Text("artist".to_string());
+    /// frame.content = Content::Text("artist".to_owned());
     /// tag.push(frame);
     /// assert_eq!(tag.artist().unwrap(), "artist");
     /// ```
@@ -1155,7 +1155,7 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     ///
     /// let mut frame = Frame::new("TPE2");
-    /// frame.content = Content::Text("artist".to_string());
+    /// frame.content = Content::Text("artist".to_owned());
     /// tag.push(frame);
     /// assert_eq!(tag.album_artist().unwrap(), "artist");
     /// ```
@@ -1223,7 +1223,7 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     ///
     /// let mut frame = Frame::new("TALB");
-    /// frame.content = Content::Text("album".to_string());
+    /// frame.content = Content::Text("album".to_owned());
     /// tag.push(frame);
     /// assert_eq!(tag.album().unwrap(), "album");
     /// ```
@@ -1291,7 +1291,7 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     ///
     /// let mut frame = Frame::new("TIT2");
-    /// frame.content = Content::Text("title".to_string());
+    /// frame.content = Content::Text("title".to_owned());
     /// tag.push(frame);
     /// assert_eq!(tag.title().unwrap(), "title");
     /// ```
@@ -1359,7 +1359,7 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     ///
     /// let mut frame = Frame::new("TCON");
-    /// frame.content = Content::Text("genre".to_string());
+    /// frame.content = Content::Text("genre".to_owned());
     /// tag.push(frame);
     /// assert_eq!(tag.genre().unwrap(), "genre");
     /// ```
@@ -1456,14 +1456,14 @@ impl<'a> Tag {
     /// assert!(tag.disc().is_none());
     ///
     /// let mut frame_valid = Frame::new("TPOS");
-    /// frame_valid.content = Content::Text("4".to_string());
+    /// frame_valid.content = Content::Text("4".to_owned());
     /// tag.push(frame_valid);
     /// assert_eq!(tag.disc().unwrap(), 4);
     ///
     /// tag.remove("TPOS");
     ///
     /// let mut frame_invalid = Frame::new("TPOS");
-    /// frame_invalid.content = Content::Text("nope".to_string());
+    /// frame_invalid.content = Content::Text("nope".to_owned());
     /// tag.push(frame_invalid);
     /// assert!(tag.disc().is_none());
     /// ```
@@ -1535,14 +1535,14 @@ impl<'a> Tag {
     /// assert!(tag.disc().is_none());
     ///
     /// let mut frame_valid = Frame::new("TPOS");
-    /// frame_valid.content = Content::Text("4/10".to_string());
+    /// frame_valid.content = Content::Text("4/10".to_owned());
     /// tag.push(frame_valid);
     /// assert_eq!(tag.total_discs().unwrap(), 10);
     ///
     /// tag.remove("TPOS");
     ///
     /// let mut frame_invalid = Frame::new("TPOS");
-    /// frame_invalid.content = Content::Text("4/nope".to_string());
+    /// frame_invalid.content = Content::Text("4/nope".to_owned());
     /// tag.push(frame_invalid);
     /// assert!(tag.total_discs().is_none());
     /// ```
@@ -1646,14 +1646,14 @@ impl<'a> Tag {
     /// assert!(tag.track().is_none());
     ///
     /// let mut frame_valid = Frame::new("TRCK");
-    /// frame_valid.content = Content::Text("4".to_string());
+    /// frame_valid.content = Content::Text("4".to_owned());
     /// tag.push(frame_valid);
     /// assert_eq!(tag.track().unwrap(), 4);
     ///
     /// tag.remove("TRCK");
     ///
     /// let mut frame_invalid = Frame::new("TRCK");
-    /// frame_invalid.content = Content::Text("nope".to_string());
+    /// frame_invalid.content = Content::Text("nope".to_owned());
     /// tag.push(frame_invalid);
     /// assert!(tag.track().is_none());
     /// ```
@@ -1725,14 +1725,14 @@ impl<'a> Tag {
     /// assert!(tag.total_tracks().is_none());
     ///
     /// let mut frame_valid = Frame::new("TRCK");
-    /// frame_valid.content = Content::Text("4/10".to_string());
+    /// frame_valid.content = Content::Text("4/10".to_owned());
     /// tag.push(frame_valid);
     /// assert_eq!(tag.total_tracks().unwrap(), 10);
     ///
     /// tag.remove("TRCK");
     ///
     /// let mut frame_invalid = Frame::new("TRCK");
-    /// frame_invalid.content = Content::Text("4/nope".to_string());
+    /// frame_invalid.content = Content::Text("4/nope".to_owned());
     /// tag.push(frame_invalid);
     /// assert!(tag.total_tracks().is_none());
     /// ```
@@ -1808,9 +1808,9 @@ impl<'a> Tag {
     ///
     /// let mut frame = Frame::new("USLT");
     /// frame.content = Content::Lyrics(Lyrics {
-    ///     lang: "eng".to_string(),
-    ///     description: "description".to_string(),
-    ///     text: "lyrics".to_string()
+    ///     lang: "eng".to_owned(),
+    ///     description: "description".to_owned(),
+    ///     text: "lyrics".to_owned()
     /// });
     /// tag.push(frame);
     /// assert_eq!(tag.lyrics().unwrap(), "lyrics");

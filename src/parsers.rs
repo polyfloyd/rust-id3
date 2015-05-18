@@ -319,8 +319,8 @@ fn parse_apic_v2(data: &[u8]) -> ::Result<DecoderResult> {
     let mut i = 1;
     let format = decode_part!(data, params, i, fixed_string(3));
     picture.mime_type = match &format[..] {
-        "PNG" => "image/png".to_string(),
-        "JPG" => "image/jpeg".to_string(),
+        "PNG" => "image/png".to_owned(),
+        "JPG" => "image/jpeg".to_owned(),
         other => {
             debug!("can't determine MIME type for `{}`", other);
             return Err(::Error::new(::ErrorKind::UnsupportedFeature, 
@@ -427,9 +427,9 @@ mod tests {
                 let picture_data = vec!(0xF9, 0x90, 0x3A, 0x02, 0xBD);
 
                 let mut picture = Picture::new();
-                picture.mime_type = mime_type.to_string();
+                picture.mime_type = mime_type.to_owned();
                 picture.picture_type = picture_type;
-                picture.description = description.to_string();
+                picture.description = description.to_owned();
                 picture.data = picture_data.clone();
 
                 for encoding in vec!(Encoding::Latin1, Encoding::UTF16).into_iter() {
@@ -466,9 +466,9 @@ mod tests {
                 let picture_data = vec!(0xF9, 0x90, 0x3A, 0x02, 0xBD);
 
                 let mut picture = Picture::new();
-                picture.mime_type = mime_type.to_string();
+                picture.mime_type = mime_type.to_owned();
                 picture.picture_type = picture_type;
-                picture.description = description.to_string();
+                picture.description = description.to_owned();
                 picture.data = picture_data.clone();
 
                 for encoding in vec!(Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
@@ -512,9 +512,9 @@ mod tests {
                     data.extend(bytes_for_encoding(comment, encoding).into_iter());
 
                     let content = frame::Comment { 
-                        lang: "eng".to_string(), 
-                        description: description.to_string(), 
-                        text: comment.to_string() 
+                        lang: "eng".to_owned(), 
+                        description: description.to_owned(), 
+                        text: comment.to_owned() 
                     };
                     assert_eq!(*parsers::decode(DecoderRequest { 
                         id: "COMM", 
@@ -563,7 +563,7 @@ mod tests {
                 }).unwrap().content.text()[..], text);
                 assert_eq!(parsers::encode(EncoderRequest { 
                     encoding: encoding, 
-                    content: &Content::Text(text.to_string()), 
+                    content: &Content::Text(text.to_owned()), 
                     version: 3 
                 } ), data);
             }
@@ -586,8 +586,8 @@ mod tests {
                     data.extend(bytes_for_encoding(value, encoding).into_iter());
 
                     let content = frame::ExtendedText { 
-                        key: key.to_string(), 
-                        value: value.to_string() 
+                        key: key.to_owned(), 
+                        value: value.to_owned() 
                     };
                     assert_eq!(*parsers::decode(DecoderRequest { 
                         id: "TXXX", 
@@ -630,7 +630,7 @@ mod tests {
             }).unwrap().content.link()[..], link);
             assert_eq!(parsers::encode(EncoderRequest { 
                 encoding: Encoding::Latin1, 
-                content: &Content::Link(link.to_string()), 
+                content: &Content::Link(link.to_owned()), 
                 version: 3 
             }), data);
         }
@@ -652,8 +652,8 @@ mod tests {
                     data.extend(bytes_for_encoding(link, encoding).into_iter());
 
                     let content = frame::ExtendedLink { 
-                        description: description.to_string(), 
-                        link: link.to_string() 
+                        description: description.to_owned(), 
+                        link: link.to_owned() 
                     };
                     assert_eq!(*parsers::decode(DecoderRequest { 
                         id: "WXXX", 
@@ -701,9 +701,9 @@ mod tests {
                     data.extend(bytes_for_encoding(text, encoding).into_iter());
 
                     let content = frame::Lyrics { 
-                        lang: "eng".to_string(), 
-                        description: description.to_string(), 
-                        text: text.to_string() 
+                        lang: "eng".to_owned(), 
+                        description: description.to_owned(), 
+                        text: text.to_owned() 
                     };
                     assert_eq!(*parsers::decode(DecoderRequest { 
                         id: "USLT", 
