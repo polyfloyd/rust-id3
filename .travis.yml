@@ -9,7 +9,7 @@ sudo: false
 script:
     - cargo build --verbose && cargo test --verbose && cargo doc --verbose
 
-after_success: 
+after_success:
     - |
         [ $TRAVIS_RUST_VERSION = nightly ] &&
         [ $TRAVIS_BRANCH = master ] &&
@@ -21,4 +21,4 @@ after_success:
 
 env:
     global:
-        secure: AmtMxqwNpwpsqbKKRu8EdamqMYbG7KkUq9Nox34xCcoYRLrOOxrpeudo322jfRRCp4VX/iac+7B02xlnDE3zNkGtlV6rR3iM2q++PuKTmLZKC0kdVq/4/5eP45pTGO9bV9wr3z8AzpeMw36NXo9dzaJl2FZeAF3Xbsh+2KeLXyU=
+        secure: P+MINidq9fDQrI2S+MzeyDDRyw+8R3Ps358wGvFz4VFEOPV1iE49IK79DbQ1a+XLwmOb7C7g/jgufTJ8fAcfwc4erouKu+L1G6n+oV5ShSyS9L00E/DJgIksRpaW4bB44bLdDBbr+eZbhb5w3OHoA2EyPV7T5U06eUPsRh0CeTE=
