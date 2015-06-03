@@ -1002,7 +1002,7 @@ impl<'a> Tag {
             }
 
             if description_match && text_match && frame.offset != 0 {
-                modified_offset = frame.offset;
+                modified_offset = min(modified_offset, frame.offset);
             }
 
             !(description_match && text_match) // true if we want to keep the item
