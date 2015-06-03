@@ -1326,7 +1326,7 @@ impl<'a> Tag {
     /// assert_eq!(tag.title().unwrap(), "title");
     /// ```
     pub fn set_title_enc<T: Into<String>>(&mut self, title: T, encoding: Encoding) {
-        self.remove("TSOT");
+        self.remove("TIT2");
         let id = self.title_id();
         self.add_text_frame_enc(id, title, encoding);
     }
