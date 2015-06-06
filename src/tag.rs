@@ -4,7 +4,7 @@ extern crate libc;
 
 use std::cmp::min;
 use std::path::{Path, PathBuf};
-use std::io::{self, Read, Write, Seek, SeekFrom};
+use std::io::{Read, Write, Seek, SeekFrom};
 use std::fs::{self, File, OpenOptions};
 use std::collections::HashMap;
 
@@ -12,13 +12,6 @@ use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use frame::{self, Frame, Encoding, Picture, PictureType};
 use frame::Content;
-
-use std::ptr;
-use std::ffi;
-use self::libc::{c_char, L_tmpnam};
-extern {
-    pub fn tmpnam(s: *mut c_char) -> *const c_char;
-}
 
 static DEFAULT_FILE_DISCARD: [&'static str; 11] = [
     "AENC", "ETCO", "EQUA", "MLLT", "POSS", 
@@ -2169,25 +2162,13 @@ impl<'a> Tag {
 
             self.path_changed = self.path.is_none() || &**self.path.as_ref().unwrap() != path.as_ref();
 
-            let tmp_name = unsafe {
-                let mut c_buf: [c_char; L_tmpnam as usize + 1] = [0; L_tmpnam as usize + 1];
-                let ret = tmpnam(c_buf.as_mut_ptr());
-                if ret == ptr::null() {
-                    return Err(::Error::from(io::Error::new(io::ErrorKind::Other, "failed to create temporary file")))
-                }
-                try!(String::from_utf8(ffi::CStr::from_ptr(c_buf.as_ptr()).to_bytes().to_vec()))
-            };
-            debug!("writing to temporary file: {}", tmp_name);
-
-            let mut file = try!(OpenOptions::new().write(true).truncate(true).create(true).open(&tmp_name[..]));
+            let mut file = try!(OpenOptions::new().write(true).truncate(true).create(true).open(&path));
             try!(self.write_to(&mut file));
 
             match data_opt {
                 Some(data) => try!(file.write_all(&data[..])),
                 None => {}
             }
-
-            try!(fs::rename(tmp_name, &path));
         }
 
         self.path = Some(path.as_ref().to_path_buf());
