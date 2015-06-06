@@ -1,11 +1,10 @@
 extern crate std;
 extern crate byteorder;
-extern crate libc;
 
 use std::cmp::min;
 use std::path::{Path, PathBuf};
 use std::io::{Read, Write, Seek, SeekFrom};
-use std::fs::{self, File, OpenOptions};
+use std::fs::{File, OpenOptions};
 use std::collections::HashMap;
 
 use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
