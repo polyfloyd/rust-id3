@@ -199,6 +199,7 @@ impl<'a> DecodingParams<'a> {
     }
 }
 
+
 macro_rules! assert_data {
     ($bytes:ident) => {
         if $bytes.len() == 0 {
@@ -206,6 +207,7 @@ macro_rules! assert_data {
         }
     }
 }
+
 
 macro_rules! find_delim {
     ($bytes:ident, $encoding:expr, $i:ident, $terminated:expr) => {
@@ -225,6 +227,18 @@ macro_rules! decode_part {
         {
             let start = $i;
             let (end, with_delim) = find_delim!($bytes, $params.encoding, $i, $terminated);
+            $i = with_delim; Some(&$i);
+
+            try!(($params.string_func)(&$bytes[start..end]))
+        }
+    };
+    ($bytes: ident, $params:ident, $i:ident, text()) => {
+        {
+            let start = $i;
+            let (end, with_delim) = match ::util::find_delim($params.encoding, $bytes, $i) {
+                Some(i) => (i, i + ::util::delim_len($params.encoding)),
+                None => ($bytes.len(), $bytes.len()),
+            };
             $i = with_delim; Some(&$i);
 
             try!(($params.string_func)(&$bytes[start..end]))
@@ -350,7 +364,7 @@ fn parse_comm(data: &[u8]) -> ::Result<DecoderResult> {
 }
 
 /// Attempts to parse the data as a text frame.
-/// Returns a `Conetnt::Text`.
+/// Returns a `Content::Text`.
 fn parse_text(data: &[u8]) -> ::Result<DecoderResult> {
     assert_data!(data);
     let encoding = match Encoding::from_u8(data[0]) {
@@ -360,7 +374,7 @@ fn parse_text(data: &[u8]) -> ::Result<DecoderResult> {
 
     let params = DecodingParams::for_encoding(encoding);
     let mut i = 1;
-    Ok(DecoderResult::new(encoding, Content::Text(decode_part!(data, params, i, string(false)))))
+    Ok(DecoderResult::new(encoding, Content::Text(decode_part!(data, params, i, text()))))
 }
 
 /// Attempts to parse the data as a user defined text frame.
@@ -567,6 +581,28 @@ mod tests {
                     version: 3 
                 } ), data);
             }
+        }
+    }
+
+    #[test]
+    fn test_null_terminated_text() {
+        assert!(parsers::decode(DecoderRequest { id: "TRCK", data: &[] } ).is_err());
+        let text = "text\u{0}\u{0}";
+        for encoding in vec!(Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
+            println!("`{}`, `{:?}`", text, encoding);
+            let mut data = Vec::new();
+            data.push(encoding as u8);
+            data.extend(bytes_for_encoding(text, encoding).into_iter());
+
+            assert_eq!(&parsers::decode(DecoderRequest {
+                id: "TALB",
+                data: &data[..]
+            }).unwrap().content.text()[..], "text");
+            assert_eq!(parsers::encode(EncoderRequest {
+                encoding: encoding,
+                content: &Content::Text(text.to_owned()),
+                version: 3
+            } ), data);
         }
     }
 
