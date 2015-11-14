@@ -32,10 +32,19 @@ pub fn unsynchsafe(n: u32) -> u32 {
 /// encoding type.
 pub fn string_from_encoding(encoding: Encoding, data: &[u8]) -> ::Result<String> { 
     match encoding {
-        Encoding::Latin1 | Encoding::UTF8 => string_from_utf8(data),
+        Encoding::Latin1 => string_from_latin1(data),
+        Encoding::UTF8 => string_from_utf8(data),
         Encoding::UTF16 => string_from_utf16(data),
         Encoding::UTF16BE => string_from_utf16be(data) 
     }
+}
+
+/// Returns a string created from the vector using Latin1 encoding, removing any trailing null
+/// bytes.
+/// Can never return None because all sequences of u8s are valid Latin1 strings.
+pub fn string_from_latin1(data: &[u8]) -> ::Result<String> {
+    let value: String = data.iter().take_while(|c| **c != 0).map(|b| *b as char).collect();
+    Ok(value)
 }
 
 /// Returns a string created from the vector using UTF-8 encoding, removing any trailing null
@@ -75,6 +84,11 @@ pub fn string_from_utf16be(data: &[u8]) -> ::Result<String> {
         Ok(string) => Ok(string),
         Err(_) => Err(::Error::new(::ErrorKind::StringDecoding(data.to_vec()), "data is not valid utf16-be"))
     }
+}
+
+/// Returns a Latin1 vector representation of the string.
+pub fn string_to_latin1(text: &str) -> Vec<u8> {
+    text.chars().map(|c| c as u8).collect()
 }
 
 /// Returns a UTF-16 (with native byte order) vector representation of the string.
@@ -341,6 +355,14 @@ mod tests {
         // little endian BOM 
         assert_eq!(&util::string_from_encoding(Encoding::UTF16, b"\xFF\xFE\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01").unwrap()[..], text);
         assert_eq!(&util::string_from_utf16(b"\xFF\xFE\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01").unwrap()[..], text);
+    }
+
+    #[test]
+    fn test_latin1() {
+        let text: &str = "stringþ";
+        assert_eq!(&util::string_to_latin1(text)[..], b"string\xFE");
+        assert_eq!(&util::string_from_latin1(b"string\xFE").unwrap()[..], text);
+        assert_eq!(&util::string_from_encoding(Encoding::Latin1, b"string\xFE").unwrap()[..], text);
     }
 
     #[test]
