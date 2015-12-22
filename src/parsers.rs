@@ -241,7 +241,11 @@ macro_rules! decode_part {
             let (end, with_delim) = find_delim!($bytes, $params.encoding, $i, $terminated);
             $i = with_delim; Some(&$i);
 
-            try!(($params.string_func)(&$bytes[start..end]))
+            if start == end {
+                "".to_string()
+            } else {
+                try!(($params.string_func)(&$bytes[start..end]))
+            }
         }
     };
     ($bytes: ident, $params:ident, $i:ident, text()) => {
@@ -253,7 +257,11 @@ macro_rules! decode_part {
             };
             $i = with_delim; Some(&$i);
 
-            try!(($params.string_func)(&$bytes[start..end]))
+            if start == end {
+                "".to_string()
+            } else {
+                try!(($params.string_func)(&$bytes[start..end]))
+            }
         }
     };
     ($bytes:ident, $params:ident, $i:ident, fixed_string($len:expr)) => {
@@ -587,7 +595,27 @@ mod tests {
                 data: &data[..]
             }).is_err());
         }
-
+        println!("Empty description");
+        let comment = "comment";
+        for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
+            println!("`{:?}`", encoding);
+            let mut data = Vec::new();
+            data.push(encoding as u8);
+            data.extend(b"eng".iter().cloned());
+            data.extend(delim_for_encoding(encoding));
+            data.extend(bytes_for_encoding(comment, encoding).into_iter());
+            let content = frame::Comment {
+                lang: "eng".to_owned(),
+                description: "".to_owned(),
+                text: comment.to_owned()
+            };
+            println!("data == {:?}", data);
+            println!("content == {:?}", content);
+            assert_eq!(*parsers::decode(DecoderRequest {
+                id: "COMM",
+                data: &data[..]
+            }).unwrap().content.comment(), content);
+        }
     }
 
     #[test]
