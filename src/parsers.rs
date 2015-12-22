@@ -1,6 +1,6 @@
 extern crate num;
 
-use frame::{Encoding, Picture, PictureType, Content};
+use frame::{Encoding, Picture, PictureType, Content, ExtendedLink};
 use self::num::FromPrimitive;  
 
 /// The result of a successfully parsed frame.
@@ -131,7 +131,7 @@ fn weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
 fn extended_weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let content = request.content.extended_link();
     return encode!(encoding(request.encoding), string(content.description), delim(0), 
-                   string(content.link));
+                   bytes(content.link.as_bytes()));
 }
 
 fn lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
@@ -361,6 +361,7 @@ fn parse_apic_v2(data: &[u8]) -> ::Result<DecoderResult> {
     Ok(DecoderResult::new(encoding, Content::Picture(picture)))
 }
 
+
 /// Attempts to parse the data as an ID3v2.3/ID3v2.4 picture frame.
 /// Returns a `Content::Picture`.
 fn parse_apic_v3(data: &[u8]) -> ::Result<DecoderResult> {
@@ -404,7 +405,22 @@ fn parse_weblink(data: &[u8]) -> ::Result<DecoderResult> {
 /// Attempts to parse the data as a user defined web link frame.
 /// Returns an `Content::ExtendedLink`.
 fn parse_wxxx(data: &[u8]) -> ::Result<DecoderResult> {
-    return decode!(data, ExtendedLink, description: string(true), link: string(false));
+    assert_data!(data);
+
+    let encoding = match Encoding::from_u8(data[0]) {
+        Some(encoding) => encoding,
+        None => return Err(::Error::new(::ErrorKind::Parsing, "invalid encoding byte"))
+    };
+
+    let params = DecodingParams::for_encoding(encoding);
+    let mut i = 1;
+    let description = decode_part!(data, params, i, string(true));
+
+    let uparams = DecodingParams::for_encoding(Encoding::Latin1);
+    let url = decode_part!(data, uparams, i, string(false));
+
+    let elink = ExtendedLink {description: description, link: url};
+    Ok(DecoderResult::new(encoding, Content::ExtendedLink(elink)))
 }
 
 /// Attempts to parse the data as an unsynchronized lyrics text frame.
@@ -699,7 +715,7 @@ mod tests {
                     data.push(encoding as u8);
                     data.extend(bytes_for_encoding(description, encoding).into_iter());
                     data.extend(delim_for_encoding(encoding).into_iter());
-                    data.extend(bytes_for_encoding(link, encoding).into_iter());
+                    data.extend(bytes_for_encoding(link, Encoding::Latin1).into_iter());
 
                     let content = frame::ExtendedLink { 
                         description: description.to_owned(), 
@@ -726,7 +742,7 @@ mod tests {
             let mut data = Vec::new();
             data.push(encoding as u8);
             data.extend(bytes_for_encoding(description, encoding).into_iter());
-            data.extend(bytes_for_encoding(link, encoding).into_iter());
+            data.extend(bytes_for_encoding(link, Encoding::Latin1).into_iter());
             assert!(parsers::decode(DecoderRequest { 
                 id: "WXXX", 
                 data: &data[..]
