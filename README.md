@@ -13,7 +13,7 @@ Add the dependency to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-id3 = "*"
+id3 = "0.1.10"
 ```
 
 ```rust
