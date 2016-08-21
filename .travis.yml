@@ -1,24 +1,22 @@
 language: rust
-rust:
-    - stable
-    - beta
-    - nightly
-
 sudo: false
 
-script:
-    - cargo build --verbose && cargo test --verbose && cargo doc --verbose
+rust:
+  - nightly
+  - beta
+  - stable
 
+before_script:
+  - pip install 'travis-cargo<0.2' --user && export PATH=$HOME/.local/bin:$PATH
+
+script:
+  - |
+      travis-cargo build &&
+      travis-cargo test &&
+      travis-cargo --only stable doc
 after_success:
-    - |
-        [ $TRAVIS_RUST_VERSION = nightly ] &&
-        [ $TRAVIS_BRANCH = master ] &&
-        [ $TRAVIS_PULL_REQUEST = false ] &&
-        echo '<meta http-equiv=refresh content=0;url=id3/index.html>' > target/doc/index.html &&
-        git clone https://github.com/davisp/ghp-import &&
-        ./ghp-import/ghp-import -n target/doc &&
-        git push -fq https://${TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages
+  - travis-cargo --only stable doc-upload
 
 env:
-    global:
-        secure: P+MINidq9fDQrI2S+MzeyDDRyw+8R3Ps358wGvFz4VFEOPV1iE49IK79DbQ1a+XLwmOb7C7g/jgufTJ8fAcfwc4erouKu+L1G6n+oV5ShSyS9L00E/DJgIksRpaW4bB44bLdDBbr+eZbhb5w3OHoA2EyPV7T5U06eUPsRh0CeTE=
+  global:
+    - TRAVIS_CARGO_NIGHTLY_FEATURE=""
