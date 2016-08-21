@@ -1,6 +1,3 @@
-extern crate num;
-use num::FromPrimitive;
-
 /// Types of text encodings used in ID3 frames.
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Encoding {
@@ -14,12 +11,9 @@ pub enum Encoding {
     UTF8 
 }
 
-impl FromPrimitive for Encoding {
-    fn from_i64(n: i64) -> Option<Encoding> {
-        FromPrimitive::from_u64(n as u64)
-    }
-
-    fn from_u64(n: u64) -> Option<Encoding> {
+impl Encoding {
+    /// Attempt to retrieve the associated `Encoding` for the specified `u8`.
+    pub fn from_u8(n: u8) -> Option<Encoding> {
         match n {
             0 => Some(Encoding::Latin1),
             1 => Some(Encoding::UTF16),

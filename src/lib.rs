@@ -42,7 +42,6 @@
 
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate log;
-extern crate num;
 
 pub use tag::Tag;
 pub use frame::Frame;

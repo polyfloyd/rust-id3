@@ -1,6 +1,5 @@
 extern crate std;
 extern crate rand;
-extern crate num;
 extern crate encoding;
 
 use self::encoding::{DecoderTrap, EncoderTrap};

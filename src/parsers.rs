@@ -1,7 +1,4 @@
-extern crate num;
-
 use frame::{Encoding, Picture, PictureType, Content, ExtendedLink};
-use self::num::FromPrimitive;  
 
 /// The result of a successfully parsed frame.
 pub struct DecoderResult {
@@ -286,8 +283,6 @@ macro_rules! decode_part {
     };
     ($bytes:ident, $params:ident, $i:ident, picture_type()) => {
         {
-            use ::num::FromPrimitive;
-
             if $i + 1 >= $bytes.len() {
                 return Err(::Error::new(::ErrorKind::Parsing, "insufficient data"));
             }

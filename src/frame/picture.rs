@@ -1,6 +1,3 @@
-extern crate num;
-use num::FromPrimitive;
-
 /// Types of pictures used in APIC frames.
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[allow(missing_docs)]
@@ -28,12 +25,9 @@ pub enum PictureType {
     PublisherLogo
 }
 
-impl FromPrimitive for PictureType {
-    fn from_i64(n: i64) -> Option<PictureType> {
-        FromPrimitive::from_u64(n as u64)
-    }
-
-    fn from_u64(n: u64) -> Option<PictureType> {
+impl PictureType {
+    /// Attempt to retrieve the associated `PictureType` for the specified `u8`.
+    pub fn from_u8(n: u8) -> Option<PictureType> {
         match n {
             0 => Some(PictureType::Other),
             1 => Some(PictureType::Icon),
