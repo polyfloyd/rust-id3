@@ -3,7 +3,7 @@ extern crate byteorder;
 
 use std::cmp::min;
 use std::path::{Path, PathBuf};
-use std::io::{Read, Write, Seek, SeekFrom};
+use std::io::{Read, Write, Seek, SeekFrom, BufReader};
 use std::fs::{File, OpenOptions};
 use std::collections::HashMap;
 
@@ -2057,7 +2057,8 @@ impl<'a> Tag {
 
     /// Attempts to read an ID3 tag from the file at the indicated path.
     pub fn read_from_path<P: AsRef<Path>>(path: P) -> ::Result<Tag> {
-        let mut file = try!(File::open(&path));
+        let file = try!(File::open(&path));
+        let mut file = BufReader::new(file);
         let mut tag: Tag = try!(Tag::read_from(&mut file));
         tag.path = Some(path.as_ref().to_path_buf());
         tag.path_changed = false;

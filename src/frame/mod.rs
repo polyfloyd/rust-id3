@@ -11,7 +11,7 @@ pub use self::picture::{Picture, PictureType};
 
 use self::flate2::read::ZlibDecoder;
 
-use self::stream::{FrameV2, FrameV3, FrameV4};
+use self::stream::{v2, v3, v4};
     
 use parsers::{self, DecoderRequest, EncoderRequest};
 
@@ -158,9 +158,9 @@ impl Frame {
     /// will return an error with kind `UnsupportedVersion`. 
     pub fn read_from(reader: &mut Read, version: u8) -> ::Result<Option<(u32, Frame)>> {
         match version {
-            2 => FrameV2::read(reader),
-            3 => FrameV3::read(reader),
-            4 => FrameV4::read(reader),
+            2 => v2::read(reader as &mut Read),
+            3 => v3::read(reader),
+            4 => v4::read(reader as &mut Read),
             _ =>  Err(::Error::new(::ErrorKind::UnsupportedVersion(version), "unsupported id3 tag version"))
         }
     }
@@ -173,9 +173,9 @@ impl Frame {
     /// version will return an error with kind `UnsupportedVersion`.
     pub fn write_to(&self, writer: &mut Write, version: u8) -> ::Result<u32> {
         match version {
-            2 => FrameV2::write(writer, self),
-            3 => FrameV3::write(writer, self),
-            4 => FrameV4::write(writer, self),
+            2 => v2::write(writer, self),
+            3 => v3::write(writer, self),
+            4 => v4::write(writer, self),
             _ =>  Err(::Error::new(::ErrorKind::UnsupportedVersion(version), "unsupported id3 tag version"))
         }
     }
