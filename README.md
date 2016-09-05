@@ -39,7 +39,6 @@ tag.save().unwrap();
 
 ##Unsupported Features
 
-  * Unsynchronization
   * Grouping identity
   * Encryption
 
