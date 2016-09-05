@@ -1955,10 +1955,7 @@ impl<'a> Tag {
 
         tag.flags = Flags::from_byte(try!(reader.read_u8()), tag.version[0]);
 
-        if tag.flags.unsynchronization {
-            debug!("unsynchronization is unsupported");
-            return Err(::Error::new(::ErrorKind::UnsupportedFeature, "unsynchronization is not supported"))
-        } else if tag.flags.compression {
+       if tag.flags.compression {
             debug!("id3v2.2 compression is unsupported");
             return Err(::Error::new(::ErrorKind::UnsupportedFeature, "id3v2.2 compression is not supported"));
         }
@@ -1971,12 +1968,16 @@ impl<'a> Tag {
         if tag.flags.extended_header {
             let ext_size = ::util::unsynchsafe(try!(reader.read_u32::<BigEndian>()));
             offset += 4;
-            let _ = try!(reader.take(ext_size as u64).read_to_end(&mut Vec::with_capacity(ext_size as usize)));
+            let mut extended_header_data = Vec::with_capacity(ext_size as usize);
+            try!(reader.take(ext_size as u64).read_to_end(&mut extended_header_data));
+            if tag.flags.unsynchronization {
+                ::util::resynchronize(&mut extended_header_data);
+            }
             offset += ext_size;
         }
 
         while offset < tag.size + 10 {
-            let (bytes_read, mut frame) = match Frame::read_from(reader, tag.version[0]) {
+            let (bytes_read, mut frame) = match Frame::read_from(reader, tag.version[0], tag.flags.unsynchronization) {
                 Ok(opt) => match opt {
                     Some(frame) => frame,
                     None => break //padding
@@ -2017,7 +2018,7 @@ impl<'a> Tag {
 
         for frame in self.frames.iter() {
             let mut frame_writer = Vec::new();
-            size += try!(frame.write_to(&mut frame_writer, self.version[0]));
+            size += try!(frame.write_to(&mut frame_writer, self.version[0], self.flags.unsynchronization));
             data_cache.insert(frame.uuid.clone(), frame_writer);
         }
 
@@ -2040,7 +2041,7 @@ impl<'a> Tag {
                     try!(writer.write_all(&data[..]));
                     data.len() as u32
                 },
-                None => try!(frame.write_to(writer, self.version[0]))
+                None => try!(frame.write_to(writer, self.version[0], self.flags.unsynchronization))
             }
         }
 
@@ -2089,7 +2090,7 @@ impl<'a> Tag {
 
             for frame in self.frames.iter() {
                 let mut frame_writer = Vec::new();
-                size += try!(frame.write_to(&mut frame_writer, self.version[0]));
+                size += try!(frame.write_to(&mut frame_writer, self.version[0], self.flags.unsynchronization));
                 data_cache.insert(frame.uuid.clone(), frame_writer);
             }
 
@@ -2112,7 +2113,7 @@ impl<'a> Tag {
                                 try!(writer.write_all(&data[..]));
                                 data.len() as u32
                             },
-                            None => try!(frame.write_to(&mut writer, self.version[0]))
+                            None => try!(frame.write_to(&mut writer, self.version[0], self.flags.unsynchronization))
                         }
                     }
                 }

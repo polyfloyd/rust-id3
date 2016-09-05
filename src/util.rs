@@ -316,6 +316,33 @@ pub fn convert_id_3_to_2(id: &str) -> Option<&'static str> {
     ID_3_TO_2.get(id).map(|t| *t)
 }
 
+/// Undoes the changes done to a byte buffer by the unsynchronization scheme.
+pub fn resynchronize(buffer: &mut Vec<u8>) {
+    let mut discard_next_null_byte = false;
+    let mut i = 0;
+    while i < buffer.len() {
+        if buffer[i] == 0x00 && discard_next_null_byte {
+            buffer.remove(i);
+        }
+        discard_next_null_byte = i < buffer.len() && buffer[i] == 0xFF;
+        i += 1;
+    }
+}
+
+/// Applies the unsynchronization scheme to a byte buffer.
+pub fn unsynchronize(buffer: &mut Vec<u8>) {
+    let mut repeat_next_null_byte = false;
+    let mut i = 0;
+    while i < buffer.len() {
+        if buffer[i] == 0x00 && repeat_next_null_byte {
+            buffer.insert(i, 0);
+            i += 1;
+        }
+        repeat_next_null_byte = buffer[i] == 0xFF;
+        i += 1;
+    }
+}
+
 // Tests {{{
 #[cfg(test)]
 mod tests {
@@ -374,5 +401,14 @@ mod tests {
 
         assert_eq!(util::find_delim(Encoding::UTF16BE, &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0x0, 0xFF, 0xFF], 2).unwrap(), 4);
         assert!(util::find_delim(Encoding::UTF16BE, &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0xFF, 0xFF], 2).is_none());
+    }
+
+    #[test]
+    fn test_synchronization() {
+        let mut v = vec![66, 0, 255, 0, 255, 0, 0, 255, 66];
+        util::unsynchronize(&mut v);
+        assert_eq!(v, [66, 0, 255, 0, 0, 255, 0, 0, 0, 255, 66]);
+        util::resynchronize(&mut v);
+        assert_eq!(v, [66, 0, 255, 0, 255, 0, 0, 255, 66]);
     }
 }
