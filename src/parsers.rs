@@ -269,8 +269,7 @@ macro_rules! decode_part {
 
             let start = $i;
             $i += $len;
-
-            try!(String::from_utf8($bytes[start..$i].to_vec()))
+            try!(::util::string_from_latin1(&$bytes[start..$i]))
         }
     };
     ($bytes:ident, $params:ident, $i:ident, latin1($terminated:expr)) => {
