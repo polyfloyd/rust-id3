@@ -30,9 +30,6 @@ pub fn read(reader: &mut Read) -> ::Result<Option<(u32, Frame)>> {
     } else if frame.flags.grouping_identity {
         debug!("[{}] grouping identity is not supported", frame.id);
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "grouping identity is not supported"));
-    } else if frame.flags.unsynchronization {
-        debug!("[{}] unsynchronization is not supported", frame.id);
-        return Err(::Error::new(::ErrorKind::UnsupportedFeature, "unsynchronization is not supported"));
     }
 
     let mut read_size = content_size;
@@ -43,6 +40,10 @@ pub fn read(reader: &mut Read) -> ::Result<Option<(u32, Frame)>> {
 
     let mut data = Vec::<u8>::with_capacity(read_size as usize);
     try!(reader.take(read_size as u64).read_to_end(&mut data));
+    if frame.flags.unsynchronization {
+        ::util::resynchronize(&mut data);
+    }
+
     try!(frame.parse_data(&data[..]));
 
     Ok(Some((10 + content_size, frame)))
@@ -71,6 +72,9 @@ pub fn write(writer: &mut Write, frame: &Frame) -> ::Result<u32> {
     if frame.flags.data_length_indicator {
         debug!("[{}] adding data length indicator", frame.id);
         try!(writer.write_u32::<BigEndian>(::util::synchsafe(decompressed_size)));
+    }
+    if frame.flags.unsynchronization {
+        ::util::unsynchronize(&mut content_bytes);
     }
     try!(writer.write_all(&content_bytes[..]));
 
