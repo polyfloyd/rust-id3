@@ -1110,7 +1110,7 @@ impl<'a> Tag {
     /// ```
     pub fn set_date_recorded(&mut self, timestamp: Timestamp) {
         let time_string = timestamp.to_string();
-        self.add_text_frame_enc("TDRC", format!("{}", time_string), Encoding::Latin1);
+        self.add_text_frame_enc("TDRC", time_string, Encoding::Latin1);
     }
 
     /// Return the content of the TDRL frame, if any
@@ -1141,7 +1141,7 @@ impl<'a> Tag {
     /// ```
     pub fn set_date_released(&mut self, timestamp: Timestamp) {
         let time_string = timestamp.to_string();
-        self.add_text_frame_enc("TDRL", format!("{}", time_string), Encoding::Latin1);
+        self.add_text_frame_enc("TDRL", time_string, Encoding::Latin1);
     }
 
     /// Returns the artist (TPE1).
