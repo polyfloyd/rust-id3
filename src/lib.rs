@@ -45,6 +45,7 @@
 
 pub use tag::Tag;
 pub use frame::Frame;
+pub use frame::Timestamp;
 pub use error::{Result, Error, ErrorKind};
 
 /// Utilities used for reading/writing ID3 tags.
