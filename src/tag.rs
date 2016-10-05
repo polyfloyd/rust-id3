@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-use frame::{self, Frame, Encoding, Picture, PictureType};
+use frame::{self, Frame, Encoding, Picture, PictureType, Timestamp};
 use frame::Content;
 
 static DEFAULT_FILE_DISCARD: [&'static str; 11] = [
@@ -1070,6 +1070,80 @@ impl<'a> Tag {
         self.add_text_frame_enc(id, format!("{}", year), encoding);
     }
 
+    fn read_timestamp_frame(&self, id: &str) -> Option<Timestamp> {
+        match self.get(id) {
+            None => None,
+            Some(frame) => {
+                match frame.content {
+                    Content::Text(ref text) => Timestamp::parse(text),
+                    _ => None
+                }
+            }
+        }
+    }
+
+    /// Return the content of the TRDC frame, if any
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    /// use id3::Timestamp;
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_date_recorded(Timestamp{ year: Some(2014), month: None, day: None, hour: None, minute: None, second: None });
+    /// assert_eq!(tag.date_recorded().unwrap().year, Some(2014));
+    /// ```
+    pub fn date_recorded(&self) -> Option<Timestamp> {
+        self.read_timestamp_frame("TDRC")
+    }
+
+    /// Sets the content of the TDRC frame
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    /// use id3::Timestamp;
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_date_recorded(Timestamp{ year: Some(2014), month: None, day: None, hour: None, minute: None, second: None });
+    /// assert_eq!(tag.date_recorded().unwrap().year, Some(2014));
+    /// ```
+    pub fn set_date_recorded(&mut self, timestamp: Timestamp) {
+        let time_string = timestamp.to_string();
+        self.add_text_frame_enc("TDRC", time_string, Encoding::Latin1);
+    }
+
+    /// Return the content of the TDRL frame, if any
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    /// use id3::Timestamp;
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_date_released(Timestamp{ year: Some(2014), month: None, day: None, hour: None, minute: None, second: None });
+    /// assert_eq!(tag.date_released().unwrap().year, Some(2014));
+    /// ```
+    pub fn date_released(&self) -> Option<Timestamp> {
+        self.read_timestamp_frame("TDRL")
+    }
+
+    /// Sets the content of the TDRL frame
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    /// use id3::Timestamp;
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_date_released(Timestamp{ year: Some(2014), month: None, day: None, hour: None, minute: None, second: None });
+    /// assert_eq!(tag.date_released().unwrap().year, Some(2014));
+    /// ```
+    pub fn set_date_released(&mut self, timestamp: Timestamp) {
+        let time_string = timestamp.to_string();
+        self.add_text_frame_enc("TDRL", time_string, Encoding::Latin1);
+    }
+
     /// Returns the artist (TPE1).
     ///
     /// # Example
@@ -1955,7 +2029,7 @@ impl<'a> Tag {
 
         tag.flags = Flags::from_byte(try!(reader.read_u8()), tag.version[0]);
 
-       if tag.flags.compression {
+        if tag.flags.compression {
             debug!("id3v2.2 compression is unsupported");
             return Err(::Error::new(::ErrorKind::UnsupportedFeature, "id3v2.2 compression is not supported"));
         }

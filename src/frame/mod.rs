@@ -8,6 +8,7 @@ pub use self::encoding::Encoding;
 pub use self::content::Content;
 pub use self::flags::Flags;
 pub use self::picture::{Picture, PictureType};
+pub use self::timestamp::Timestamp;
 
 use self::flate2::read::ZlibDecoder;
 
@@ -20,6 +21,7 @@ mod encoding;
 mod content;
 mod flags;
 mod stream;
+mod timestamp;
 
 #[derive(Debug, Clone, PartialEq)]
 #[allow(missing_docs)]
