@@ -1415,6 +1415,55 @@ impl<'a> Tag {
         self.remove(id);
     }
 
+    /// Returns the duration (TLEN).
+    ///
+    /// # Example
+    /// ```
+    /// use id3::{Frame, Tag};
+    /// use id3::frame::Content;
+    ///
+    /// let mut tag = Tag::new();
+    ///
+    /// let mut frame = Frame::new("TLEN");
+    /// frame.content = Content::Text("350".to_owned());
+    /// tag.push(frame);
+    /// assert_eq!(tag.duration().unwrap(), 350);
+    /// ```
+    pub fn duration(&self) -> Option<u32> {
+        self.text_for_frame_id("TLEN").and_then(|t| t[..].parse::<u32>().ok())
+    }
+
+    /// Sets the duration (TLEN).
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_duration(350);
+    /// assert_eq!(tag.duration().unwrap(), 350);
+    /// ```
+    pub fn set_duration(&mut self, duration: u32) {
+        self.add_text_frame("TLEN", duration.to_string());
+    }
+
+    /// Removes the duration (TLEN).
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_duration(350);
+    /// assert!(tag.duration().is_some());
+    ///
+    /// tag.remove_duration();
+    /// assert!(tag.duration().is_none());
+    /// ```
+    pub fn remove_duration(&mut self) {
+       self.remove("TLEN");
+    }
+
     /// Returns the genre (TCON).
     ///
     /// # Example
