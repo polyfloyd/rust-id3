@@ -8,7 +8,7 @@
 //! let mut tag= Tag::read_from_path("music.mp3").unwrap();
 //!
 //! // print the artist the hard way
-//! println!("{}", tag.get("TALB").unwrap().content.text());
+//! println!("{}", tag.get("TALB").unwrap().content.text().unwrap());
 //! 
 //! // or print it the easy way
 //! println!("{}", tag.artist().unwrap());

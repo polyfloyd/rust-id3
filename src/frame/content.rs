@@ -20,75 +20,67 @@ pub enum Content {
 }
 
 impl Content {
-    /// Returns the `Text`.
-    /// Panics if the value is not `Text`.
-    pub fn text(&self) -> &String {
+    /// Returns the `Text` or None if the value is not `Text`.
+    pub fn text(&self) -> Option<&str> {
         match *self {
-            Content::Text(ref content) => content,
-            _ => panic!("called `Content::text()` on a non `Text` value") 
+            Content::Text(ref content) => Some(&*content),
+            _ => None,
         }
     }
 
-    /// Returns the `ExtendedText`.
-    /// Panics if the value is not `ExtendedText`.
-    pub fn extended_text(&self) -> &super::ExtendedText {
+    /// Returns the `ExtendedText` or None if the value is not `ExtendedText`.
+    pub fn extended_text(&self) -> Option<&super::ExtendedText> {
         match *self {
-            Content::ExtendedText(ref content) => content,
-            _ => panic!("called `Content::extended_text()` on a non `ExtendedText` value") 
+            Content::ExtendedText(ref content) => Some(content),
+            _ => None,
         }
     }
 
-    /// Returns the `Link`.
-    /// Panics if the value is not `Link`.
-    pub fn link(&self) -> &String {
+    /// Returns the `Link` or None if the value is not `Link`.
+    pub fn link(&self) -> Option<&str> {
         match *self {
-            Content::Link(ref content) => content,
-            _ => panic!("called `Content::link()` on a non `Link` value") 
+            Content::Link(ref content) => Some(content),
+            _ => None,
         }
     }
 
-    /// Returns the `ExtendedLink`.
-    /// Panics if the value is not `ExtendedLink`.
-    pub fn extended_link(&self) -> &super::ExtendedLink {
+    /// Returns the `ExtendedLink` or None if the value is not `ExtendedLink`.
+    pub fn extended_link(&self) -> Option<&super::ExtendedLink> {
         match *self {
-            Content::ExtendedLink(ref content) => content,
-            _ => panic!("called `Content::extended_link()` on a non `ExtendedLink` value") 
+            Content::ExtendedLink(ref content) => Some(content),
+            _ => None,
         }
     }
 
-    /// Returns the `Comment`.
-    /// Panics if the value is not `Comment`.
-    pub fn comment(&self) -> &super::Comment {
+    /// Returns the `Comment` or None if the value is not `Comment`.
+    pub fn comment(&self) -> Option<&super::Comment> {
         match *self {
-            Content::Comment(ref content) => content,
-            _ => panic!("called `Content::comment()` on a non `Comment` value") 
+            Content::Comment(ref content) => Some(content),
+            _ => None,
         }
     }
 
-    /// Returns the `Lyrics`.
-    /// Panics if the value is not `Lyrics`.
-    pub fn lyrics(&self) -> &super::Lyrics {
+    /// Returns the `Lyrics` or None if the value is not `Lyrics`.
+    pub fn lyrics(&self) -> Option<&super::Lyrics> {
         match *self {
-            Content::Lyrics(ref content) => content,
-            _ => panic!("called `Content::lyrics()` on a non `Lyrics` value") 
+            Content::Lyrics(ref content) => Some(content),
+            _ => None,
         }
     }
 
-    /// Returns the `Picture`.
-    /// Panics if the value is not `Picture`.
-    pub fn picture(&self) -> &super::Picture {
+    /// Returns the `Picture` or None if the value is not `Picture`.
+    pub fn picture(&self) -> Option<&super::Picture> {
         match *self {
-            Content::Picture(ref picture) => picture,
-            _ => panic!("called `Content::picture()` on a non `Picture` value") 
+            Content::Picture(ref picture) => Some(picture),
+            _ => None,
         }
     }
 
-    /// Returns the `Unknown`.
-    /// Panics if the value is not `Unknown`.
-    pub fn unknown(&self) -> &[u8] {
+    /// Returns the `Unknown` or None if the value is not `Unknown`.
+    pub fn unknown(&self) -> Option<&[u8]> {
         match *self {
-            Content::Unknown(ref data) => &data[..],
-            _ => panic!("called `Content::unknown()` on a non `Unknown` value") 
+            Content::Unknown(ref data) => Some(&data[..]),
+            _ => None,
         }
     }
 }
