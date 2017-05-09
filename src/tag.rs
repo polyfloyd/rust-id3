@@ -457,7 +457,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.add_text_frame("TCON", "Metal");
-    /// assert_eq!(&tag.get("TCON").unwrap().content.text()[..], "Metal");
+    /// assert_eq!(tag.get("TCON").unwrap().content.text().unwrap(), "Metal");
     /// ```
     pub fn add_text_frame<K: Into<String>, V: Into<String>>(&mut self, id: K, text: V) {
         let encoding = self.default_encoding();
@@ -473,7 +473,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.add_text_frame_enc("TRCK", "1/13", UTF16);
-    /// assert_eq!(&tag.get("TRCK").unwrap().content.text()[..], "1/13");
+    /// assert_eq!(tag.get("TRCK").unwrap().content.text().unwrap(), "1/13");
     /// ```
     pub fn add_text_frame_enc<K: Into<String>, V: Into<String>>(&mut self, id: K, text: V, encoding: Encoding) {
         let id = id.into();

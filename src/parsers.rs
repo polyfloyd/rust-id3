@@ -68,7 +68,7 @@ struct EncodingParams<'a> {
     delim_len: u8,
     string_func: Box<Fn(&mut Vec<u8>, &str) + 'a>
 }
-    
+
 macro_rules! encode_part {
     ($buf:ident, encoding($encoding:expr)) => { $buf.push($encoding as u8) };
     ($buf:ident, $params:ident, string($string:expr)) => { ($params.string_func)(&mut $buf, &$string[..]) };
@@ -112,50 +112,50 @@ macro_rules! encode {
 }
 
 fn text_to_bytes(request: EncoderRequest) -> Vec<u8> {
-    let content = request.content.text();
+    let content = request.content.text().unwrap();
     return encode!(encoding(request.encoding), string(content));
 }
 
 fn extended_text_to_bytes(request: EncoderRequest) -> Vec<u8> {
-    let content = request.content.extended_text();
+    let content = request.content.extended_text().unwrap();
     return encode!(encoding(request.encoding), string(content.key), delim(0), string(content.value));
 }
 
 fn weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
-    request.content.link().as_bytes().to_vec()
+    request.content.link().unwrap().as_bytes().to_vec()
 }
 
 fn extended_weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
-    let content = request.content.extended_link();
+    let content = request.content.extended_link().unwrap();
     return encode!(encoding(request.encoding), string(content.description), delim(0), 
                    bytes(content.link.as_bytes()));
 }
 
 fn lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
-    let content = request.content.lyrics();
+    let content = request.content.lyrics().unwrap();
     return encode!(encoding(request.encoding), bytes(content.lang[..3].as_bytes()), 
                    string(content.description), delim(0), string(content.text));
 }
 
 fn comment_to_bytes(request: EncoderRequest) -> Vec<u8> {
-    let content = request.content.comment();
+    let content = request.content.comment().unwrap();
     return encode!(encoding(request.encoding), bytes(content.lang[..3].as_bytes()), 
                    string(content.description), delim(0), string(content.text));
 }
 
 fn picture_to_bytes_v3(request: EncoderRequest) -> Vec<u8> {
-    let content = request.content.picture();
+    let content = request.content.picture().unwrap();
     return encode!(encoding(request.encoding), bytes(content.mime_type.as_bytes()), byte(0), 
             byte(content.picture_type), string(content.description), delim(0), bytes(content.data));
 }
 
 fn picture_to_bytes_v2(request: EncoderRequest) -> Vec<u8> {
-    let picture = request.content.picture();
+    let picture = request.content.picture().unwrap();
 
     let format = match &picture.mime_type[..] {
         "image/jpeg" => "JPG",
         "image/png" => "PNG",
-        _ => panic!("unknown MIME type") // TODO handle this better
+        _ => panic!("unknown MIME type") // TODO handle this better. Return None?
     };
 
     return encode!(encoding(request.encoding), bytes(format.as_bytes()), byte(picture.picture_type), 
@@ -491,7 +491,7 @@ mod tests {
                     assert_eq!(*parsers::decode(DecoderRequest { 
                         id: "PIC", 
                         data: &data[..]
-                    }).unwrap().content.picture(), picture);
+                    }).unwrap().content.picture().unwrap(), picture);
                     assert_eq!(parsers::encode(EncoderRequest { 
                         encoding: encoding, 
                         content: &Content::Picture(picture.clone()), 
@@ -531,7 +531,7 @@ mod tests {
                     assert_eq!(*parsers::decode(DecoderRequest { 
                         id: "APIC", 
                         data: &data[..]
-                    }).unwrap().content.picture(), picture);
+                    }).unwrap().content.picture().unwrap(), picture);
                     assert_eq!(parsers::encode(EncoderRequest { 
                         encoding: encoding, 
                         content: &Content::Picture(picture.clone()), 
@@ -565,7 +565,7 @@ mod tests {
                     assert_eq!(*parsers::decode(DecoderRequest { 
                         id: "COMM", 
                         data: &data[..]
-                    }).unwrap().content.comment(), content);
+                    }).unwrap().content.comment().unwrap(), content);
                     assert_eq!(parsers::encode(EncoderRequest { 
                         encoding: encoding, 
                         content: &Content::Comment(content), version: 3 
@@ -608,7 +608,7 @@ mod tests {
             assert_eq!(*parsers::decode(DecoderRequest {
                 id: "COMM",
                 data: &data[..]
-            }).unwrap().content.comment(), content);
+            }).unwrap().content.comment().unwrap(), content);
         }
     }
 
@@ -623,10 +623,10 @@ mod tests {
                 data.push(encoding as u8);
                 data.extend(bytes_for_encoding(text, encoding).into_iter());
 
-                assert_eq!(&parsers::decode(DecoderRequest { 
+                assert_eq!(parsers::decode(DecoderRequest { 
                     id: "TALB", 
                     data: &data[..]
-                }).unwrap().content.text()[..], text);
+                }).unwrap().content.text().unwrap(), text);
                 assert_eq!(parsers::encode(EncoderRequest { 
                     encoding: encoding, 
                     content: &Content::Text(text.to_owned()), 
@@ -646,10 +646,10 @@ mod tests {
             data.push(encoding as u8);
             data.extend(bytes_for_encoding(text, encoding).into_iter());
 
-            assert_eq!(&parsers::decode(DecoderRequest {
+            assert_eq!(parsers::decode(DecoderRequest {
                 id: "TALB",
                 data: &data[..]
-            }).unwrap().content.text()[..], "text");
+            }).unwrap().content.text().unwrap(), "text");
             assert_eq!(parsers::encode(EncoderRequest {
                 encoding: encoding,
                 content: &Content::Text(text.to_owned()),
@@ -680,7 +680,7 @@ mod tests {
                     assert_eq!(*parsers::decode(DecoderRequest { 
                         id: "TXXX", 
                         data: &data[..]
-                    }).unwrap().content.extended_text(), content);
+                    }).unwrap().content.extended_text().unwrap(), content);
                     assert_eq!(parsers::encode(EncoderRequest { 
                         encoding: encoding, 
                         content: &Content::ExtendedText(content), 
@@ -712,10 +712,10 @@ mod tests {
             println!("`{:?}`", link);
             let data = link.as_bytes().to_vec();
 
-            assert_eq!(&parsers::decode(DecoderRequest { 
+            assert_eq!(parsers::decode(DecoderRequest {
                 id: "WOAF", 
                 data: &data[..]
-            }).unwrap().content.link()[..], link);
+            }).unwrap().content.link().unwrap(), link);
             assert_eq!(parsers::encode(EncoderRequest { 
                 encoding: Encoding::Latin1, 
                 content: &Content::Link(link.to_owned()), 
@@ -746,7 +746,7 @@ mod tests {
                     assert_eq!(*parsers::decode(DecoderRequest { 
                         id: "WXXX", 
                         data: &data[..]
-                    }).unwrap().content.extended_link(), content);
+                    }).unwrap().content.extended_link().unwrap(), content);
                     assert_eq!(parsers::encode(EncoderRequest { 
                         encoding: encoding, 
                         content: &Content::ExtendedLink(content), 
@@ -796,7 +796,7 @@ mod tests {
                     assert_eq!(*parsers::decode(DecoderRequest { 
                         id: "USLT", 
                         data: &data[..]
-                    }).unwrap().content.lyrics(), content);
+                    }).unwrap().content.lyrics().unwrap(), content);
                     assert_eq!(parsers::encode(EncoderRequest { 
                         encoding: encoding, 
                         content: &Content::Lyrics(content), 
