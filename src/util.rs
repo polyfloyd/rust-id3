@@ -22,31 +22,12 @@ pub fn unsynchsafe(n: u32) -> u32 {
     (n & 0xFF | (n & 0xFF00) >> 1 | (n & 0xFF0000) >> 2 | (n & 0xFF000000) >> 3)
 }
 
-/// Returns a string created from the vector using the specified encoding.
-/// Returns `None` if the vector is not a valid string of the specified
-/// encoding type.
-pub fn string_from_encoding(encoding: Encoding, data: &[u8]) -> ::Result<String> { 
-    match encoding {
-        Encoding::Latin1 => string_from_latin1(data),
-        Encoding::UTF8 => string_from_utf8(data),
-        Encoding::UTF16 => string_from_utf16(data),
-        Encoding::UTF16BE => string_from_utf16be(data) 
-    }
-}
-
 /// Returns a string created from the vector using Latin1 encoding, removing any trailing null
 /// bytes.
 /// Can never return None because all sequences of u8s are valid Latin1 strings.
 pub fn string_from_latin1(data: &[u8]) -> ::Result<String> {
     let value: String = data.iter().take_while(|c| **c != 0).map(|b| *b as char).collect();
     Ok(value)
-}
-
-/// Returns a string created from the vector using UTF-8 encoding, removing any trailing null
-/// bytes.
-/// Returns `None` if the vector is not a valid UTF-8 string.
-pub fn string_from_utf8(data: &[u8]) -> ::Result<String> {
-    Ok(try!(String::from_utf8(data.iter().take_while(|c| **c != 0).cloned().collect())))
 }
 
 /// Returns a string created from the vector using UTF-16 (with byte order mark) encoding.
@@ -357,7 +338,6 @@ mod tests {
 
         let mut utf8 = text.as_bytes().to_vec();
         utf8.push(0);
-        assert_eq!(&util::string_from_utf8(&utf8[..]).unwrap()[..], text);
 
         // should use little endian BOM
         assert_eq!(&util::string_to_utf16(text)[..], b"\xFF\xFE\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01");
@@ -365,17 +345,14 @@ mod tests {
         assert_eq!(&util::string_to_utf16be(text)[..], b"\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D");
         assert_eq!(&util::string_to_utf16le(text)[..], b"\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01");
 
-        assert_eq!(&util::string_from_encoding(Encoding::UTF16BE, b"\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D").unwrap()[..], text);
         assert_eq!(&util::string_from_utf16be(b"\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D").unwrap()[..], text);
 
         assert_eq!(&util::string_from_utf16le(b"\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01").unwrap()[..], text);
 
         // big endian BOM
-        assert_eq!(&util::string_from_encoding(Encoding::UTF16, b"\xFE\xFF\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D").unwrap()[..], text);
         assert_eq!(&util::string_from_utf16(b"\xFE\xFF\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D").unwrap()[..], text);
 
         // little endian BOM 
-        assert_eq!(&util::string_from_encoding(Encoding::UTF16, b"\xFF\xFE\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01").unwrap()[..], text);
         assert_eq!(&util::string_from_utf16(b"\xFF\xFE\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01").unwrap()[..], text);
     }
 
@@ -384,7 +361,6 @@ mod tests {
         let text: &str = "stringþ";
         assert_eq!(&util::string_to_latin1(text)[..], b"string\xFE");
         assert_eq!(&util::string_from_latin1(b"string\xFE").unwrap()[..], text);
-        assert_eq!(&util::string_from_encoding(Encoding::Latin1, b"string\xFE").unwrap()[..], text);
     }
 
     #[test]

@@ -56,7 +56,7 @@ pub use frame::Timestamp;
 pub use error::{Result, Error, ErrorKind};
 
 /// Utilities used for reading/writing ID3 tags.
-pub mod util;
+mod util;
 
 /// Contains types and methods for operating on ID3 frames.
 pub mod frame;
