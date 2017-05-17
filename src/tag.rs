@@ -1129,7 +1129,7 @@ impl<'a> Tag {
             None => None,
             Some(frame) => {
                 match frame.content {
-                    Content::Text(ref text) => Timestamp::parse(text),
+                    Content::Text(ref text) => text.parse().ok(),
                     _ => None
                 }
             }
@@ -1144,8 +1144,8 @@ impl<'a> Tag {
     /// use id3::Timestamp;
     ///
     /// let mut tag = Tag::new();
-    /// tag.set_date_recorded(Timestamp{ year: Some(2014), month: None, day: None, hour: None, minute: None, second: None });
-    /// assert_eq!(tag.date_recorded().unwrap().year, Some(2014));
+    /// tag.set_date_recorded(Timestamp{ year: 2014, month: None, day: None, hour: None, minute: None, second: None });
+    /// assert_eq!(tag.date_recorded().unwrap().year, 2014);
     /// ```
     pub fn date_recorded(&self) -> Option<Timestamp> {
         self.read_timestamp_frame("TDRC")
@@ -1159,8 +1159,8 @@ impl<'a> Tag {
     /// use id3::Timestamp;
     ///
     /// let mut tag = Tag::new();
-    /// tag.set_date_recorded(Timestamp{ year: Some(2014), month: None, day: None, hour: None, minute: None, second: None });
-    /// assert_eq!(tag.date_recorded().unwrap().year, Some(2014));
+    /// tag.set_date_recorded(Timestamp{ year: 2014, month: None, day: None, hour: None, minute: None, second: None });
+    /// assert_eq!(tag.date_recorded().unwrap().year, 2014);
     /// ```
     pub fn set_date_recorded(&mut self, timestamp: Timestamp) {
         let time_string = timestamp.to_string();
@@ -1175,8 +1175,8 @@ impl<'a> Tag {
     /// use id3::Timestamp;
     ///
     /// let mut tag = Tag::new();
-    /// tag.set_date_released(Timestamp{ year: Some(2014), month: None, day: None, hour: None, minute: None, second: None });
-    /// assert_eq!(tag.date_released().unwrap().year, Some(2014));
+    /// tag.set_date_released(Timestamp{ year: 2014, month: None, day: None, hour: None, minute: None, second: None });
+    /// assert_eq!(tag.date_released().unwrap().year, 2014);
     /// ```
     pub fn date_released(&self) -> Option<Timestamp> {
         self.read_timestamp_frame("TDRL")
@@ -1190,8 +1190,8 @@ impl<'a> Tag {
     /// use id3::Timestamp;
     ///
     /// let mut tag = Tag::new();
-    /// tag.set_date_released(Timestamp{ year: Some(2014), month: None, day: None, hour: None, minute: None, second: None });
-    /// assert_eq!(tag.date_released().unwrap().year, Some(2014));
+    /// tag.set_date_released(Timestamp{ year: 2014, month: None, day: None, hour: None, minute: None, second: None });
+    /// assert_eq!(tag.date_released().unwrap().year, 2014);
     /// ```
     pub fn set_date_released(&mut self, timestamp: Timestamp) {
         let time_string = timestamp.to_string();
