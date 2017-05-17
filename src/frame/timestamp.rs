@@ -1,9 +1,10 @@
+use std::cmp;
 use std::error;
 use std::fmt;
 use std::str;
 use regex::Regex;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd)]
 #[allow(missing_docs)]
 /// Represents a date and time according to the ID3v2.4 spec:
 ///
@@ -51,6 +52,17 @@ impl Timestamp {
             }
         }
         out
+    }
+}
+
+impl Ord for Timestamp {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.year.cmp(&other.year)
+            .then(self.month.cmp(&other.month))
+            .then(self.day.cmp(&other.day))
+            .then(self.hour.cmp(&other.hour))
+            .then(self.minute.cmp(&other.minute))
+            .then(self.second.cmp(&other.second))
     }
 }
 

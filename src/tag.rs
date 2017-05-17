@@ -70,6 +70,7 @@ impl Version {
 
 
 /// An ID3 tag containing metadata frames.
+#[derive(Clone, Debug)]
 pub struct Tag {
     /// The path, if any, that this file was loaded from.
     path: Option<PathBuf>,
@@ -91,7 +92,7 @@ pub struct Tag {
 }
 
 /// Flags used in the ID3 header.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Flags {
     /// Indicates whether or not unsynchronization is used.
     pub unsynchronization: bool,

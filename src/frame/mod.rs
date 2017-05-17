@@ -1,5 +1,6 @@
-use std::io::{Read, Write};
 use std::borrow::Cow;
+use std::hash::{Hash, Hasher};
+use std::io::{Read, Write};
 
 pub use self::encoding::Encoding;
 pub use self::content::{Content, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType};
@@ -21,8 +22,9 @@ mod timestamp;
 
 
 /// A structure representing an ID3 frame.
+#[derive(Clone, Debug, Eq)]
 pub struct Frame {
-    /// A sequence of 16 bytes used to uniquely identify this frame. 
+    /// A sequence of 16 bytes used to uniquely identify this frame.
     pub uuid: Vec<u8>,
     /// The frame identifier.
     pub id: String,
@@ -38,11 +40,14 @@ pub struct Frame {
 
 impl PartialEq for Frame {
     fn eq(&self, other: &Frame) -> bool {
-        &self.uuid[..] == &other.uuid[..]
+        self.id == other.id && self.content == other.content
     }
+}
 
-    fn ne(&self, other: &Frame) -> bool {
-        &self.uuid[..] != &other.uuid[..]
+impl Hash for Frame {
+    fn hash<H>(&self, state: &mut H) where H: Hasher {
+        self.id.hash(state);
+        self.content.hash(state);
     }
 }
 
