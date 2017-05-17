@@ -1,11 +1,8 @@
-extern crate flate2;
-extern crate byteorder;
-
-use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 use frame::Frame;
-use self::flate2::write::ZlibEncoder;
-use self::flate2::Compression;
+use flate2::write::ZlibEncoder;
+use flate2::Compression;
 use ::tag;
 
 pub fn read(reader: &mut Read) -> ::Result<Option<(u32, Frame)>> {

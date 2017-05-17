@@ -1,13 +1,10 @@
-extern crate std;
-extern crate byteorder;
-
 use std::cmp::min;
 use std::path::{Path, PathBuf};
 use std::io::{Read, Write, Seek, SeekFrom, BufReader};
 use std::fs::{File, OpenOptions};
 use std::collections::HashMap;
 
-use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use frame::{self, Frame, Encoding, Picture, PictureType, Timestamp};
 use frame::Content;

@@ -1,9 +1,7 @@
-pub extern crate regex;
-
 use std::error;
 use std::fmt;
 use std::str;
-use self::regex::Regex;
+use regex::Regex;
 
 #[derive(Debug, Clone, PartialEq)]
 #[allow(missing_docs)]

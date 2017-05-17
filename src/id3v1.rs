@@ -1,7 +1,5 @@
-extern crate byteorder;
-
 use std::io::{self, Read, Seek, SeekFrom};
-use self::byteorder::ReadBytesExt;
+use byteorder::ReadBytesExt;
 
 static TAG: &'static [u8] = b"TAG";
 pub static TAG_OFFSET: i64 = 128;

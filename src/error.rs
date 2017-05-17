@@ -1,5 +1,3 @@
-extern crate byteorder;
-
 use std::error;
 use std::io;
 use std::fmt;

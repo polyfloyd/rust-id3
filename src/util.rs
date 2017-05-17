@@ -1,11 +1,7 @@
-extern crate std;
-extern crate rand;
-extern crate encoding;
-
-use self::encoding::{DecoderTrap, EncoderTrap};
-use self::encoding::Encoding as StrEncoding;
-use self::encoding::all::{UTF_16BE, UTF_16LE};
-use self::rand::Rng;
+use encoding::{DecoderTrap, EncoderTrap};
+use encoding::Encoding as StrEncoding;
+use encoding::all::{UTF_16BE, UTF_16LE};
+use rand::{self, Rng};
 use frame::Encoding;
 use std::collections::HashMap;
 

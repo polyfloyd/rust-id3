@@ -1,6 +1,4 @@
-extern crate byteorder;
-
-use self::byteorder::{ByteOrder, BigEndian};
+use byteorder::{ByteOrder, BigEndian};
 use std::io::{Read, Write};
 use frame::Frame;
 use ::tag;

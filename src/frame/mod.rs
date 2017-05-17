@@ -1,6 +1,3 @@
-extern crate std;
-extern crate flate2;
-
 use std::io::{Read, Write};
 use std::borrow::Cow;
 
@@ -10,7 +7,7 @@ pub use self::flags::Flags;
 pub use self::picture::{Picture, PictureType};
 pub use self::timestamp::Timestamp;
 
-use self::flate2::read::ZlibDecoder;
+use flate2::read::ZlibDecoder;
 
 use self::stream::{v2, v3, v4};
 

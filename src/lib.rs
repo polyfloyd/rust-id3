@@ -40,8 +40,15 @@
 #![crate_type = "rlib"]
 #![warn(missing_docs)]
 
-#[macro_use] extern crate lazy_static;
-#[macro_use] extern crate log;
+extern crate byteorder;
+extern crate encoding;
+extern crate flate2;
+#[macro_use]
+extern crate lazy_static;
+#[macro_use]
+extern crate log;
+extern crate rand;
+extern crate regex;
 
 pub use tag::{Tag, Version};
 pub use frame::Frame;
