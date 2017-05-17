@@ -2,9 +2,8 @@ use std::io::{Read, Write};
 use std::borrow::Cow;
 
 pub use self::encoding::Encoding;
-pub use self::content::Content;
+pub use self::content::{Content, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType};
 pub use self::flags::Flags;
-pub use self::picture::{Picture, PictureType};
 pub use self::timestamp::Timestamp;
 
 use flate2::read::ZlibDecoder;
@@ -14,46 +13,12 @@ use self::stream::{v2, v3, v4};
 use parsers::{self, DecoderRequest, EncoderRequest};
 use ::tag;
 
-mod picture;
 mod encoding;
 mod content;
 mod flags;
 mod stream;
 mod timestamp;
 
-#[derive(Debug, Clone, PartialEq)]
-#[allow(missing_docs)]
-/// The parsed contents of an extended text frame.
-pub struct ExtendedText {
-    pub key: String,
-    pub value: String
-}
-
-#[derive(Debug, Clone, PartialEq)]
-#[allow(missing_docs)]
-/// The parsed contents of an unsynchronized lyrics frame.
-pub struct Lyrics {
-    pub lang: String,
-    pub description: String,
-    pub text: String
-}
-
-#[derive(Debug, Clone, PartialEq)]
-#[allow(missing_docs)]
-/// The parsed contents of a comment frame.
-pub struct Comment {
-    pub lang: String,
-    pub description: String,
-    pub text: String
-}
-
-#[derive(Debug, Clone, PartialEq)]
-#[allow(missing_docs)]
-/// The parsed contents of an extended link frame.
-pub struct ExtendedLink {
-    pub description: String,
-    pub link: String
-}
 
 /// A structure representing an ID3 frame.
 pub struct Frame {
@@ -238,18 +203,18 @@ impl Frame {
     /// assert_eq!(&title_frame.text().unwrap()[..], "title");
     ///
     /// let mut txxx_frame = Frame::new("TXXX");
-    /// txxx_frame.content = Content::ExtendedText(frame::ExtendedText { 
-    ///     key: "key".to_owned(), 
+    /// txxx_frame.content = Content::ExtendedText(frame::ExtendedText {
+    ///     description: "description".to_owned(),
     ///     value: "value".to_owned()
     /// });
-    /// assert_eq!(&txxx_frame.text().unwrap()[..], "key: value");
+    /// assert_eq!(&txxx_frame.text().unwrap()[..], "description: value");
     /// ```
     pub fn text(&self) -> Option<Cow<str>> {
         match self.content {
             Content::Text(ref content) => Some(Cow::Borrowed(&content[..])),
             Content::Link(ref content) => Some(Cow::Borrowed(&content[..])), 
             Content::Lyrics(ref content) => Some(Cow::Borrowed(&content.text[..])),
-            Content::ExtendedText(ref content) => Some(Cow::Owned(format!("{}: {}", content.key, content.value))), 
+            Content::ExtendedText(ref content) => Some(Cow::Owned(format!("{}: {}", content.description, content.value))), 
             Content::ExtendedLink(ref content) => Some(Cow::Owned(format!("{}: {}", content.description, content.link))), 
             Content::Comment(ref content) => Some(Cow::Owned(format!("{}: {}", content.description, content.text))),
             _ => None

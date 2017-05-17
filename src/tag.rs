@@ -615,7 +615,7 @@ impl<'a> Tag {
     }
 
     // Getters/Setters {{{
-    /// Returns a vector of the extended text (TXXX) key/value pairs.
+    /// Returns a vector of the extended text (TXXX) description/value pairs.
     ///
     /// # Example
     /// ```
@@ -625,28 +625,28 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     ///
     /// let mut frame = Frame::new("TXXX");
-    /// frame.content = Content::ExtendedText(frame::ExtendedText { 
-    ///     key: "key1".to_owned(),
+    /// frame.content = Content::ExtendedText(frame::ExtendedText {
+    ///     description: "description1".to_owned(),
     ///     value: "value1".to_owned()
     /// });
     /// tag.push(frame);
     ///
     /// let mut frame = Frame::new("TXXX");
-    /// frame.content = Content::ExtendedText(frame::ExtendedText { 
-    ///     key: "key2".to_owned(),
+    /// frame.content = Content::ExtendedText(frame::ExtendedText {
+    ///     description: "description2".to_owned(),
     ///     value: "value2".to_owned()
-    /// }); 
+    /// });
     /// tag.push(frame);
     ///
     /// assert_eq!(tag.txxx().len(), 2);
-    /// assert!(tag.txxx().contains(&("key1", "value1")));
-    /// assert!(tag.txxx().contains(&("key2", "value2")));
+    /// assert!(tag.txxx().contains(&("description1", "value1")));
+    /// assert!(tag.txxx().contains(&("description2", "value2")));
     /// ```
     pub fn txxx(&self) -> Vec<(&str, &str)> {
         let mut out = Vec::new();
         for frame in self.get_all(self.txxx_id()).iter() {
             match frame.content {
-                Content::ExtendedText(ref ext) => out.push((&ext.key[..], &ext.value[..])),
+                Content::ExtendedText(ref ext) => out.push((&ext.description[..], &ext.value[..])),
                 _ => { }
             }
         }
@@ -669,9 +669,9 @@ impl<'a> Tag {
     /// assert!(tag.txxx().contains(&("key1", "value1")));
     /// assert!(tag.txxx().contains(&("key2", "value2")));
     /// ```
-    pub fn add_txxx<K: Into<String>, V: Into<String>>(&mut self, key: K, value: V) {
+    pub fn add_txxx<K: Into<String>, V: Into<String>>(&mut self, description: K, value: V) {
         let encoding = self.default_encoding();
-        self.add_txxx_enc(key, value, encoding);
+        self.add_txxx_enc(description, value, encoding);
     }
 
     /// Adds a user defined text frame (TXXX) using the specified text encoding.
@@ -690,15 +690,15 @@ impl<'a> Tag {
     /// assert!(tag.txxx().contains(&("key1", "value1")));
     /// assert!(tag.txxx().contains(&("key2", "value2")));
     /// ```
-    pub fn add_txxx_enc<K: Into<String>, V: Into<String>>(&mut self, key: K, value: V, encoding: Encoding) {
-        let key = key.into();
+    pub fn add_txxx_enc<K: Into<String>, V: Into<String>>(&mut self, description: K, value: V, encoding: Encoding) {
+        let description = description.into();
 
-        self.remove_txxx(Some(&key[..]), None);
+        self.remove_txxx(Some(&description[..]), None);
 
         let mut frame = Frame::new(self.txxx_id());
         frame.encoding = encoding;
-        frame.content = Content::ExtendedText(frame::ExtendedText { 
-            key: key, 
+        frame.content = Content::ExtendedText(frame::ExtendedText {
+            description: description,
             value: value.into()
         });
 
@@ -734,20 +734,20 @@ impl<'a> Tag {
     /// tag.remove_txxx(None, None);
     /// assert_eq!(tag.txxx().len(), 0);
     /// ```
-    pub fn remove_txxx(&mut self, key: Option<&str>, value: Option<&str>) {
+    pub fn remove_txxx(&mut self, description: Option<&str>, value: Option<&str>) {
         let mut modified_offset = self.modified_offset;
 
         let id = self.txxx_id();
         self.frames.retain(|frame| {
-            let mut key_match = false;
+            let mut description_match = false;
             let mut value_match = false;
 
             if &frame.id[..] == id {
                 match frame.content {
                     Content::ExtendedText(ref ext) => {
-                        match key {
-                            Some(s) => key_match = s == &ext.key[..],
-                            None => key_match = true
+                        match description {
+                            Some(s) => description_match = s == &ext.description[..],
+                            None => description_match = true
                         }
 
                         match value {
@@ -756,17 +756,17 @@ impl<'a> Tag {
                         }
                     },
                     _ => { // remove frames that we can't parse
-                        key_match = true;
+                        description_match = true;
                         value_match = true;
                     }
                 }
             }
 
-            if key_match && value_match && frame.offset != 0 {
+            if description_match && value_match && frame.offset != 0 {
                 modified_offset = min(modified_offset, frame.offset);
             }
 
-            !(key_match && value_match) // true if we want to keep the item
+            !(description_match && value_match) // true if we want to keep the item
         });
 
         self.modified_offset = modified_offset;

@@ -119,7 +119,7 @@ fn text_to_bytes(request: EncoderRequest) -> Vec<u8> {
 
 fn extended_text_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let content = request.content.extended_text().unwrap();
-    return encode!(encoding(request.encoding), string(content.key), delim(0), string(content.value));
+    return encode!(encoding(request.encoding), string(content.description), delim(0), string(content.value));
 }
 
 fn weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
@@ -429,7 +429,7 @@ fn parse_text(data: &[u8]) -> ::Result<DecoderResult> {
 /// Attempts to parse the data as a user defined text frame.
 /// Returns an `Content::ExtendedText`.
 fn parse_txxx(data: &[u8]) -> ::Result<DecoderResult> {
-    return decode!(data, ExtendedText, key: string(true), value: string(false));
+    return decode!(data, ExtendedText, description: string(true), value: string(false));
 }
 
 /// Attempts to parse the data as a web link frame.
@@ -711,7 +711,7 @@ mod tests {
                     data.extend(bytes_for_encoding(value, encoding).into_iter());
 
                     let content = frame::ExtendedText {
-                        key: key.to_owned(),
+                        description: key.to_owned(),
                         value: value.to_owned()
                     };
                     assert_eq!(*parsers::decode(DecoderRequest {
