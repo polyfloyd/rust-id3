@@ -778,17 +778,18 @@ impl<'a> Tag {
     /// # Example
     /// ```
     /// use id3::{Tag, Frame};
-    /// use id3::frame::{Content, Picture};
+    /// use id3::frame::{Content, Picture, PictureType};
     ///
     /// let mut tag = Tag::new();
-    /// 
-    /// let mut frame = Frame::new("APIC");
-    /// frame.content = Content::Picture(Picture::new());
-    /// tag.push(frame);
     ///
-    /// let mut frame = Frame::new("APIC");
-    /// frame.content = Content::Picture(Picture::new());
-    /// tag.push(frame);
+    /// let picture = Picture {
+    ///     mime_type: String::new(),
+    ///     picture_type: PictureType::Other,
+    ///     description: String::new(),
+    ///     data: Vec::new(),
+    /// };
+    /// tag.push(Frame::with_content("APIC", Content::Picture(picture.clone())));
+    /// tag.push(Frame::with_content("APIC", Content::Picture(picture.clone())));
     ///
     /// assert_eq!(tag.pictures().len(), 2);
     /// ```

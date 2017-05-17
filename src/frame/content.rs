@@ -218,19 +218,6 @@ pub struct Picture {
     pub data: Vec<u8>
 }
 
-impl Picture {
-    /// Creates a new `Picture` with empty values.
-    #[deprecated]
-    pub fn new() -> Picture {
-        Picture {
-            mime_type: String::new(),
-            picture_type: PictureType::Other,
-            description: String::new(),
-            data: Vec::new(),
-        }
-    }
-}
-
 impl PartialEq for Picture {
     fn eq(&self, other: &Self) -> bool {
         self.picture_type == other.picture_type

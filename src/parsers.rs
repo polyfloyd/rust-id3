@@ -369,31 +369,35 @@ macro_rules! decode {
 fn parse_apic_v2(data: &[u8]) -> ::Result<DecoderResult> {
     assert_data!(data);
 
-    let mut picture = Picture::new();
-   
     let encoding = match encoding_from_byte(data[0]) {
         Some(encoding) => encoding,
         None => return Err(::Error::new(::ErrorKind::Parsing, "invalid encoding byte"))
     };
 
     let params = DecodingParams::for_encoding(encoding);
-   
+
     let mut i = 1;
     let format = decode_part!(data, params, i, fixed_string(3));
-    picture.mime_type = match &format[..] {
+    let mime_type = match &format[..] {
         "PNG" => "image/png".to_owned(),
         "JPG" => "image/jpeg".to_owned(),
         other => {
             debug!("can't determine MIME type for `{}`", other);
-            return Err(::Error::new(::ErrorKind::UnsupportedFeature, 
+            return Err(::Error::new(::ErrorKind::UnsupportedFeature,
                                      "can't determine MIME type for image format"))
         }
-    }; 
+    };
 
-    picture.picture_type = decode_part!(data, params, i, picture_type());
-    picture.description = decode_part!(data, params, i, string(true));
-    picture.data = decode_part!(data, params, i, bytes());
+    let picture_type = decode_part!(data, params, i, picture_type());
+    let description = decode_part!(data, params, i, string(true));
+    let data = decode_part!(data, params, i, bytes());
 
+    let picture = Picture {
+        mime_type,
+        picture_type,
+        description,
+        data,
+    };
     Ok(DecoderResult::new(encoding, Content::Picture(picture)))
 }
 
@@ -503,15 +507,15 @@ mod tests {
         format_map.insert("image/png", "PNG");
 
         for (mime_type, format) in format_map.into_iter() {
-            for description in vec!("", "description").into_iter() {
+            for description in ["", "description"].into_iter() {
                 let picture_type = PictureType::CoverFront;
                 let picture_data = vec!(0xF9, 0x90, 0x3A, 0x02, 0xBD);
-
-                let mut picture = Picture::new();
-                picture.mime_type = mime_type.to_owned();
-                picture.picture_type = picture_type;
-                picture.description = description.to_owned();
-                picture.data = picture_data.clone();
+                let picture = Picture {
+                    mime_type: mime_type.to_owned(),
+                    picture_type,
+                    description: description.to_string(),
+                    data: picture_data.clone(),
+                };
 
                 for encoding in vec!(Encoding::Latin1, Encoding::UTF16).into_iter() {
                     println!("`{}`, `{}`, `{:?}`", mime_type, description, encoding);
@@ -545,12 +549,12 @@ mod tests {
             for description in vec!("", "description").into_iter() {
                 let picture_type = PictureType::CoverFront;
                 let picture_data = vec!(0xF9, 0x90, 0x3A, 0x02, 0xBD);
-
-                let mut picture = Picture::new();
-                picture.mime_type = mime_type.to_owned();
-                picture.picture_type = picture_type;
-                picture.description = description.to_owned();
-                picture.data = picture_data.clone();
+                let picture = Picture {
+                    mime_type: mime_type.to_owned(),
+                    picture_type: picture_type,
+                    description: description.to_owned(),
+                    data: picture_data.clone(),
+                };
 
                 for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
                     println!("`{}`, `{}`, `{:?}`", mime_type, description, encoding);
@@ -562,7 +566,7 @@ mod tests {
                     data.extend(bytes_for_encoding(description, encoding).into_iter());
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(picture_data.iter().cloned());
-                    
+
                     assert_eq!(*parsers::decode(DecoderRequest {
                         id: "APIC",
                         data: &data[..]
