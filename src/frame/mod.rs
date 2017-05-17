@@ -86,12 +86,21 @@ impl PartialEq for Frame {
 impl Frame {
     /// Creates a new ID3v2.3 frame with the specified identifier.
     pub fn new<T: Into<String>>(id: T) -> Frame {
-        Frame { 
-            uuid: ::util::uuid(), id: id.into(), encoding: Encoding::UTF16, 
-            flags: Flags::new(), content: Content::Unknown(Vec::new()), offset: 0 
+        Frame::with_content(id, Content::Unknown(Vec::new()))
+    }
+
+    /// Creates a frame with the specified ID and content.
+    pub fn with_content<T: Into<String>>(id: T, content: Content) -> Frame {
+        Frame {
+            uuid: ::util::uuid(),
+            id: id.into(),
+            encoding: Encoding::UTF16,
+            flags: Flags::new(),
+            content: content,
+            offset: 0,
         }
     }
-   
+
     /// Returns an encoding compatible with the version based on the requested encoding.
     fn compatible_encoding(requested_encoding: Encoding, version: u8) -> Encoding {
         if version < 4 {
