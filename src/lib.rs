@@ -19,10 +19,10 @@
 //! # Creating a new tag
 //!
 //! ```no_run
-//! use id3::{Tag, Frame};
+//! use id3::{Tag, Frame, Version};
 //! use id3::frame::{Content, Encoding};
 //!
-//! let mut tag = Tag::with_version(4);
+//! let mut tag = Tag::with_version(Version::Id3v24);
 //! 
 //! // set the album the hard way
 //! let mut frame = Frame::new("TALB");
@@ -43,7 +43,7 @@
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate log;
 
-pub use tag::Tag;
+pub use tag::{Tag, Version};
 pub use frame::Frame;
 pub use frame::Timestamp;
 pub use error::{Result, Error, ErrorKind};

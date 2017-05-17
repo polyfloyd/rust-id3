@@ -13,8 +13,9 @@ pub use self::timestamp::Timestamp;
 use self::flate2::read::ZlibDecoder;
 
 use self::stream::{v2, v3, v4};
-    
+
 use parsers::{self, DecoderRequest, EncoderRequest};
+use ::tag;
 
 mod picture;
 mod encoding;
@@ -102,8 +103,8 @@ impl Frame {
     }
 
     /// Returns an encoding compatible with the version based on the requested encoding.
-    fn compatible_encoding(requested_encoding: Encoding, version: u8) -> Encoding {
-        if version < 4 {
+    fn compatible_encoding(requested_encoding: Encoding, version: tag::Version) -> Encoding {
+        if version != tag::Id3v24 {
             match requested_encoding {
                 Encoding::Latin1 => Encoding::Latin1,
                 _ => Encoding::UTF16, // if UTF16BE or UTF8 is requested, just return UTF16
@@ -167,12 +168,12 @@ impl Frame {
     ///
     /// Only reading from versions 2, 3, and 4 is supported. Attempting to read any other version
     /// will return an error with kind `UnsupportedVersion`. 
-    pub fn read_from(reader: &mut Read, version: u8, unsynchronization: bool) -> ::Result<Option<(u32, Frame)>> {
+    pub fn read_from(reader: &mut Read, version: tag::Version, unsynchronization: bool) -> ::Result<Option<(u32, Frame)>> {
         match version {
-            2 => v2::read(reader as &mut Read, unsynchronization),
-            3 => v3::read(reader, unsynchronization),
-            4 => v4::read(reader as &mut Read),
-            _ =>  Err(::Error::new(::ErrorKind::UnsupportedVersion(version), "unsupported id3 tag version"))
+            tag::Id3v22 => v2::read(reader as &mut Read, unsynchronization),
+            tag::Id3v23 => v3::read(reader, unsynchronization),
+            tag::Id3v24 => v4::read(reader as &mut Read),
+            _ =>  Err(::Error::new(::ErrorKind::UnsupportedVersion(version.minor() as u8), "unsupported id3 tag version"))
         }
     }
 
@@ -182,17 +183,17 @@ impl Frame {
     ///
     /// Only writing to versions 2, 3, and 4 is supported. Attempting to write using any other
     /// version will return an error with kind `UnsupportedVersion`.
-    pub fn write_to(&self, writer: &mut Write, version: u8, unsynchronization: bool) -> ::Result<u32> {
+    pub fn write_to(&self, writer: &mut Write, version: tag::Version, unsynchronization: bool) -> ::Result<u32> {
         match version {
-            2 => v2::write(writer, self, unsynchronization),
-            3 => v3::write(writer, self, unsynchronization),
-            4 => v4::write(writer, self),
-            _ =>  Err(::Error::new(::ErrorKind::UnsupportedVersion(version), "unsupported id3 tag version"))
+            tag::Id3v22 => v2::write(writer, self, unsynchronization),
+            tag::Id3v23 => v3::write(writer, self, unsynchronization),
+            tag::Id3v24 => v4::write(writer, self),
+            _ =>  Err(::Error::new(::ErrorKind::UnsupportedVersion(version.minor() as u8), "unsupported id3 tag version"))
         }
     }
-  
+
     /// Creates a vector representation of the content suitable for writing to an ID3 tag.
-    pub fn content_to_bytes(&self, version: u8) -> Vec<u8> {
+    pub fn content_to_bytes(&self, version: tag::Version) -> Vec<u8> {
         let request = EncoderRequest { version: version, encoding: Frame::compatible_encoding(self.encoding, version), content: &self.content };
         parsers::encode(request)
     }
@@ -258,12 +259,13 @@ impl Frame {
         }
     }
 }
- 
+
 // Tests {{{
 #[cfg(test)]
 mod tests {
+    use super::*;
     use frame::{Frame, Flags, Encoding};
-    
+
     fn u32_to_bytes(n: u32) -> Vec<u8> {
         vec!(((n & 0xFF000000) >> 24) as u8, 
              ((n & 0xFF0000) >> 16) as u8, 
@@ -320,7 +322,7 @@ mod tests {
         bytes.extend(data.into_iter());
 
         let mut writer = Vec::new();
-        frame.write_to(&mut writer, 2, false).unwrap();
+        frame.write_to(&mut writer, tag::Id3v22, false).unwrap();
         assert_eq!(writer, bytes);
     }
 
@@ -345,7 +347,7 @@ mod tests {
         bytes.extend(data.into_iter());
 
         let mut writer = Vec::new();
-        frame.write_to(&mut writer, 3, false).unwrap();
+        frame.write_to(&mut writer, tag::Id3v23, false).unwrap();
         assert_eq!(writer, bytes);
     }
 
@@ -373,7 +375,7 @@ mod tests {
         bytes.extend(data.into_iter());
 
         let mut writer = Vec::new();
-        frame.write_to(&mut writer, 4, false).unwrap();
+        frame.write_to(&mut writer, tag::Id3v24, false).unwrap();
         assert_eq!(writer, bytes);
     }
 }

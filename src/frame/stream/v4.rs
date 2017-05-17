@@ -6,6 +6,7 @@ use std::io::{Read, Write};
 use frame::Frame;
 use self::flate2::write::ZlibEncoder;
 use self::flate2::Compression;
+use ::tag;
 
 pub fn read(reader: &mut Read) -> ::Result<Option<(u32, Frame)>> {
     let id = id_or_padding!(reader, 4);
@@ -50,7 +51,7 @@ pub fn read(reader: &mut Read) -> ::Result<Option<(u32, Frame)>> {
 }
 
 pub fn write(writer: &mut Write, frame: &Frame) -> ::Result<u32> {
-    let mut content_bytes = frame.content_to_bytes(4);
+    let mut content_bytes = frame.content_to_bytes(tag::Id3v24);
     let mut content_size = content_bytes.len() as u32;
     let decompressed_size = content_size;
 

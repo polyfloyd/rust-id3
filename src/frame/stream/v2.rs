@@ -3,6 +3,7 @@ extern crate byteorder;
 use self::byteorder::{ByteOrder, BigEndian};
 use std::io::{Read, Write};
 use frame::Frame;
+use ::tag;
 
 pub fn read(reader: &mut Read, unsynchronization: bool) -> ::Result<Option<(u32, Frame)>> {
     let id = id_or_padding!(reader, 3);
@@ -24,7 +25,7 @@ pub fn read(reader: &mut Read, unsynchronization: bool) -> ::Result<Option<(u32,
 }
 
 pub fn write(writer: &mut Write, frame: &Frame, unsynchronization: bool) -> ::Result<u32> {
-    let mut content_bytes = frame.content_to_bytes(2);
+    let mut content_bytes = frame.content_to_bytes(tag::Id3v22);
     let content_size = content_bytes.len() as u32;
 
     try!(writer.write_all(frame.id[..3].as_bytes()));

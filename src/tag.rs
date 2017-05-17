@@ -18,15 +18,67 @@ static DEFAULT_FILE_DISCARD: [&'static str; 11] = [
 ];
 static PADDING_BYTES: u32 = 2048;
 
-/// An ID3 tag containing metadata frames. 
+
+/// Denotes the version of a tag.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Version {
+    /// ID3v1
+    Id3v1,
+    /// ID3v2.2
+    Id3v22,
+    /// ID3v2.3
+    Id3v23,
+    /// ID3v2.4
+    Id3v24,
+}
+pub use self::Version::*;
+
+impl Version {
+    /// Returns the major version.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Version;
+    ///
+    /// assert_eq!(Version::Id3v1.major(), 1);
+    /// assert_eq!(Version::Id3v24.major(), 2);
+    /// ```
+    pub fn major(&self) -> u32 {
+        match *self {
+            Id3v1 => 1,
+            Id3v22 => 2,
+            Id3v23 => 2,
+            Id3v24 => 2,
+        }
+    }
+
+    /// Returns the minor version. For ID3v1, this will be 0.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Version;
+    ///
+    /// assert_eq!(Version::Id3v1.minor(), 0);
+    /// assert_eq!(Version::Id3v24.minor(), 4);
+    /// ```
+    pub fn minor(&self) -> u8 {
+        match *self {
+            Id3v1 => 0,
+            Id3v22 => 2,
+            Id3v23 => 3,
+            Id3v24 => 4,
+        }
+    }
+}
+
+
+/// An ID3 tag containing metadata frames.
 pub struct Tag {
     /// The path, if any, that this file was loaded from.
     path: Option<PathBuf>,
     /// Indicates if the path that we are writing to is not the same as the path we read from.
     path_changed: bool,
-    /// The version of the tag. The first byte represents the major version number, while the
-    /// second byte represents the revision number.
-    version: [u8; 2],
+    version: Version,
     /// The size of the tag when read from a file.
     size: u32,
     /// The ID3 header flags.
@@ -67,18 +119,18 @@ impl Flags {
     }
 
     /// Creates a new `Flags` using the provided byte.
-    pub fn from_byte(byte: u8, version: u8) -> Flags {
+    pub fn from_byte(byte: u8, version: Version) -> Flags {
         let mut flags = Flags::new();
 
         flags.unsynchronization = byte & 0x80 != 0;
 
-        if version == 2 {
+        if version == Version::Id3v22 {
             flags.compression = byte & 0x40 != 0;
         } else {
             flags.extended_header = byte & 0x40 != 0;
             flags.experimental = byte & 0x20 != 0;
 
-            if version == 4 {
+            if version == Version::Id3v24 {
                 flags.footer = byte & 0x10 != 0;
             }
         }
@@ -87,14 +139,14 @@ impl Flags {
     }
 
     /// Creates a byte representation of the flags suitable for writing to an ID3 tag.
-    pub fn to_byte(&self, version: u8) -> u8 {
+    pub fn to_byte(&self, version: Version) -> u8 {
         let mut byte = 0;
 
         if self.unsynchronization {
             byte |= 0x80;
         }
 
-        if version == 2 {
+        if version == Version::Id3v22 {
             if self.compression {
                 byte |= 0x40;
             }
@@ -107,7 +159,7 @@ impl Flags {
                 byte |= 0x20
             }
 
-            if version == 4 {
+            if version == Version::Id3v24 {
                 if self.footer {
                     byte |= 0x10;
                 }
@@ -121,73 +173,68 @@ impl Flags {
 
 // Tag {{{
 impl<'a> Tag {
-    /// Creates a new ID3v2.3 tag with no frames. 
+    /// Creates a new ID3v2.3 tag with no frames.
     pub fn new() -> Tag {
-        Tag { 
-            path: None, path_changed: true, version: [3, 0], size: 0, flags: Flags::new(), 
+        Tag {
+            path: None, path_changed: true, version: Version::Id3v24, size: 0, flags: Flags::new(),
             frames: Vec::new(), offset: 0, modified_offset: 0, remove_v1: false
         }
     }
 
     /// Creates a new ID3 tag with the specified version.
-    ///
-    /// ID3v2 versions 2 to 4 are supported. Passing any other version will cause a panic.
-    pub fn with_version(version: u8) -> Tag {
-        if version < 2 || version > 4 {
-            panic!("attempted to set unsupported version");
-        }
+    pub fn with_version(version: Version) -> Tag {
         let mut tag = Tag::new();
-        tag.version = [version, 0];
+        tag.version = version;
         tag
     }
 
     // Frame ID Querying {{{
     fn artist_id(&self) -> &'static str {
-        if self.version[0] == 2 { "TP1" } else { "TPE1" }
+        if self.version.minor() == 2 { "TP1" } else { "TPE1" }
     }
 
     fn album_artist_id(&self) -> &'static str {
-        if self.version[0] == 2 { "TP2" } else { "TPE2" }
+        if self.version.minor() == 2 { "TP2" } else { "TPE2" }
     }
 
     fn album_id(&self) -> &'static str {
-        if self.version[0] == 2 { "TAL" } else { "TALB" }
+        if self.version.minor() == 2 { "TAL" } else { "TALB" }
     }
 
     fn title_id(&self) -> &'static str {
-        if self.version[0] == 2 { "TT2" } else { "TIT2" }
+        if self.version.minor() == 2 { "TT2" } else { "TIT2" }
     }
 
     fn genre_id(&self) -> &'static str {
-        if self.version[0] == 2 { "TCO" } else { "TCON" }
+        if self.version.minor() == 2 { "TCO" } else { "TCON" }
     }
 
     fn year_id(&self) -> &'static str {
-        if self.version[0] == 2 { "TYE" } else { "TYER" }
+        if self.version.minor() == 2 { "TYE" } else { "TYER" }
     }
 
     fn track_id(&self) -> &'static str {
-        if self.version[0] == 2 { "TRK" } else { "TRCK" }
+        if self.version.minor() == 2 { "TRK" } else { "TRCK" }
     }
 
     fn lyrics_id(&self) -> &'static str {
-        if self.version[0] == 2 { "ULT" } else { "USLT" }
+        if self.version.minor() == 2 { "ULT" } else { "USLT" }
     }
 
     fn picture_id(&self) -> &'static str {
-        if self.version[0] == 2 { "PIC" } else { "APIC" }
+        if self.version.minor() == 2 { "PIC" } else { "APIC" }
     }
 
     fn comment_id(&self) -> &'static str {
-        if self.version[0] == 2 { "COM" } else { "COMM" }
+        if self.version.minor() == 2 { "COM" } else { "COMM" }
     }
 
     fn txxx_id(&self) -> &'static str {
-        if self.version[0] == 2 { "TXX" } else { "TXXX" }
+        if self.version.minor() == 2 { "TXX" } else { "TXXX" }
     }
 
     fn disc_id(&self) -> &'static str {
-        if self.version[0] == 2 { "TPA" } else { "TPOS" }
+        if self.version.minor() == 2 { "TPA" } else { "TPOS" }
     }
     // }}}
 
@@ -205,11 +252,11 @@ impl<'a> Tag {
     pub fn read_from_v1<R: Read + Seek>(reader: &mut R) -> ::Result<Tag> {
         let tag_v1 = try!(::id3v1::read(reader));
 
-        let mut tag = Tag::with_version(3);
+        let mut tag = Tag::with_version(Version::Id3v23);
         tag.remove_v1 = true;
 
         if tag_v1.title.is_some() {
-            tag.set_title(tag_v1.title.unwrap()); 
+            tag.set_title(tag_v1.title.unwrap());
         }
 
         if tag_v1.artist.is_some() {
@@ -259,13 +306,13 @@ impl<'a> Tag {
     ///
     /// # Example
     /// ```
-    /// use id3::Tag;
+    /// use id3::{Tag, Version};
     ///
-    /// let tag = Tag::with_version(3);
-    /// assert_eq!(tag.version(), 3);
+    /// let tag = Tag::with_version(Version::Id3v23);
+    /// assert_eq!(tag.version(), Version::Id3v23);
     /// ```
-    pub fn version(&self) -> u8 {
-        self.version[0]
+    pub fn version(&self) -> Version {
+        self.version
     }
 
     /// Sets the version of this tag.
@@ -276,43 +323,45 @@ impl<'a> Tag {
     ///
     /// # Example
     /// ```
-    /// use id3::Tag;
+    /// use id3::{Tag, Version};
     ///
-    /// let mut tag = Tag::with_version(4);
-    /// assert_eq!(tag.version(), 4);
+    /// let mut tag = Tag::with_version(Version::Id3v24);
+    /// assert_eq!(tag.version(), Version::Id3v24);
     ///
-    /// tag.set_version(3);
-    /// assert_eq!(tag.version(), 3);
+    /// tag.set_version(Version::Id3v23);
+    /// assert_eq!(tag.version(), Version::Id3v23);
     /// ```
-    pub fn set_version(&mut self, version: u8) {
-        if version < 2 || version > 4 {
-            panic!("attempted to set unsupported version");
-        }
-
-        if self.version[0] == version {
+    pub fn set_version(&mut self, version: Version) {
+        if self.version == version {
             return;
         }
 
         let mut remove_uuid = Vec::new();
         for mut frame in self.frames.iter_mut() {
-            if !Tag::convert_frame_version(&mut frame, self.version[0], version) {
+            if !Tag::convert_frame_version(&mut frame, self.version, version) {
                 remove_uuid.push(frame.uuid.clone());
             }
         }
 
         self.frames.retain(|frame: &Frame| !remove_uuid.contains(&frame.uuid));
 
-        self.version = [version, 0];
+        self.version = version;
         self.modified_offset = 0;
 
     }
 
-    fn convert_frame_version(frame: &mut Frame, old_version: u8, new_version: u8) -> bool {
-        if old_version == new_version || (old_version == 3 && new_version == 4) || (old_version == 4 && new_version == 3) {
+    fn convert_frame_version(frame: &mut Frame, old_version: Version, new_version: Version) -> bool {
+        if old_version == new_version {
+            return true;
+        }
+        if old_version == Id3v23 && new_version == Id3v24 {
+            return true;
+        }
+        if old_version == Id3v24 && new_version == Id3v23 {
             return true;
         }
 
-        if (old_version == 3 || old_version == 4) && new_version == 2 {
+        if (old_version == Id3v23 || old_version == Id3v24) && new_version == Id3v22 {
             // attempt to convert the id
             frame.id = match ::util::convert_id_3_to_2(&frame.id[..]) {
                 Some(id) => id.to_owned(),
@@ -321,7 +370,7 @@ impl<'a> Tag {
                     return false;
                 }
             }
-        } else if old_version == 2 && (new_version == 3 || new_version == 4) {
+        } else if old_version == Id3v22 && (new_version == Id3v23 || new_version == Id3v24) {
             // attempt to convert the id
             frame.id = match ::util::convert_id_2_to_3(&frame.id[..]) {
                 Some(id) => id.to_owned(),
@@ -333,7 +382,7 @@ impl<'a> Tag {
 
             // if the new version is v2.4 and the frame is compressed, we must enable the
             // data_length_indicator flag
-            if new_version == 4 && frame.compression() {
+            if new_version == Id3v24 && frame.compression() {
                 frame.set_compression(true);
             }
         } else {
@@ -349,16 +398,21 @@ impl<'a> Tag {
     /// # Example
     /// ```
     /// use id3::Tag;
+    /// use id3::Version;
     /// use id3::frame::Encoding::{UTF16, UTF8};
     ///
-    /// let mut tag_v3 = Tag::with_version(3);
+    /// let mut tag_v3 = Tag::with_version(Version::Id3v23);
     /// assert_eq!(tag_v3.default_encoding(), UTF16);
     ///
-    /// let mut tag_v4 = Tag::with_version(4);
+    /// let mut tag_v4 = Tag::with_version(Version::Id3v24);
     /// assert_eq!(tag_v4.default_encoding(), UTF8);
     /// ```
     pub fn default_encoding(&self) -> Encoding {
-        if self.version[0] >= 4 { Encoding::UTF8 } else { Encoding::UTF16 }
+        match self.version {
+            Version::Id3v24 => Encoding::UTF8,
+            _ => Encoding::UTF16,
+
+        }
     }
 
     /// Returns a vector of references to all frames in the tag.
@@ -1559,7 +1613,7 @@ impl<'a> Tag {
             None => None
         }
     }
-    
+
     /// Returns the disc number (TPOS).
     ///
     /// # Example
@@ -2068,15 +2122,16 @@ impl<'a> Tag {
             return Err(::Error::new(::ErrorKind::NoTag, "reader does not contain an id3 tag"))
         }
 
-        try!(reader.read(&mut tag.version));
+        let mut version_buf = [0; 2];
+        reader.read_exact(&mut version_buf)?;
+        tag.version = match version_buf[0] {
+            2 => Version::Id3v22,
+            3 => Version::Id3v23,
+            4 => Version::Id3v24,
+            _ => return Err(::Error::new(::ErrorKind::UnsupportedVersion(version_buf[0]) , "unsupported id3 tag version")),
+        };
 
-        debug!("tag version {}", tag.version[0]);
-
-        if tag.version[0] < 2 || tag.version[0] > 4 {
-            return Err(::Error::new(::ErrorKind::UnsupportedVersion(tag.version[0]) , "unsupported id3 tag version"));
-        }
-
-        tag.flags = Flags::from_byte(try!(reader.read_u8()), tag.version[0]);
+        tag.flags = Flags::from_byte(try!(reader.read_u8()), tag.version);
 
         if tag.flags.compression {
             debug!("id3v2.2 compression is unsupported");
@@ -2100,7 +2155,7 @@ impl<'a> Tag {
         }
 
         while offset < tag.size + 10 {
-            let (bytes_read, mut frame) = match Frame::read_from(reader, tag.version[0], tag.flags.unsynchronization) {
+            let (bytes_read, mut frame) = match Frame::read_from(reader, tag.version, tag.flags.unsynchronization) {
                 Ok(opt) => match opt {
                     Some(frame) => frame,
                     None => break //padding
@@ -2141,15 +2196,15 @@ impl<'a> Tag {
 
         for frame in self.frames.iter() {
             let mut frame_writer = Vec::new();
-            size += try!(frame.write_to(&mut frame_writer, self.version[0], self.flags.unsynchronization));
+            size += try!(frame.write_to(&mut frame_writer, self.version, self.flags.unsynchronization));
             data_cache.insert(frame.uuid.clone(), frame_writer);
         }
 
         self.size = size + PADDING_BYTES;
 
         try!(writer.write_all(b"ID3"));
-        try!(writer.write_all(&mut self.version)); 
-        try!(writer.write_u8(self.flags.to_byte(self.version[0])));
+        try!(writer.write_all(&[self.version.minor() as u8, self.version.major() as u8]));
+        try!(writer.write_u8(self.flags.to_byte(self.version)));
         try!(writer.write_u32::<BigEndian>(::util::synchsafe(self.size)));
 
         let mut bytes_written = 10;
@@ -2164,7 +2219,7 @@ impl<'a> Tag {
                     try!(writer.write_all(&data[..]));
                     data.len() as u32
                 },
-                None => try!(frame.write_to(writer, self.version[0], self.flags.unsynchronization))
+                None => try!(frame.write_to(writer, self.version, self.flags.unsynchronization))
             }
         }
 
@@ -2213,7 +2268,7 @@ impl<'a> Tag {
 
             for frame in self.frames.iter() {
                 let mut frame_writer = Vec::new();
-                size += try!(frame.write_to(&mut frame_writer, self.version[0], self.flags.unsynchronization));
+                size += try!(frame.write_to(&mut frame_writer, self.version, self.flags.unsynchronization));
                 data_cache.insert(frame.uuid.clone(), frame_writer);
             }
 
@@ -2236,7 +2291,7 @@ impl<'a> Tag {
                                 try!(writer.write_all(&data[..]));
                                 data.len() as u32
                             },
-                            None => try!(frame.write_to(&mut writer, self.version[0], self.flags.unsynchronization))
+                            None => try!(frame.write_to(&mut writer, self.version, self.flags.unsynchronization))
                         }
                     }
                 }
@@ -2317,17 +2372,18 @@ impl<'a> Tag {
 // Tests {{{
 #[cfg(test)]
 mod tests {
+    use super::*;
     use tag::Flags;
 
     #[test]
     fn test_flags_to_bytes() {
         let mut flags = Flags::new();
-        assert_eq!(flags.to_byte(4), 0x0);
+        assert_eq!(flags.to_byte(Id3v24), 0x0);
         flags.unsynchronization = true;
         flags.extended_header = true;
         flags.experimental = true;
         flags.footer = true;
-        assert_eq!(flags.to_byte(4), 0xF0);
+        assert_eq!(flags.to_byte(Id3v24), 0xF0);
     }
 }
 // }}}

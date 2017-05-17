@@ -1,4 +1,5 @@
 use frame::{Encoding, Picture, PictureType, Content, ExtendedLink};
+use ::tag;
 
 /// The result of a successfully parsed frame.
 pub struct DecoderResult {
@@ -21,7 +22,7 @@ pub struct DecoderRequest<'a> {
 }
 
 pub struct EncoderRequest<'a> {
-    pub version: u8,
+    pub version: tag::Version,
     pub encoding: Encoding,
     pub content: &'a Content
 }
@@ -163,10 +164,10 @@ fn picture_to_bytes_v2(request: EncoderRequest) -> Vec<u8> {
 }
 
 fn picture_to_bytes(request: EncoderRequest) -> Vec<u8> {
-    if request.version == 2 {
-        picture_to_bytes_v2(request)
-    } else {
-        picture_to_bytes_v3(request)
+    match request.version {
+        tag::Id3v22 => picture_to_bytes_v2(request),
+        tag::Id3v23|tag::Id3v24 => picture_to_bytes_v3(request),
+        _ => panic!("Attempted to convert a picture with version ID3v1"),
     }
 }
 // }}}
@@ -436,6 +437,7 @@ fn parse_uslt(data: &[u8]) -> ::Result<DecoderResult> {
 // Tests {{{
 #[cfg(test)]
 mod tests {
+    use super::*;
     use parsers;
     use parsers::{DecoderRequest, EncoderRequest};
     use frame::{self, Picture, PictureType, Encoding};
@@ -488,14 +490,14 @@ mod tests {
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(picture_data.iter().cloned());
 
-                    assert_eq!(*parsers::decode(DecoderRequest { 
-                        id: "PIC", 
+                    assert_eq!(*parsers::decode(DecoderRequest {
+                        id: "PIC",
                         data: &data[..]
                     }).unwrap().content.picture().unwrap(), picture);
-                    assert_eq!(parsers::encode(EncoderRequest { 
-                        encoding: encoding, 
-                        content: &Content::Picture(picture.clone()), 
-                        version: 2 
+                    assert_eq!(parsers::encode(EncoderRequest {
+                        encoding: encoding,
+                        content: &Content::Picture(picture.clone()),
+                        version: tag::Id3v22
                     }), data);
                 }
             }
@@ -528,14 +530,15 @@ mod tests {
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(picture_data.iter().cloned());
                     
-                    assert_eq!(*parsers::decode(DecoderRequest { 
-                        id: "APIC", 
+                    assert_eq!(*parsers::decode(DecoderRequest {
+                        id: "APIC",
                         data: &data[..]
                     }).unwrap().content.picture().unwrap(), picture);
-                    assert_eq!(parsers::encode(EncoderRequest { 
-                        encoding: encoding, 
-                        content: &Content::Picture(picture.clone()), 
-                        version: 3 }), data);
+                    assert_eq!(parsers::encode(EncoderRequest {
+                        encoding: encoding,
+                        content: &Content::Picture(picture.clone()),
+                        version: tag::Id3v23,
+                    }), data);
                 }
             }
         }
@@ -557,18 +560,19 @@ mod tests {
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(bytes_for_encoding(comment, encoding).into_iter());
 
-                    let content = frame::Comment { 
-                        lang: "eng".to_owned(), 
-                        description: description.to_owned(), 
-                        text: comment.to_owned() 
+                    let content = frame::Comment {
+                        lang: "eng".to_owned(),
+                        description: description.to_owned(),
+                        text: comment.to_owned()
                     };
-                    assert_eq!(*parsers::decode(DecoderRequest { 
-                        id: "COMM", 
+                    assert_eq!(*parsers::decode(DecoderRequest {
+                        id: "COMM",
                         data: &data[..]
                     }).unwrap().content.comment().unwrap(), content);
-                    assert_eq!(parsers::encode(EncoderRequest { 
-                        encoding: encoding, 
-                        content: &Content::Comment(content), version: 3 
+                    assert_eq!(parsers::encode(EncoderRequest {
+                        encoding: encoding,
+                        content: &Content::Comment(content),
+                        version: tag::Id3v23
                     }), data);
                 }
             }
@@ -623,14 +627,14 @@ mod tests {
                 data.push(encoding as u8);
                 data.extend(bytes_for_encoding(text, encoding).into_iter());
 
-                assert_eq!(parsers::decode(DecoderRequest { 
-                    id: "TALB", 
+                assert_eq!(parsers::decode(DecoderRequest {
+                    id: "TALB",
                     data: &data[..]
                 }).unwrap().content.text().unwrap(), text);
-                assert_eq!(parsers::encode(EncoderRequest { 
-                    encoding: encoding, 
-                    content: &Content::Text(text.to_owned()), 
-                    version: 3 
+                assert_eq!(parsers::encode(EncoderRequest {
+                    encoding: encoding,
+                    content: &Content::Text(text.to_owned()),
+                    version: tag::Id3v23
                 } ), data);
             }
         }
@@ -653,7 +657,7 @@ mod tests {
             assert_eq!(parsers::encode(EncoderRequest {
                 encoding: encoding,
                 content: &Content::Text(text.to_owned()),
-                version: 3
+                version: tag::Id3v23
             } ), data);
         }
     }
@@ -673,18 +677,18 @@ mod tests {
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(bytes_for_encoding(value, encoding).into_iter());
 
-                    let content = frame::ExtendedText { 
-                        key: key.to_owned(), 
-                        value: value.to_owned() 
+                    let content = frame::ExtendedText {
+                        key: key.to_owned(),
+                        value: value.to_owned()
                     };
-                    assert_eq!(*parsers::decode(DecoderRequest { 
-                        id: "TXXX", 
+                    assert_eq!(*parsers::decode(DecoderRequest {
+                        id: "TXXX",
                         data: &data[..]
                     }).unwrap().content.extended_text().unwrap(), content);
-                    assert_eq!(parsers::encode(EncoderRequest { 
-                        encoding: encoding, 
-                        content: &Content::ExtendedText(content), 
-                        version: 3
+                    assert_eq!(parsers::encode(EncoderRequest {
+                        encoding: encoding,
+                        content: &Content::ExtendedText(content),
+                        version: tag::Id3v23
                     }), data);
                 }
             }
@@ -719,7 +723,7 @@ mod tests {
             assert_eq!(parsers::encode(EncoderRequest { 
                 encoding: Encoding::Latin1, 
                 content: &Content::Link(link.to_owned()), 
-                version: 3 
+                version: tag::Id3v23
             }), data);
         }
     }
@@ -739,18 +743,18 @@ mod tests {
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(bytes_for_encoding(link, Encoding::Latin1).into_iter());
 
-                    let content = frame::ExtendedLink { 
-                        description: description.to_owned(), 
-                        link: link.to_owned() 
+                    let content = frame::ExtendedLink {
+                        description: description.to_owned(),
+                        link: link.to_owned()
                     };
-                    assert_eq!(*parsers::decode(DecoderRequest { 
-                        id: "WXXX", 
+                    assert_eq!(*parsers::decode(DecoderRequest {
+                        id: "WXXX",
                         data: &data[..]
                     }).unwrap().content.extended_link().unwrap(), content);
-                    assert_eq!(parsers::encode(EncoderRequest { 
-                        encoding: encoding, 
-                        content: &Content::ExtendedLink(content), 
-                        version: 3
+                    assert_eq!(parsers::encode(EncoderRequest {
+                        encoding: encoding,
+                        content: &Content::ExtendedLink(content),
+                        version: tag::Id3v23
                     }), data);
                 }
             }
@@ -765,8 +769,8 @@ mod tests {
             data.push(encoding as u8);
             data.extend(bytes_for_encoding(description, encoding).into_iter());
             data.extend(bytes_for_encoding(link, Encoding::Latin1).into_iter());
-            assert!(parsers::decode(DecoderRequest { 
-                id: "WXXX", 
+            assert!(parsers::decode(DecoderRequest {
+                id: "WXXX",
                 data: &data[..]
             }).is_err());
         }
@@ -788,19 +792,19 @@ mod tests {
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(bytes_for_encoding(text, encoding).into_iter());
 
-                    let content = frame::Lyrics { 
-                        lang: "eng".to_owned(), 
-                        description: description.to_owned(), 
-                        text: text.to_owned() 
+                    let content = frame::Lyrics {
+                        lang: "eng".to_owned(),
+                        description: description.to_owned(),
+                        text: text.to_owned()
                     };
-                    assert_eq!(*parsers::decode(DecoderRequest { 
-                        id: "USLT", 
+                    assert_eq!(*parsers::decode(DecoderRequest {
+                        id: "USLT",
                         data: &data[..]
                     }).unwrap().content.lyrics().unwrap(), content);
-                    assert_eq!(parsers::encode(EncoderRequest { 
-                        encoding: encoding, 
-                        content: &Content::Lyrics(content), 
-                        version: 3 
+                    assert_eq!(parsers::encode(EncoderRequest {
+                        encoding: encoding,
+                        content: &Content::Lyrics(content),
+                        version: tag::Id3v23
                     }), data);
                 }
             }
