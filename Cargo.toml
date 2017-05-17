@@ -11,10 +11,10 @@ keywords = ["id3", "audio", "parser", "metadata"]
 include = ["src/*", "Cargo.toml", "LICENSE", "README.md"]
 
 [dependencies]
-log = "0.3.6"
-rand = "0.3.14"
-byteorder = "0.5.3"
-lazy_static = "0.2.1"
-flate2 = "0.2.14"
-encoding = "0.2.32"
-regex = "0.1"
+log = "~0.3.7"
+rand = "~0.3.15"
+byteorder = "~1.0.0"
+lazy_static = "~0.2.8"
+flate2 = "~0.2.19"
+encoding = "~0.2.33"
+regex = "~0.2.1"

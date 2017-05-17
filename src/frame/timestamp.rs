@@ -96,18 +96,18 @@ impl str::FromStr for Timestamp {
             .map(|cap| {
                 Timestamp {
                     year: cap.name("year")
-                        .and_then(|v| v.parse().ok())
+                        .and_then(|v| v.as_str().parse().ok())
                         .unwrap(),
                     month: cap.name("month")
-                        .and_then(|v| v.parse().ok()),
+                        .and_then(|v| v.as_str().parse().ok()),
                     day: cap.name("day")
-                        .and_then(|v| v.parse().ok()),
+                        .and_then(|v| v.as_str().parse().ok()),
                     hour: cap.name("hours")
-                        .and_then(|v| v.parse().ok()),
+                        .and_then(|v| v.as_str().parse().ok()),
                     minute: cap.name("minutes")
-                        .and_then(|v| v.parse().ok()),
+                        .and_then(|v| v.as_str().parse().ok()),
                     second: cap.name("seconds")
-                        .and_then(|v| v.parse().ok()),
+                        .and_then(|v| v.as_str().parse().ok()),
                 }
             })
     }
