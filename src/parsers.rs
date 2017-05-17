@@ -209,6 +209,15 @@ impl<'a> DecodingParams<'a> {
     }
 }
 
+fn encoding_from_byte(n: u8) -> Option<Encoding> {
+    match n {
+        0 => Some(Encoding::Latin1),
+        1 => Some(Encoding::UTF16),
+        2 => Some(Encoding::UTF16BE),
+        3 => Some(Encoding::UTF8),
+        _ => None,
+    }
+}
 
 macro_rules! assert_data {
     ($bytes:ident) => {
@@ -290,7 +299,31 @@ macro_rules! decode_part {
             let start = $i;
             $i += 1;
 
-            let picture_type = match PictureType::from_u8($bytes[start]) {
+            let picture_type = match $bytes[start] {
+                0 => Some(PictureType::Other),
+                1 => Some(PictureType::Icon),
+                2 => Some(PictureType::OtherIcon),
+                3 => Some(PictureType::CoverFront),
+                4 => Some(PictureType::CoverBack),
+                5 => Some(PictureType::Leaflet),
+                6 => Some(PictureType::Media),
+                7 => Some(PictureType::LeadArtist),
+                8 => Some(PictureType::Artist),
+                9 => Some(PictureType::Conductor),
+                10 => Some(PictureType::Band),
+                11 => Some(PictureType::Composer),
+                12 => Some(PictureType::Lyricist),
+                13 => Some(PictureType::RecordingLocation),
+                14 => Some(PictureType::DuringRecording),
+                15 => Some(PictureType::DuringPerformance),
+                16 => Some(PictureType::ScreenCapture),
+                17 => Some(PictureType::BrightFish),
+                18 => Some(PictureType::Illustration),
+                19 => Some(PictureType::BandLogo),
+                20 => Some(PictureType::PublisherLogo),
+                _ => None,
+            };
+            let picture_type = match picture_type {
                 Some(t) => t,
                 None => return Err(::Error::new(::ErrorKind::Parsing, "invalid picture type"))
             };
@@ -313,7 +346,7 @@ macro_rules! decode {
 
             assert_data!($bytes);
 
-            let encoding = match Encoding::from_u8($bytes[0]) {
+            let encoding = match encoding_from_byte($bytes[0]) {
                 Some(encoding) => encoding,
                 None => return Err(::Error::new(::ErrorKind::Parsing, "invalid encoding byte"))
             };
@@ -338,7 +371,7 @@ fn parse_apic_v2(data: &[u8]) -> ::Result<DecoderResult> {
 
     let mut picture = Picture::new();
    
-    let encoding = match Encoding::from_u8(data[0]) {
+    let encoding = match encoding_from_byte(data[0]) {
         Some(encoding) => encoding,
         None => return Err(::Error::new(::ErrorKind::Parsing, "invalid encoding byte"))
     };
@@ -383,7 +416,7 @@ fn parse_comm(data: &[u8]) -> ::Result<DecoderResult> {
 /// Returns a `Content::Text`.
 fn parse_text(data: &[u8]) -> ::Result<DecoderResult> {
     assert_data!(data);
-    let encoding = match Encoding::from_u8(data[0]) {
+    let encoding = match encoding_from_byte(data[0]) {
         Some(encoding) => encoding,
         None => return Err(::Error::new(::ErrorKind::Parsing, "invalid encoding byte"))
     };
@@ -410,7 +443,7 @@ fn parse_weblink(data: &[u8]) -> ::Result<DecoderResult> {
 fn parse_wxxx(data: &[u8]) -> ::Result<DecoderResult> {
     assert_data!(data);
 
-    let encoding = match Encoding::from_u8(data[0]) {
+    let encoding = match encoding_from_byte(data[0]) {
         Some(encoding) => encoding,
         None => return Err(::Error::new(::ErrorKind::Parsing, "invalid encoding byte"))
     };
