@@ -2399,6 +2399,7 @@ impl<'a> Tag {
 mod tests {
     use super::*;
     use std::fs;
+    use std::io;
     use tag::Flags;
 
     #[test]
@@ -2439,6 +2440,22 @@ mod tests {
         assert_eq!(1, tag.disc().unwrap());
         assert_eq!(1, tag.total_discs().unwrap());
         assert_eq!(PictureType::CoverFront, tag.pictures().get(0).unwrap().picture_type);
+    }
+
+    #[test]
+    fn write_id3v24() {
+        let mut tag = Tag::new();
+        tag.set_title("Title");
+        tag.set_artist("Artist");
+        tag.set_genre("Genre");
+
+        let mut buffer = Vec::new();
+        tag.write_to(&mut buffer).unwrap();
+
+        let tag_read = Tag::read_from(&mut io::Cursor::new(buffer)).unwrap();
+        assert_eq!(tag.title(), tag_read.title());
+        assert_eq!(tag.artist(), tag_read.artist());
+        assert_eq!(tag.genre(), tag_read.genre());
     }
 }
 // }}}
