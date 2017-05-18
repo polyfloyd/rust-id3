@@ -146,7 +146,7 @@ pub fn read<R: Read + Seek>(reader: &mut R) -> io::Result<ID3v1> {
         };
 
         // Try to read ID3v1 extended metadata.
-        let has_xtag = try!(probe_xtag(reader));
+        let has_xtag = probe_xtag(reader).unwrap_or(false);
         if has_xtag {
             maybe_read!(tag.title, XTITLE_LEN, XTITLE_OFFSET);
             maybe_read!(tag.artist, XARTIST_LEN, XARTIST_OFFSET);

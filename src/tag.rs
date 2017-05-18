@@ -2372,6 +2372,7 @@ impl<'a> Tag {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     use tag::Flags;
 
     #[test]
@@ -2383,6 +2384,35 @@ mod tests {
         flags.experimental = true;
         flags.footer = true;
         assert_eq!(flags.to_byte(Id3v24), 0xF0);
+    }
+
+    #[test]
+    fn read_id3v1() {
+        let mut file = fs::File::open("testdata/id3v1.id3").unwrap();
+        let tag = Tag::read_from_v1(&mut file).unwrap();
+        assert_eq!("Title", tag.title().unwrap());
+        assert_eq!("Trance", tag.genre().unwrap());
+    }
+
+    #[test]
+    fn read_id3v23() {
+        let mut file = fs::File::open("testdata/id3v23.id3").unwrap();
+        let tag = Tag::read_from(&mut file).unwrap();
+        assert_eq!("Title", tag.title().unwrap());
+        assert_eq!("Genre", tag.genre().unwrap());
+        assert_eq!(1, tag.disc().unwrap());
+        assert_eq!(1, tag.total_discs().unwrap());
+        assert_eq!(PictureType::CoverFront, tag.pictures().get(0).unwrap().picture_type);
+    }
+
+    #[test]
+    fn read_id3v24() {
+        let mut file = fs::File::open("testdata/id3v24.id3").unwrap();
+        let tag = Tag::read_from(&mut file).unwrap();
+        assert_eq!("Title", tag.title().unwrap());
+        assert_eq!(1, tag.disc().unwrap());
+        assert_eq!(1, tag.total_discs().unwrap());
+        assert_eq!(PictureType::CoverFront, tag.pictures().get(0).unwrap().picture_type);
     }
 }
 // }}}
