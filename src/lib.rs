@@ -65,3 +65,4 @@ mod error;
 mod id3v1;
 mod tag;
 mod parsers;
+mod storage;
