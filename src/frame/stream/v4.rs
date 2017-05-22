@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
-use frame::Frame;
+use frame::{Encoding,Frame};
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use ::tag;
@@ -48,7 +48,7 @@ pub fn read(reader: &mut Read) -> ::Result<Option<(u32, Frame)>> {
 }
 
 pub fn write(writer: &mut Write, frame: &Frame) -> ::Result<u32> {
-    let mut content_bytes = frame.content_to_bytes(tag::Id3v24);
+    let mut content_bytes = frame.content_to_bytes(tag::Id3v24, Encoding::UTF8);
     let mut content_size = content_bytes.len() as u32;
     let decompressed_size = content_size;
 

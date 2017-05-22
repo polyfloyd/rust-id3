@@ -28,8 +28,6 @@ pub struct Frame {
     pub uuid: Vec<u8>,
     /// The frame identifier.
     pub id: String,
-    /// The preferred encoding to be used when converting this frame to bytes.
-    pub encoding: Encoding,
     /// The frame flags.
     flags: Flags,
     /// The parsed content of the frame.
@@ -60,21 +58,8 @@ impl Frame {
         Frame {
             uuid: ::util::uuid(),
             id: id.into(),
-            encoding: Encoding::UTF16,
             flags: Flags::new(),
             content: content,
-        }
-    }
-
-    /// Returns an encoding compatible with the version based on the requested encoding.
-    fn compatible_encoding(requested_encoding: Encoding, version: tag::Version) -> Encoding {
-        if version != tag::Id3v24 {
-            match requested_encoding {
-                Encoding::Latin1 => Encoding::Latin1,
-                _ => Encoding::UTF16, // if UTF16BE or UTF8 is requested, just return UTF16
-            }
-        } else {
-            requested_encoding
         }
     }
 
@@ -84,7 +69,7 @@ impl Frame {
         self.flags.compression
     }
 
-    /// Sets the compression flag. 
+    /// Sets the compression flag.
     pub fn set_compression(&mut self, compression: bool) {
         self.flags.compression = compression;
         self.flags.data_length_indicator = compression;
@@ -131,7 +116,7 @@ impl Frame {
     /// then `None` is returned.
     ///
     /// Only reading from versions 2, 3, and 4 is supported. Attempting to read any other version
-    /// will return an error with kind `UnsupportedVersion`. 
+    /// will return an error with kind `UnsupportedVersion`.
     pub fn read_from(reader: &mut Read, version: tag::Version, unsynchronization: bool) -> ::Result<Option<(u32, Frame)>> {
         match version {
             tag::Id3v22 => v2::read(reader as &mut Read, unsynchronization),
@@ -157,8 +142,8 @@ impl Frame {
     }
 
     /// Creates a vector representation of the content suitable for writing to an ID3 tag.
-    pub fn content_to_bytes(&self, version: tag::Version) -> Vec<u8> {
-        let request = EncoderRequest { version: version, encoding: Frame::compatible_encoding(self.encoding, version), content: &self.content };
+    fn content_to_bytes(&self, version: tag::Version, encoding: Encoding) -> Vec<u8> {
+        let request = EncoderRequest { version: version, encoding: encoding, content: &self.content };
         parsers::encode(request)
     }
 
@@ -167,7 +152,7 @@ impl Frame {
     /// true then decompression will be performed.
     ///
     /// Returns `Err` if the data is invalid for the frame type.
-    pub fn parse_data(&mut self, data: &[u8]) -> ::Result<()> {
+    fn parse_data(&mut self, data: &[u8]) -> ::Result<()> {
         let decompressed_opt = if self.flags.compression {
             let mut decoder = ZlibDecoder::new(data);
             let mut decompressed = Vec::new();
@@ -177,7 +162,7 @@ impl Frame {
             None
         };
 
-        let result = try!(parsers::decode(DecoderRequest { 
+        let result = try!(parsers::decode(DecoderRequest {
             id: &self.id[..],
             data: match decompressed_opt {
                 Some(ref decompressed) => &decompressed[..],
@@ -185,7 +170,6 @@ impl Frame {
             }
         }));
 
-        self.encoding = result.encoding;
         self.content = result.content;
 
         Ok(())
@@ -214,10 +198,10 @@ impl Frame {
     pub fn text(&self) -> Option<Cow<str>> {
         match self.content {
             Content::Text(ref content) => Some(Cow::Borrowed(&content[..])),
-            Content::Link(ref content) => Some(Cow::Borrowed(&content[..])), 
+            Content::Link(ref content) => Some(Cow::Borrowed(&content[..])),
             Content::Lyrics(ref content) => Some(Cow::Borrowed(&content.text[..])),
-            Content::ExtendedText(ref content) => Some(Cow::Owned(format!("{}: {}", content.description, content.value))), 
-            Content::ExtendedLink(ref content) => Some(Cow::Owned(format!("{}: {}", content.description, content.link))), 
+            Content::ExtendedText(ref content) => Some(Cow::Owned(format!("{}: {}", content.description, content.value))),
+            Content::ExtendedLink(ref content) => Some(Cow::Owned(format!("{}: {}", content.description, content.link))),
             Content::Comment(ref content) => Some(Cow::Owned(format!("{}: {}", content.description, content.text))),
             _ => None
         }
@@ -231,9 +215,9 @@ mod tests {
     use frame::{Frame, Flags, Encoding};
 
     fn u32_to_bytes(n: u32) -> Vec<u8> {
-        vec!(((n & 0xFF000000) >> 24) as u8, 
-             ((n & 0xFF0000) >> 16) as u8, 
-             ((n & 0xFF00) >> 8) as u8, 
+        vec!(((n & 0xFF000000) >> 24) as u8,
+             ((n & 0xFF0000) >> 16) as u8,
+             ((n & 0xFF00) >> 8) as u8,
              (n & 0xFF) as u8
             )
     }
@@ -319,16 +303,16 @@ mod tests {
     fn test_to_bytes_v4() {
         let id = "TALB";
         let text = "album";
-        let encoding = Encoding::UTF16;
+        let encoding = Encoding::UTF8;
 
         let mut frame = Frame::new(id);
 
         frame.flags.tag_alter_preservation = true;
-        frame.flags.file_alter_preservation = true; 
+        frame.flags.file_alter_preservation = true;
 
         let mut data = Vec::new();
         data.push(encoding as u8);
-        data.extend(::util::string_to_utf16(text).into_iter());
+        data.extend(text.bytes());
 
         frame.parse_data(&data[..]).unwrap();
 

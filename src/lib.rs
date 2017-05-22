@@ -26,7 +26,6 @@
 //!
 //! // set the album the hard way
 //! let mut frame = Frame::new("TALB");
-//! frame.encoding = Encoding::UTF8;
 //! frame.content = Content::Text("album".to_owned());
 //! tag.push(frame);
 //!

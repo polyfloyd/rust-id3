@@ -6,7 +6,7 @@ use std::path::Path;
 
 use byteorder::{ByteOrder, BigEndian, ReadBytesExt, WriteBytesExt};
 
-use frame::{self, Frame, Encoding, Picture, PictureType, Timestamp};
+use frame::{self, Frame, Comment, Lyrics, Picture, PictureType, Timestamp};
 use frame::Content;
 use ::storage::{PlainStorage, Storage};
 
@@ -259,7 +259,11 @@ impl<'a> Tag {
         }
 
         if tag_v1.comment.is_some() {
-            tag.add_comment(String::new(), tag_v1.comment.unwrap());
+            tag.add_comment(Comment {
+                lang: "eng".to_string(),
+                description: "".to_string(),
+                text: tag_v1.comment.unwrap(),
+            });
         }
 
         if tag_v1.track.is_some() {
@@ -399,28 +403,6 @@ impl<'a> Tag {
         true
     }
 
-    /// Returns the default unicode text encoding that should be used for this tag.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Tag;
-    /// use id3::Version;
-    /// use id3::frame::Encoding::{UTF16, UTF8};
-    ///
-    /// let mut tag_v3 = Tag::with_version(Version::Id3v23);
-    /// assert_eq!(tag_v3.default_encoding(), UTF16);
-    ///
-    /// let mut tag_v4 = Tag::with_version(Version::Id3v24);
-    /// assert_eq!(tag_v4.default_encoding(), UTF8);
-    /// ```
-    pub fn default_encoding(&self) -> Encoding {
-        match self.version {
-            Version::Id3v24 => Encoding::UTF8,
-            _ => Encoding::UTF16,
-
-        }
-    }
-
     /// Returns a vector of references to all frames in the tag.
     ///
     /// # Example
@@ -508,41 +490,20 @@ impl<'a> Tag {
         true
     }
 
-    /// Adds a text frame using the default text encoding.
+    /// Adds a text frame.
     ///
     /// # Example
     /// ```
     /// use id3::Tag;
     ///
     /// let mut tag = Tag::new();
-    /// tag.add_text_frame("TCON", "Metal");
-    /// assert_eq!(tag.get("TCON").unwrap().content.text().unwrap(), "Metal");
-    /// ```
-    pub fn add_text_frame<K: Into<String>, V: Into<String>>(&mut self, id: K, text: V) {
-        let encoding = self.default_encoding();
-        self.add_text_frame_enc(id, text, encoding);
-    }
-
-    /// Adds a text frame using the specified text encoding.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Tag;
-    /// use id3::frame::Encoding::UTF16;
-    ///
-    /// let mut tag = Tag::new();
-    /// tag.add_text_frame_enc("TRCK", "1/13", UTF16);
+    /// tag.add_text_frame("TRCK", "1/13");
     /// assert_eq!(tag.get("TRCK").unwrap().content.text().unwrap(), "1/13");
     /// ```
-    pub fn add_text_frame_enc<K: Into<String>, V: Into<String>>(&mut self, id: K, text: V, encoding: Encoding) {
+    pub fn add_text_frame<K: Into<String>, V: Into<String>>(&mut self, id: K, text: V) {
         let id = id.into();
-
         self.remove(&id[..]);
-
-        let mut frame = Frame::new(id);
-        frame.encoding = encoding;
-        frame.content = Content::Text(text.into());
-
+        let frame = Frame::with_content(id, Content::Text(text.into()));
         self.frames.push(frame);
     }
 
@@ -662,38 +623,13 @@ impl<'a> Tag {
     /// assert!(tag.txxx().contains(&("key2", "value2")));
     /// ```
     pub fn add_txxx<K: Into<String>, V: Into<String>>(&mut self, description: K, value: V) {
-        let encoding = self.default_encoding();
-        self.add_txxx_enc(description, value, encoding);
-    }
-
-    /// Adds a user defined text frame (TXXX) using the specified text encoding.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Tag;
-    /// use id3::frame::Encoding::UTF16;
-    ///
-    /// let mut tag = Tag::new();
-    ///
-    /// tag.add_txxx_enc("key1", "value1", UTF16);
-    /// tag.add_txxx_enc("key2", "value2", UTF16);
-    ///
-    /// assert_eq!(tag.txxx().len(), 2);
-    /// assert!(tag.txxx().contains(&("key1", "value1")));
-    /// assert!(tag.txxx().contains(&("key2", "value2")));
-    /// ```
-    pub fn add_txxx_enc<K: Into<String>, V: Into<String>>(&mut self, description: K, value: V, encoding: Encoding) {
         let description = description.into();
-
         self.remove_txxx(Some(&description[..]), None);
 
-        let mut frame = Frame::new(self.txxx_id());
-        frame.encoding = encoding;
-        frame.content = Content::ExtendedText(frame::ExtendedText {
+        let frame = Frame::with_content(self.txxx_id(), Content::ExtendedText(frame::ExtendedText {
             description: description,
             value: value.into()
-        });
-
+        }));
         self.frames.push(frame);
     }
 
@@ -793,46 +729,27 @@ impl<'a> Tag {
     /// # Example
     /// ```
     /// use id3::Tag;
-    /// use id3::frame::PictureType::Other;
+    /// use id3::frame::{Picture, PictureType};
     ///
     /// let mut tag = Tag::new();
-    /// tag.add_picture("image/jpeg", Other, vec!());
-    /// tag.add_picture("image/png", Other, vec!());
+    /// tag.add_picture(Picture {
+    ///     mime_type: "image/jpeg".to_string(),
+    ///     picture_type: PictureType::Other,
+    ///     description: "some image".to_string(),
+    ///     data: vec![],
+    /// });
+    /// tag.add_picture(Picture {
+    ///     mime_type: "image/png".to_string(),
+    ///     picture_type: PictureType::Other,
+    ///     description: "some other image".to_string(),
+    ///     data: vec![],
+    /// });
     /// assert_eq!(tag.pictures().len(), 1);
     /// assert_eq!(&tag.pictures()[0].mime_type[..], "image/png");
     /// ```
-    pub fn add_picture<T: Into<String>>(&mut self, mime_type: T, picture_type: PictureType, data: Vec<u8>) {
-        self.add_picture_enc(mime_type, picture_type, "", data, Encoding::Latin1);
-    }
-
-    /// Adds a picture frame (APIC) using the specified text encoding.
-    /// Any other pictures with the same type will be removed from the tag.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Tag;
-    /// use id3::frame::PictureType::Other;
-    /// use id3::frame::Encoding::UTF16;
-    ///
-    /// let mut tag = Tag::new();
-    /// tag.add_picture_enc("image/jpeg", Other, "", vec!(), UTF16);
-    /// tag.add_picture_enc("image/png", Other, "", vec!(), UTF16);
-    /// assert_eq!(tag.pictures().len(), 1);
-    /// assert_eq!(&tag.pictures()[0].mime_type[..], "image/png");
-    /// ```
-    pub fn add_picture_enc<S: Into<String>, T: Into<String>>(&mut self, mime_type: S, picture_type: PictureType, description: T, data: Vec<u8>, encoding: Encoding) {
-        self.remove_picture_type(picture_type);
-
-        let mut frame = Frame::new(self.picture_id());
-
-        frame.encoding = encoding;
-        frame.content = Content::Picture(Picture {
-            mime_type: mime_type.into(),
-            picture_type: picture_type,
-            description: description.into(),
-            data: data
-        });
-
+    pub fn add_picture(&mut self, picture: Picture) {
+        self.remove_picture_by_type(picture.picture_type);
+        let frame = Frame::with_content(self.picture_id(), Content::Picture(picture));
         self.frames.push(frame);
     }
 
@@ -841,18 +758,28 @@ impl<'a> Tag {
     /// # Example
     /// ```
     /// use id3::Tag;
-    /// use id3::frame::PictureType::{CoverFront, Other};
+    /// use id3::frame::{Picture, PictureType};
     ///
     /// let mut tag = Tag::new();
-    /// tag.add_picture("image/jpeg", CoverFront, vec!());
-    /// tag.add_picture("image/png", Other, vec!());
-    /// assert_eq!(tag.pictures().len(), 2);
+    /// tag.add_picture(Picture {
+    ///     mime_type: "image/jpeg".to_string(),
+    ///     picture_type: PictureType::Other,
+    ///     description: "some image".to_string(),
+    ///     data: vec![],
+    /// });
+    /// tag.add_picture(Picture {
+    ///     mime_type: "image/png".to_string(),
+    ///     picture_type: PictureType::CoverFront,
+    ///     description: "some other image".to_string(),
+    ///     data: vec![],
+    /// });
     ///
-    /// tag.remove_picture_type(CoverFront);
+    /// assert_eq!(tag.pictures().len(), 2);
+    /// tag.remove_picture_by_type(PictureType::CoverFront);
     /// assert_eq!(tag.pictures().len(), 1);
-    /// assert_eq!(tag.pictures()[0].picture_type, Other);
+    /// assert_eq!(tag.pictures()[0].picture_type, PictureType::Other);
     /// ```
-    pub fn remove_picture_type(&mut self, picture_type: PictureType) {
+    pub fn remove_picture_by_type(&mut self, picture_type: PictureType) {
         let id = self.picture_id();
         self.frames.retain(|frame| {
             if &frame.id[..] == id {
@@ -915,51 +842,28 @@ impl<'a> Tag {
     /// # Example
     /// ```
     /// use id3::Tag;
+    /// use id3::frame::Comment;
     ///
     /// let mut tag = Tag::new();
     ///
-    /// tag.add_comment("key1", "value1");
-    /// tag.add_comment("key2", "value2");
+    /// tag.add_comment(Comment {
+    ///     lang: "eng".to_string(),
+    ///     description: "key1".to_string(),
+    ///     text: "value1".to_string(),
+    /// });
+    /// tag.add_comment(Comment {
+    ///     lang: "eng".to_string(),
+    ///     description: "key2".to_string(),
+    ///     text: "value2".to_string(),
+    /// });
     ///
     /// assert_eq!(tag.comments().len(), 2);
     /// assert!(tag.comments().contains(&("key1", "value1")));
     /// assert!(tag.comments().contains(&("key2", "value2")));
     /// ```
-    pub fn add_comment<K: Into<String>, V: Into<String>>(&mut self, description: K, text: V) {
-        let encoding = self.default_encoding();
-        self.add_comment_enc("eng", description, text, encoding);
-    }
-
-    /// Adds a comment (COMM) using the specified text encoding.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Tag;
-    /// use id3::frame::Encoding::UTF16;
-    ///
-    /// let mut tag = Tag::new();
-    ///
-    /// tag.add_comment_enc("eng", "key1", "value1", UTF16);
-    /// tag.add_comment_enc("eng", "key2", "value2", UTF16);
-    ///
-    /// assert_eq!(tag.comments().len(), 2);
-    /// assert!(tag.comments().contains(&("key1", "value1")));
-    /// assert!(tag.comments().contains(&("key2", "value2")));
-    /// ```
-    pub fn add_comment_enc<L: Into<String>, K: Into<String>, V: Into<String>>(&mut self, lang: L, description: K, text: V, encoding: Encoding) {
-        let description = description.into();
-
-        self.remove_comment(Some(&description[..]), None);
-
-        let mut frame = Frame::new(self.comment_id());
-
-        frame.encoding = encoding;
-        frame.content = Content::Comment(frame::Comment {
-            lang: lang.into(),
-            description: description,
-            text: text.into()
-        });
-
+    pub fn add_comment(&mut self, comment: Comment) {
+        self.remove_comment(Some(&comment.description[..]), None);
+        let frame = Frame::with_content(self.comment_id(), Content::Comment(comment));
         self.frames.push(frame);
     }
 
@@ -970,26 +874,26 @@ impl<'a> Tag {
     /// # Example
     /// ```
     /// use id3::Tag;
+    /// use id3::frame::Comment;
     ///
     /// let mut tag = Tag::new();
     ///
-    /// tag.add_comment("key1", "value1");
-    /// tag.add_comment("key2", "value2");
-    /// tag.add_comment("key3", "value2");
-    /// tag.add_comment("key4", "value3");
-    /// tag.add_comment("key5", "value4");
-    /// assert_eq!(tag.comments().len(), 5);
-    ///
-    /// tag.remove_comment(Some("key1"), None);
-    /// assert_eq!(tag.comments().len(), 4);
-    ///
-    /// tag.remove_comment(None, Some("value2"));
+    /// tag.add_comment(Comment {
+    ///     lang: "eng".to_string(),
+    ///     description: "key1".to_string(),
+    ///     text: "value1".to_string(),
+    /// });
+    /// tag.add_comment(Comment {
+    ///     lang: "eng".to_string(),
+    ///     description: "key2".to_string(),
+    ///     text: "value2".to_string(),
+    /// });
     /// assert_eq!(tag.comments().len(), 2);
     ///
-    /// tag.remove_comment(Some("key4"), Some("value3"));
+    /// tag.remove_comment(Some("key1"), None);
     /// assert_eq!(tag.comments().len(), 1);
     ///
-    /// tag.remove_comment(None, None);
+    /// tag.remove_comment(None, Some("value2"));
     /// assert_eq!(tag.comments().len(), 0);
     /// ```
     pub fn remove_comment(&mut self, description: Option<&str>, text: Option<&str>) {
@@ -1069,23 +973,7 @@ impl<'a> Tag {
     /// ```
     pub fn set_year(&mut self, year: usize) {
         let id = self.year_id();
-        self.add_text_frame_enc(id, format!("{}", year), Encoding::Latin1);
-    }
-
-    /// Sets the year (TYER) using the specified text encoding.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Tag;
-    /// use id3::frame::Encoding::UTF16;
-    ///
-    /// let mut tag = Tag::new();
-    /// tag.set_year_enc(2014, UTF16);
-    /// assert_eq!(tag.year().unwrap(), 2014);
-    /// ```
-    pub fn set_year_enc(&mut self, year: usize, encoding: Encoding) {
-        let id = self.year_id();
-        self.add_text_frame_enc(id, format!("{}", year), encoding);
+        self.add_text_frame(id, format!("{}", year));
     }
 
     fn read_timestamp_frame(&self, id: &str) -> Option<Timestamp> {
@@ -1128,7 +1016,7 @@ impl<'a> Tag {
     /// ```
     pub fn set_date_recorded(&mut self, timestamp: Timestamp) {
         let time_string = timestamp.to_string();
-        self.add_text_frame_enc("TDRC", time_string, Encoding::Latin1);
+        self.add_text_frame("TDRC", time_string);
     }
 
     /// Return the content of the TDRL frame, if any
@@ -1159,7 +1047,7 @@ impl<'a> Tag {
     /// ```
     pub fn set_date_released(&mut self, timestamp: Timestamp) {
         let time_string = timestamp.to_string();
-        self.add_text_frame_enc("TDRL", time_string, Encoding::Latin1);
+        self.add_text_frame("TDRL", time_string);
     }
 
     /// Returns the artist (TPE1).
@@ -1191,24 +1079,8 @@ impl<'a> Tag {
     /// assert_eq!(tag.artist().unwrap(), "artist");
     /// ```
     pub fn set_artist<T: Into<String>>(&mut self, artist: T) {
-        let encoding = self.default_encoding();
-        self.set_artist_enc(artist, encoding);
-    }
-
-    /// Sets the artist (TPE1) using the specified text encoding.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Tag;
-    /// use id3::frame::Encoding::UTF16;
-    ///
-    /// let mut tag = Tag::new();
-    /// tag.set_artist_enc("artist", UTF16);
-    /// assert_eq!(tag.artist().unwrap(), "artist");
-    /// ```
-    pub fn set_artist_enc<T: Into<String>>(&mut self, artist: T, encoding: Encoding) {
         let id = self.artist_id();
-        self.add_text_frame_enc(id, artist, encoding);
+        self.add_text_frame(id, artist);
     }
 
     /// Removes the artist (TPE1).
@@ -1258,25 +1130,9 @@ impl<'a> Tag {
     /// assert_eq!(tag.album_artist().unwrap(), "artist");
     /// ```
     pub fn set_album_artist<T: Into<String>>(&mut self, album_artist: T) {
-        let encoding = self.default_encoding();
-        self.set_album_artist_enc(album_artist, encoding);
-    }
-
-    /// Sets the album artist (TPE2) using the specified text encoding.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Tag;
-    /// use id3::frame::Encoding::UTF16;
-    ///
-    /// let mut tag = Tag::new();
-    /// tag.set_album_artist_enc("album artist", UTF16);
-    /// assert_eq!(tag.album_artist().unwrap(), "album artist");
-    /// ```
-    pub fn set_album_artist_enc<T: Into<String>>(&mut self, album_artist: T, encoding: Encoding) {
         self.remove("TSOP");
         let id = self.album_artist_id();
-        self.add_text_frame_enc(id, album_artist, encoding);
+        self.add_text_frame(id, album_artist);
     }
 
     /// Removes the album artist (TPE2).
@@ -1326,24 +1182,8 @@ impl<'a> Tag {
     /// assert_eq!(tag.album().unwrap(), "album");
     /// ```
     pub fn set_album<T: Into<String>>(&mut self, album: T) {
-        let encoding = self.default_encoding();
-        self.set_album_enc(album, encoding);
-    }
-
-    /// Sets the album (TALB) using the specified text encoding.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Tag;
-    /// use id3::frame::Encoding::UTF16;
-    ///
-    /// let mut tag = Tag::new();
-    /// tag.set_album_enc("album", UTF16);
-    /// assert_eq!(tag.album().unwrap(), "album");
-    /// ```
-    pub fn set_album_enc<T: Into<String>>(&mut self, album: T, encoding: Encoding) {
         let id = self.album_id();
-        self.add_text_frame_enc(id, album, encoding);
+        self.add_text_frame(id, album);
     }
 
     /// Removes the album (TALB).
@@ -1394,25 +1234,9 @@ impl<'a> Tag {
     /// assert_eq!(tag.title().unwrap(), "title");
     /// ```
     pub fn set_title<T: Into<String>>(&mut self, title: T) {
-        let encoding = self.default_encoding();
-        self.set_title_enc(title, encoding);
-    }
-
-    /// Sets the song title (TIT2) using the specified text encoding.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Tag;
-    /// use id3::frame::Encoding::UTF16;
-    ///
-    /// let mut tag = Tag::new();
-    /// tag.set_title_enc("title", UTF16);
-    /// assert_eq!(tag.title().unwrap(), "title");
-    /// ```
-    pub fn set_title_enc<T: Into<String>>(&mut self, title: T, encoding: Encoding) {
         self.remove("TSOT");
         let id = self.title_id();
-        self.add_text_frame_enc(id, title, encoding);
+        self.add_text_frame(id, title);
     }
 
     /// Removes the title (TIT2).
@@ -1511,24 +1335,8 @@ impl<'a> Tag {
     /// assert_eq!(tag.genre().unwrap(), "genre");
     /// ```
     pub fn set_genre<T: Into<String>>(&mut self, genre: T) {
-        let encoding = self.default_encoding();
-        self.set_genre_enc(genre, encoding);
-    }
-
-    /// Sets the genre (TCON) using the specified text encoding.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Tag;
-    /// use id3::frame::Encoding::UTF16;
-    ///
-    /// let mut tag = Tag::new();
-    /// tag.set_genre_enc("genre", UTF16);
-    /// assert_eq!(tag.genre().unwrap(), "genre");
-    /// ```
-    pub fn set_genre_enc<T: Into<String>>(&mut self, genre: T, encoding: Encoding) {
         let id = self.genre_id();
-        self.add_text_frame_enc(id, genre, encoding);
+        self.add_text_frame(id, genre);
     }
 
     /// Removes the genre (TCON).
@@ -1615,28 +1423,12 @@ impl<'a> Tag {
     /// assert_eq!(tag.disc().unwrap(), 2);
     /// ```
     pub fn set_disc(&mut self, disc: u32) {
-        self.set_disc_enc(disc, Encoding::Latin1);
-    }
-
-    /// Sets the disc number (TPOS) using the specified text encoding.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Tag;
-    /// use id3::frame::Encoding::UTF16;
-    ///
-    /// let mut tag = Tag::new();
-    /// tag.set_disc_enc(2, UTF16);
-    /// assert_eq!(tag.disc().unwrap(), 2);
-    /// ```
-    pub fn set_disc_enc(&mut self, disc: u32, encoding: Encoding) {
         let text = match self.disc_pair().and_then(|(_, total_discs)| total_discs) {
             Some(n) => format!("{}/{}", disc, n),
             None => format!("{}", disc)
         };
-
         let id = self.disc_id();
-        self.add_text_frame_enc(id, text, encoding);
+        self.add_text_frame(id, text);
     }
 
     /// Removes the disc number (TPOS).
@@ -1694,28 +1486,12 @@ impl<'a> Tag {
     /// assert_eq!(tag.total_discs().unwrap(), 10);
     /// ```
     pub fn set_total_discs(&mut self, total_discs: u32) {
-        self.set_total_discs_enc(total_discs, Encoding::Latin1);
-    }
-
-    /// Sets the total number of discs (TPOS) using the specified text encoding.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Tag;
-    /// use id3::frame::Encoding::UTF16;
-    ///
-    /// let mut tag = Tag::new();
-    /// tag.set_total_discs_enc(12, UTF16);
-    /// assert_eq!(tag.total_discs().unwrap(), 12);
-    /// ```
-    pub fn set_total_discs_enc(&mut self, total_discs: u32, encoding: Encoding) {
         let text = match self.disc_pair() {
             Some((disc, _)) => format!("{}/{}", disc, total_discs),
             None => format!("1/{}", total_discs)
         };
-
         let id = self.disc_id();
-        self.add_text_frame_enc(id, text, encoding);
+        self.add_text_frame(id, text);
     }
 
     /// Removes the total number of discs (TPOS).
@@ -1805,28 +1581,12 @@ impl<'a> Tag {
     /// assert_eq!(tag.track().unwrap(), 10);
     /// ```
     pub fn set_track(&mut self, track: u32) {
-        self.set_track_enc(track, Encoding::Latin1);
-    }
-
-    /// Sets the track number (TRCK) using the specified text encoding.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Tag;
-    /// use id3::frame::Encoding::UTF16;
-    ///
-    /// let mut tag = Tag::new();
-    /// tag.set_track_enc(5, UTF16);
-    /// assert_eq!(tag.track().unwrap(), 5);
-    /// ```
-    pub fn set_track_enc(&mut self, track: u32, encoding: Encoding) {
         let text = match self.track_pair().and_then(|(_, total_tracks)| total_tracks) {
             Some(n) => format!("{}/{}", track, n),
             None => format!("{}", track)
         };
-
         let id = self.track_id();
-        self.add_text_frame_enc(id, text, encoding);
+        self.add_text_frame(id, text);
     }
 
     /// Removes the track number (TRCK).
@@ -1884,28 +1644,12 @@ impl<'a> Tag {
     /// assert_eq!(tag.total_tracks().unwrap(), 10);
     /// ```
     pub fn set_total_tracks(&mut self, total_tracks: u32) {
-        self.set_total_tracks_enc(total_tracks, Encoding::Latin1);
-    }
-
-    /// Sets the total number of tracks (TRCK) using the specified text encoding.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Tag;
-    /// use id3::frame::Encoding::UTF16;
-    ///
-    /// let mut tag = Tag::new();
-    /// tag.set_total_tracks_enc(12, UTF16);
-    /// assert_eq!(tag.total_tracks().unwrap(), 12);
-    /// ```
-    pub fn set_total_tracks_enc(&mut self, total_tracks: u32, encoding: Encoding) {
         let text = match self.track_pair() {
             Some((track, _)) => format!("{}/{}", track, total_tracks),
             None => format!("1/{}", total_tracks)
         };
-
         let id = self.track_id();
-        self.add_text_frame_enc(id, text, encoding);
+        self.add_text_frame(id, text);
     }
 
     /// Removes the total number of tracks (TCON).
@@ -1963,40 +1707,20 @@ impl<'a> Tag {
     /// # Example
     /// ```
     /// use id3::Tag;
+    /// use id3::frame::Lyrics;
     ///
     /// let mut tag = Tag::new();
-    /// tag.set_lyrics("lyrics");
-    /// assert_eq!(tag.lyrics().unwrap(), "lyrics");
+    /// tag.set_lyrics(Lyrics {
+    ///     lang: "eng".to_string(),
+    ///     description: "".to_string(),
+    ///     text: "The lyrics".to_string(),
+    /// });
+    /// assert_eq!(tag.lyrics().unwrap(), "The lyrics");
     /// ```
-    pub fn set_lyrics<T: Into<String>>(&mut self, text: T) {
-        let encoding = self.default_encoding();
-        self.set_lyrics_enc("eng", "", text, encoding);
-    }
-
-    /// Sets the lyrics text (USLT) using the specified text encoding.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Tag;
-    /// use id3::frame::Encoding::UTF16;
-    ///
-    /// let mut tag = Tag::new();
-    /// tag.set_lyrics_enc("eng", "description", "lyrics", UTF16);
-    /// assert_eq!(tag.lyrics().unwrap(), "lyrics");
-    /// ```
-    pub fn set_lyrics_enc<L: Into<String>, K: Into<String>, V: Into<String>>(&mut self, lang: L, description: K, text: V, encoding: Encoding) {
+    pub fn set_lyrics(&mut self, lyrics: Lyrics) {
         let id = self.lyrics_id();
         self.remove(id);
-
-        let mut frame = Frame::new(id);
-
-        frame.encoding = encoding;
-        frame.content = Content::Lyrics(frame::Lyrics {
-            lang: lang.into(),
-            description: description.into(),
-            text: text.into()
-        });
-
+        let frame = Frame::with_content(id, Content::Lyrics(lyrics));
         self.frames.push(frame);
     }
 
@@ -2005,9 +1729,14 @@ impl<'a> Tag {
     /// # Exmaple
     /// ```
     /// use id3::Tag;
+    /// use id3::frame::Lyrics;
     ///
     /// let mut tag = Tag::new();
-    /// tag.set_lyrics("lyrics");
+    /// tag.set_lyrics(Lyrics {
+    ///     lang: "eng".to_string(),
+    ///     description: "".to_string(),
+    ///     text: "The lyrics".to_string(),
+    /// });
     /// assert!(tag.lyrics().is_some());
     /// tag.remove_lyrics();
     /// assert!(tag.lyrics().is_none());
