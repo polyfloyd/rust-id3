@@ -226,91 +226,27 @@ impl<'a> Tag {
 
     // id3v1 {{{
     /// Returns true if the reader might contain a valid ID3v1 tag.
+    #[deprecated(note = "Use v1::Tag::is_candidate")]
     pub fn is_candidate_v1<R: Read + Seek>(reader: &mut R) -> bool {
-        match ::id3v1::probe_tag(reader) {
-            Ok(has_tag) => has_tag,
-            Err(_) => false
-        }
+        ::v1::Tag::is_candidate(reader)
+            .unwrap_or(false)
     }
 
     /// Attempts to read an ID3v1 tag from the reader. Since the structure of ID3v1 is so different
     /// from ID3v2, the tag will be converted and stored internally as an ID3v2.3 tag.
+    #[deprecated(note = "Use tag_v1.into()")]
     pub fn read_from_v1<R: Read + Seek>(reader: &mut R) -> ::Result<Tag> {
-        let tag_v1 = try!(::id3v1::read(reader));
-
-        let mut tag = Tag::with_version(Version::Id3v23);
-
-        if tag_v1.title.is_some() {
-            tag.set_title(tag_v1.title.unwrap());
-        }
-
-        if tag_v1.artist.is_some() {
-            tag.set_artist(tag_v1.artist.unwrap());
-        }
-
-        if tag_v1.album.is_some() {
-            tag.set_album(tag_v1.album.unwrap());
-        }
-
-        if tag_v1.year.is_some() {
-            let mut frame = Frame::new(tag.year_id());
-            frame.content = Content::Text(tag_v1.year.unwrap());
-            tag.push(frame);
-        }
-
-        if tag_v1.comment.is_some() {
-            tag.add_comment(Comment {
-                lang: "eng".to_string(),
-                description: "".to_string(),
-                text: tag_v1.comment.unwrap(),
-            });
-        }
-
-        if tag_v1.track.is_some() {
-            tag.set_track(tag_v1.track.unwrap() as u32);
-        }
-
-        if tag_v1.genre_str.is_some() {
-            tag.set_genre(tag_v1.genre_str.unwrap());
-        } else if tag_v1.genre.is_some() {
-            let genre_list = [
-                "Blues", "Classic Rock", "Country", "Dance", "Disco", "Funk", "Grunge", "Hip-Hop",
-                "Jazz", "Metal", "New Age", "Oldies", "Other", "Pop", "R&B", "Rap", "Reggae",
-                "Rock", "Techno", "Industrial", "Alternative", "Ska", "Death Metal", "Pranks",
-                "Soundtrack", "Euro-Techno", "Ambient", "Trip-Hop", "Vocal", "Jazz+Funk", "Fusion",
-                "Trance", "Classical", "Instrumental", "Acid", "House", "Game", "Sound Clip",
-                "Gospel", "Noise", "Alternative Rock", "Bass", "Soul", "Punk", "Space",
-                "Meditative", "Instrumental Pop", "Instrumental Rock", "Ethnic", "Gothic",
-                "Darkwave", "Techno-Industrial", "Electronic", "Pop-Folk", "Eurodance", "Dream",
-                "Southern Rock", "Comedy", "Cult", "Gangsta", "Top 40", "Christian Rap",
-                "Pop/Funk", "Jungle", "Native US", "Cabaret", "New Wave", "Psychadelic", "Rave",
-                "Showtunes", "Trailer", "Lo-Fi", "Tribal", "Acid Punk", "Acid Jazz", "Polka",
-                "Retro", "Musical", "Rock & Roll", "Hard Rock", "Folk", "Folk-Rock",
-                "National Folk", "Swing", "Fast Fusion", "Bebob", "Latin", "Revival", "Celtic",
-                "Bluegrass", "Avantgarde", "Gothic Rock", "Progressive Rock", "Psychedelic Rock",
-                "Symphonic Rock", "Slow Rock", "Big Band", "Chorus", "Easy Listening", "Acoustic",
-                "Humour", "Speech", "Chanson", "Opera", "Chamber Music", "Sonata", "Symphony",
-                "Booty Bass", "Primus", "Porn Groove", "Satire", "Slow Jam", "Club", "Tango",
-                "Samba", "Folklore", "Ballad", "Power Ballad", "Rhytmic Soul", "Freestyle", "Duet",
-                "Punk Rock", "Drum Solo", "Acapella", "Euro-House", "Dance Hall", "Goa",
-                "Drum & Bass", "Club-House", "Hardcore", "Terror", "Indie", "BritPop", "Negerpunk",
-                "Polsk Punk", "Beat", "Christian Gangsta", "Heavy Metal", "Black Metal",
-                "Crossover", "Contemporary C", "Christian Rock", "Merengue", "Salsa",
-                "Thrash Metal", "Anime", "JPop", "SynthPop",
-            ];
-            if let Some(genre) = genre_list.get(tag_v1.genre.unwrap() as usize) {
-                tag.set_genre(genre.to_string());
-            }
-        }
-
-        Ok(tag)
+        let tag_v1 = ::v1::Tag::read_from(reader)?;
+        Ok(tag_v1.into())
     }
 
     /// Attempts to read an ID3v1 tag from the file at the specified path. The tag will be
     /// converted into an ID3v2.3 tag upon success.
+    #[deprecated(note = "Use tag_v1.into()")]
     pub fn read_from_path_v1<P: AsRef<Path>>(path: P) -> ::Result<Tag> {
         let mut file = File::open(&path)?;
-        Tag::read_from_v1(&mut file)
+        let tag_v1 = ::v1::Tag::read_from(&mut file)?;
+        Ok(tag_v1.into())
     }
     // }}}
 
@@ -1918,6 +1854,39 @@ impl<'a> Tag {
     //}}}
 }
 
+impl From<::v1::Tag> for Tag {
+    fn from(tag_v1: ::v1::Tag) -> Tag {
+        let mut tag = Tag::with_version(Version::Id3v24);
+        if tag_v1.title.len() > 0 {
+            tag.set_title(tag_v1.title.clone());
+        }
+        if tag_v1.artist.len() > 0 {
+            tag.set_artist(tag_v1.artist.clone());
+        }
+        if tag_v1.album.len() > 0 {
+            tag.set_album(tag_v1.album.clone());
+        }
+        if tag_v1.year.len() > 0 {
+            let id = tag.year_id();
+            tag.add_text_frame(id, tag_v1.year.clone());
+        }
+        if tag_v1.comment.len() > 0 {
+            tag.add_comment(Comment {
+                lang: "eng".to_string(),
+                description: "".to_string(),
+                text: tag_v1.comment.clone(),
+            });
+        }
+        if let Some(track) = tag_v1.track {
+            tag.set_track(track as u32);
+        }
+        if let Some(genre) = tag_v1.genre() {
+            tag.set_genre(genre.to_string());
+        }
+        tag
+    }
+}
+
 
 fn locate_id3v2<R>(reader: &mut R) -> ::Result<Option<ops::Range<u64>>>
     where R: io::Read + io::Seek {
@@ -1965,14 +1934,6 @@ mod tests {
         let mut file = fs::File::open("testdata/id3v24.id3").unwrap();
         let location = locate_id3v2(&mut file).unwrap();
         assert!(location.is_some());
-    }
-
-    #[test]
-    fn read_id3v1() {
-        let mut file = fs::File::open("testdata/id3v1.id3").unwrap();
-        let tag = Tag::read_from_v1(&mut file).unwrap();
-        assert_eq!("Title", tag.title().unwrap());
-        assert_eq!("Trance", tag.genre().unwrap());
     }
 
     #[test]
