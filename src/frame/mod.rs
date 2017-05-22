@@ -34,8 +34,6 @@ pub struct Frame {
     flags: Flags,
     /// The parsed content of the frame.
     pub content: Content,
-    /// The offset of this frame in the file from which it was loaded.
-    pub offset: u32,
 }
 
 impl PartialEq for Frame {
@@ -65,7 +63,6 @@ impl Frame {
             encoding: Encoding::UTF16,
             flags: Flags::new(),
             content: content,
-            offset: 0,
         }
     }
 

@@ -1,19 +1,19 @@
 //! A library to read and write ID3v2 tags. ID3 versions v2.2, v2.3, and v2.4 are supported.
-//! 
+//!
 //! # Modifying an existing tag
 //!
 //! ```no_run
 //! use id3::Tag;
 //!
-//! let mut tag= Tag::read_from_path("music.mp3").unwrap();
+//! let mut tag = Tag::read_from_path("music.mp3").unwrap();
 //!
 //! // print the artist the hard way
 //! println!("{}", tag.get("TALB").unwrap().content.text().unwrap());
-//! 
+//!
 //! // or print it the easy way
 //! println!("{}", tag.artist().unwrap());
 //!
-//! tag.save().unwrap();
+//! tag.write_to_path("music.mp3").unwrap();
 //! ```
 //!
 //! # Creating a new tag
@@ -23,7 +23,7 @@
 //! use id3::frame::{Content, Encoding};
 //!
 //! let mut tag = Tag::with_version(Version::Id3v24);
-//! 
+//!
 //! // set the album the hard way
 //! let mut frame = Frame::new("TALB");
 //! frame.encoding = Encoding::UTF8;

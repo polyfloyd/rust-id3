@@ -1,19 +1,19 @@
-use std::cmp::min;
-use std::path::{Path, PathBuf};
-use std::io::{Read, Write, Seek, SeekFrom, BufReader};
-use std::fs::{File, OpenOptions};
 use std::collections::HashMap;
+use std::fs::{self, File};
+use std::io::{self, Read, Write, Seek, SeekFrom, BufReader};
+use std::ops;
+use std::path::Path;
 
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{ByteOrder, BigEndian, ReadBytesExt, WriteBytesExt};
 
 use frame::{self, Frame, Encoding, Picture, PictureType, Timestamp};
 use frame::Content;
+use ::storage::{PlainStorage, Storage};
 
 static DEFAULT_FILE_DISCARD: [&'static str; 11] = [
-    "AENC", "ETCO", "EQUA", "MLLT", "POSS", 
+    "AENC", "ETCO", "EQUA", "MLLT", "POSS",
     "SYLT", "SYTC", "RVAD", "TENC", "TLEN", "TSIZ"
 ];
-static PADDING_BYTES: u32 = 2048;
 
 
 /// Denotes the version of a tag.
@@ -72,23 +72,11 @@ impl Version {
 /// An ID3 tag containing metadata frames.
 #[derive(Clone, Debug)]
 pub struct Tag {
-    /// The path, if any, that this file was loaded from.
-    path: Option<PathBuf>,
-    /// Indicates if the path that we are writing to is not the same as the path we read from.
-    path_changed: bool,
     version: Version,
-    /// The size of the tag when read from a file.
-    size: u32,
     /// The ID3 header flags.
     flags: Flags,
     /// A vector of frames included in the tag.
     frames: Vec<Frame>,
-    /// The offset of the end of the last frame that was read.
-    offset: u32,
-    /// The offset of the first modified frame.
-    modified_offset: u32,
-    /// Indicates if when writing, an ID3v1 tag should be removed.
-    remove_v1: bool
 }
 
 /// Flags used in the ID3 header.
@@ -110,9 +98,9 @@ pub struct Flags {
 impl Flags {
     /// Creates a new `Flags` with all flags set to false.
     pub fn new() -> Flags {
-        Flags { 
-            unsynchronization: false, extended_header: false, experimental: false, 
-            footer: false, compression: false 
+        Flags {
+            unsynchronization: false, extended_header: false, experimental: false,
+            footer: false, compression: false
         }
     }
 
@@ -174,8 +162,8 @@ impl<'a> Tag {
     /// Creates a new ID3v2.3 tag with no frames.
     pub fn new() -> Tag {
         Tag {
-            path: None, path_changed: true, version: Version::Id3v24, size: 0, flags: Flags::new(),
-            frames: Vec::new(), offset: 0, modified_offset: 0, remove_v1: false
+            version: Version::Id3v24, flags: Flags::new(),
+            frames: Vec::new()
         }
     }
 
@@ -251,7 +239,6 @@ impl<'a> Tag {
         let tag_v1 = try!(::id3v1::read(reader));
 
         let mut tag = Tag::with_version(Version::Id3v23);
-        tag.remove_v1 = true;
 
         if tag_v1.title.is_some() {
             tag.set_title(tag_v1.title.unwrap());
@@ -318,11 +305,8 @@ impl<'a> Tag {
     /// Attempts to read an ID3v1 tag from the file at the specified path. The tag will be
     /// converted into an ID3v2.3 tag upon success.
     pub fn read_from_path_v1<P: AsRef<Path>>(path: P) -> ::Result<Tag> {
-        let mut file = try!(File::open(&path));
-        let mut tag = try!(Tag::read_from_v1(&mut file));
-        tag.path = Some(path.as_ref().to_path_buf());
-        tag.path_changed = false;
-        Ok(tag)
+        let mut file = File::open(&path)?;
+        Tag::read_from_v1(&mut file)
     }
     // }}}
 
@@ -370,8 +354,6 @@ impl<'a> Tag {
         self.frames.retain(|frame: &Frame| !remove_uuid.contains(&frame.uuid));
 
         self.version = version;
-        self.modified_offset = 0;
-
     }
 
     fn convert_frame_version(frame: &mut Frame, old_version: Version, new_version: Version) -> bool {
@@ -522,7 +504,6 @@ impl<'a> Tag {
     /// ```
     pub fn push(&mut self, mut frame: Frame) -> bool {
         frame.generate_uuid();
-        frame.offset = 0;
         self.frames.push(frame);
         true
     }
@@ -566,7 +547,7 @@ impl<'a> Tag {
     }
 
     /// Removes the frame with the specified uuid.
-    /// 
+    ///
     /// # Example
     /// ```
     /// use id3::{Tag, Frame};
@@ -581,17 +562,9 @@ impl<'a> Tag {
     /// assert_eq!(tag.frames().len(), 0);
     /// ```
     pub fn remove_uuid(&mut self, uuid: &[u8]) {
-        self.modified_offset = {
-            let mut modified_offset = self.modified_offset;
-            self.frames.retain(|frame| { 
-                let keep = &frame.uuid[..] != uuid; 
-                if !keep && frame.offset != 0 {
-                    modified_offset = min(modified_offset, frame.offset);
-                }
-                keep
-            });
-            modified_offset
-        };
+        self.frames.retain(|frame| {
+            &frame.uuid[..] != uuid
+        });
     }
 
     /// Removes all frames with the specified identifier.
@@ -613,19 +586,11 @@ impl<'a> Tag {
     ///
     /// tag.remove("USLT");
     /// assert_eq!(tag.frames().len(), 0);
-    /// ```   
+    /// ```
     pub fn remove(&mut self, id: &str) {
-        self.modified_offset = {
-            let mut modified_offset = self.modified_offset;
-            self.frames.retain(|frame| {
-                let keep = &frame.id[..] != id;
-                if !keep && frame.offset != 0 {
-                    modified_offset = min(modified_offset, frame.offset);
-                }
-                keep
-            });
-            modified_offset
-        };
+        self.frames.retain(|frame| {
+            &frame.id[..] != id
+        });
     }
 
     /// Returns the `Content::Text` string for the frame with the specified identifier.
@@ -735,7 +700,7 @@ impl<'a> Tag {
     /// Removes the user defined text frame (TXXX) with the specified key and value.
     ///
     /// A key or value may be `None` to specify a wildcard value.
-    /// 
+    ///
     /// # Example
     /// ```
     /// use id3::Tag;
@@ -762,8 +727,6 @@ impl<'a> Tag {
     /// assert_eq!(tag.txxx().len(), 0);
     /// ```
     pub fn remove_txxx(&mut self, description: Option<&str>, value: Option<&str>) {
-        let mut modified_offset = self.modified_offset;
-
         let id = self.txxx_id();
         self.frames.retain(|frame| {
             let mut description_match = false;
@@ -779,7 +742,7 @@ impl<'a> Tag {
 
                         match value {
                             Some(s) => value_match = s == &ext.value[..],
-                            None => value_match = true 
+                            None => value_match = true
                         }
                     },
                     _ => { // remove frames that we can't parse
@@ -789,14 +752,8 @@ impl<'a> Tag {
                 }
             }
 
-            if description_match && value_match && frame.offset != 0 {
-                modified_offset = min(modified_offset, frame.offset);
-            }
-
             !(description_match && value_match) // true if we want to keep the item
         });
-
-        self.modified_offset = modified_offset;
     }
 
     /// Returns a vector of references to the pictures in the tag.
@@ -869,11 +826,11 @@ impl<'a> Tag {
         let mut frame = Frame::new(self.picture_id());
 
         frame.encoding = encoding;
-        frame.content = Content::Picture(Picture { 
-            mime_type: mime_type.into(), 
-            picture_type: picture_type, 
-            description: description.into(), 
-            data: data 
+        frame.content = Content::Picture(Picture {
+            mime_type: mime_type.into(),
+            picture_type: picture_type,
+            description: description.into(),
+            data: data
         });
 
         self.frames.push(frame);
@@ -896,8 +853,6 @@ impl<'a> Tag {
     /// assert_eq!(tag.pictures()[0].picture_type, Other);
     /// ```
     pub fn remove_picture_type(&mut self, picture_type: PictureType) {
-        let mut modified_offset = self.modified_offset;
-
         let id = self.picture_id();
         self.frames.retain(|frame| {
             if &frame.id[..] == id {
@@ -905,18 +860,11 @@ impl<'a> Tag {
                     Content::Picture(ref picture) => picture,
                     _ => return false
                 };
-
-                if pic.picture_type == picture_type && frame.offset != 0 {
-                    modified_offset = min(modified_offset, frame.offset);
-                }
-
                 return pic.picture_type != picture_type
             }
 
             true
         });
-
-        self.modified_offset = modified_offset;
     }
 
     /// Returns a vector of comment (COMM) key/value pairs.
@@ -937,7 +885,7 @@ impl<'a> Tag {
     /// tag.push(frame);
     ///
     /// let mut frame = Frame::new("COMM");
-    /// frame.content = Content::Comment(Comment { 
+    /// frame.content = Content::Comment(Comment {
     ///     lang: "eng".to_owned(),
     ///     description: "key2".to_owned(),
     ///     text: "value2".to_owned()
@@ -1006,10 +954,10 @@ impl<'a> Tag {
         let mut frame = Frame::new(self.comment_id());
 
         frame.encoding = encoding;
-        frame.content = Content::Comment(frame::Comment { 
-            lang: lang.into(), 
-            description: description, 
-            text: text.into() 
+        frame.content = Content::Comment(frame::Comment {
+            lang: lang.into(),
+            description: description,
+            text: text.into()
         });
 
         self.frames.push(frame);
@@ -1018,7 +966,7 @@ impl<'a> Tag {
     /// Removes the comment (COMM) with the specified key and value.
     ///
     /// A key or value may be `None` to specify a wildcard value.
-    /// 
+    ///
     /// # Example
     /// ```
     /// use id3::Tag;
@@ -1045,8 +993,6 @@ impl<'a> Tag {
     /// assert_eq!(tag.comments().len(), 0);
     /// ```
     pub fn remove_comment(&mut self, description: Option<&str>, text: Option<&str>) {
-        let mut modified_offset = self.modified_offset;
-
         let id = self.comment_id();
         self.frames.retain(|frame| {
             let mut description_match = false;
@@ -1062,7 +1008,7 @@ impl<'a> Tag {
 
                         match text {
                             Some(s) => text_match = s == &comment.text[..],
-                            None => text_match = true 
+                            None => text_match = true
                         }
                     },
                     _ => { // remove frames that we can't parse
@@ -1071,15 +1017,8 @@ impl<'a> Tag {
                     }
                 }
             }
-
-            if description_match && text_match && frame.offset != 0 {
-                modified_offset = min(modified_offset, frame.offset);
-            }
-
             !(description_match && text_match) // true if we want to keep the item
         });
-
-        self.modified_offset = modified_offset;
     }
 
     /// Returns the year (TYER).
@@ -2052,10 +1991,10 @@ impl<'a> Tag {
         let mut frame = Frame::new(id);
 
         frame.encoding = encoding;
-        frame.content = Content::Lyrics(frame::Lyrics { 
-            lang: lang.into(), 
-            description: description.into(), 
-            text: text.into() 
+        frame.content = Content::Lyrics(frame::Lyrics {
+            lang: lang.into(),
+            description: description.into(),
+            text: text.into()
         });
 
         self.frames.push(frame);
@@ -2066,7 +2005,7 @@ impl<'a> Tag {
     /// # Exmaple
     /// ```
     /// use id3::Tag;
-    /// 
+    ///
     /// let mut tag = Tag::new();
     /// tag.set_lyrics("lyrics");
     /// assert!(tag.lyrics().is_some());
@@ -2084,8 +2023,8 @@ impl<'a> Tag {
     pub fn skip_metadata<R: Read + Seek>(reader: &mut R) -> Vec<u8> {
         macro_rules! try_io {
             ($reader:ident, $action:expr) => {
-                match $action { 
-                    Ok(bytes) => bytes, 
+                match $action {
+                    Ok(bytes) => bytes,
                     Err(_) => {
                         match $reader.seek(SeekFrom::Start(0)) {
                             Ok(_) => {
@@ -2106,7 +2045,7 @@ impl<'a> Tag {
         try_io!(reader, reader.read(&mut ident));
         if &ident[..] == b"ID3" {
             try_io!(reader, reader.seek(SeekFrom::Current(3)));
-            let offset = 10 + ::util::unsynchsafe(try_io!(reader, reader.read_u32::<BigEndian>()));   
+            let offset = 10 + ::util::unsynchsafe(try_io!(reader, reader.read_u32::<BigEndian>()));
             try_io!(reader, reader.seek(SeekFrom::Start(offset as u64)));
         } else {
             try_io!(reader, reader.seek(SeekFrom::Start(0)));
@@ -2119,21 +2058,11 @@ impl<'a> Tag {
 
     /// Will return true if the reader is a candidate for an ID3 tag. The reader position will be
     /// reset back to the previous position before returning.
-    pub fn is_candidate<R: Read + Seek>(reader: &mut R) -> bool {
-
-        macro_rules! try_or_false {
-            ($action:expr) => {
-                match $action { 
-                    Ok(result) => result, 
-                    Err(_) => return false 
-                }
-            }
-        }
-
-        let mut ident = [0u8; 3];
-        try_or_false!(reader.read(&mut ident));
-        let _ = reader.seek(SeekFrom::Current(-3));
-        &ident[..] == b"ID3"
+    pub fn is_candidate<R: Read + Seek>(reader: &mut R) -> ::Result<bool> {
+        let initial_position = reader.seek(io::SeekFrom::Current(0))?;
+        let rs = locate_id3v2(reader);
+        reader.seek(io::SeekFrom::Start(initial_position))?;
+        Ok(rs?.is_some())
     }
 
     /// Attempts to read an ID3 tag from the reader.
@@ -2163,7 +2092,7 @@ impl<'a> Tag {
             return Err(::Error::new(::ErrorKind::UnsupportedFeature, "id3v2.2 compression is not supported"));
         }
 
-        tag.size = ::util::unsynchsafe(try!(reader.read_u32::<BigEndian>()));
+        let tag_size = ::util::unsynchsafe(try!(reader.read_u32::<BigEndian>()));
 
         let mut offset = 10;
 
@@ -2179,8 +2108,8 @@ impl<'a> Tag {
             offset += ext_size;
         }
 
-        while offset < tag.size + 10 {
-            let (bytes_read, mut frame) = match Frame::read_from(reader, tag.version, tag.flags.unsynchronization) {
+        while offset < tag_size + 10 {
+            let (bytes_read, frame) = match Frame::read_from(reader, tag.version, tag.flags.unsynchronization) {
                 Ok(opt) => match opt {
                     Some(frame) => frame,
                     None => break //padding
@@ -2191,29 +2120,21 @@ impl<'a> Tag {
                 }
             };
 
-            frame.offset = offset;
             tag.frames.push(frame);
 
             offset += bytes_read;
         }
-
-        tag.offset = offset;
-        tag.modified_offset = tag.offset;
 
         Ok(tag)
     }
 
     /// Attempts to write the ID3 tag to the writer.
     pub fn write_to(&mut self, writer: &mut Write) -> ::Result<()> {
-        let path_changed = self.path_changed;
-
-        // remove frames which have the flags indicating they should be removed 
+        // remove frames which have the flags indicating they should be removed
         self.frames.retain(|frame| {
-            !(frame.offset != 0 
-              && (frame.tag_alter_preservation() 
-                  || (path_changed 
-                      && (frame.file_alter_preservation() 
-                          || DEFAULT_FILE_DISCARD.contains(&&frame.id[..])))))
+            !(frame.tag_alter_preservation()
+                  || (frame.file_alter_preservation()
+                          || DEFAULT_FILE_DISCARD.contains(&&frame.id[..])))
         });
 
         let mut data_cache: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
@@ -2225,35 +2146,20 @@ impl<'a> Tag {
             data_cache.insert(frame.uuid.clone(), frame_writer);
         }
 
-        self.size = size + PADDING_BYTES;
-
         try!(writer.write_all(b"ID3"));
         try!(writer.write_all(&[self.version.minor() as u8, self.version.major() as u8]));
         try!(writer.write_u8(self.flags.to_byte(self.version)));
-        try!(writer.write_u32::<BigEndian>(::util::synchsafe(self.size)));
-
-        let mut bytes_written = 10;
+        try!(writer.write_u32::<BigEndian>(::util::synchsafe(size)));
 
         for frame in self.frames.iter_mut() {
             debug!("writing {}", frame.id);
-
-            frame.offset = bytes_written;
-
-            bytes_written += match data_cache.get(&frame.uuid) {
-                Some(data) => { 
+            match data_cache.get(&frame.uuid) {
+                Some(data) => {
                     try!(writer.write_all(&data[..]));
                     data.len() as u32
                 },
                 None => try!(frame.write_to(writer, self.version, self.flags.unsynchronization))
-            }
-        }
-
-        self.offset = bytes_written;
-        self.modified_offset = self.offset;
-
-        // write padding
-        for _ in 0..PADDING_BYTES {
-            try!(writer.write_u8(0));
+            };
         }
 
         Ok(())
@@ -2261,138 +2167,50 @@ impl<'a> Tag {
 
     /// Attempts to read an ID3 tag from the file at the indicated path.
     pub fn read_from_path<P: AsRef<Path>>(path: P) -> ::Result<Tag> {
-        let file = try!(File::open(&path));
-        let mut file = BufReader::new(file);
-        let mut tag: Tag = try!(Tag::read_from(&mut file));
-        tag.path = Some(path.as_ref().to_path_buf());
-        tag.path_changed = false;
-        Ok(tag)
+        let mut file = BufReader::new(File::open(&path)?);
+        Tag::read_from(&mut file)
     }
 
     /// Attempts to write the ID3 tag from the file at the indicated path. If the specified path is
     /// the same path which the tag was read from, then the tag will be written to the padding if
     /// possible.
     pub fn write_to_path<P: AsRef<Path>>(&mut self, path: P) -> ::Result<()> {
-        let mut write_new_file = true;
-        if self.path.is_some() && path.as_ref() == self.path.as_ref().unwrap().as_path() {
-            // remove any old frames that have the tag_alter_presevation flag
-            self.modified_offset = {
-                let mut modified_offset = self.modified_offset;
-                self.frames.retain(|frame| {
-                    let keep = frame.offset == 0 || !frame.tag_alter_preservation();
-                    if !keep {
-                        modified_offset = min(modified_offset, frame.offset);
-                    }
-                    keep
-                });
-                modified_offset
-            };
+        let mut file = fs::File::open(path)?;
+        let location = locate_id3v2(&mut file)?
+            .unwrap_or(0..0); // Create a new tag if none could be located.
 
-            let mut data_cache: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
-            let mut size = 0;
-
-            for frame in self.frames.iter() {
-                let mut frame_writer = Vec::new();
-                size += try!(frame.write_to(&mut frame_writer, self.version, self.flags.unsynchronization));
-                data_cache.insert(frame.uuid.clone(), frame_writer);
-            }
-
-            debug!("modified offset: {}", self.modified_offset); 
-
-            if size <= self.size && self.modified_offset >= 10 {
-                debug!("writing using padding");
-
-                let mut writer = try!(OpenOptions::new().create(true).write(true).open(self.path.as_ref().unwrap()));
-
-                let mut offset = self.modified_offset;
-                try!(writer.seek(SeekFrom::Start(offset as u64)));
-
-                for frame in self.frames.iter_mut() {
-                    if frame.offset == 0 || frame.offset > self.modified_offset {
-                        debug!("writing {}", frame.id);
-                        frame.offset = offset;
-                        offset += match data_cache.get(&frame.uuid) {
-                            Some(data) => { 
-                                try!(writer.write_all(&data[..]));
-                                data.len() as u32
-                            },
-                            None => try!(frame.write_to(&mut writer, self.version, self.flags.unsynchronization))
-                        }
-                    }
-                }
-
-                if self.offset > offset {
-                    for _ in offset..self.offset {
-                        try!(writer.write_u8(0));
-                    }
-                }
-
-                write_new_file = false;
-
-                self.offset = offset;
-                self.modified_offset = self.offset;
-            }
-        } 
-
-        if write_new_file {
-            let data_opt = {
-                match File::open(&path) {
-                    Ok(mut file) => {
-                        // remove the ID3v1 tag if the remove_v1 flag is set
-                        let remove_bytes = if self.remove_v1 {
-                            if try!(::id3v1::probe_xtag(&mut file)) {
-                                Some(::id3v1::TAGPLUS_OFFSET as usize)
-                            } else if try!(::id3v1::probe_tag(&mut file)) {
-                                Some(::id3v1::TAG_OFFSET as usize)
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        };
-
-                        let mut data = Tag::skip_metadata(&mut file);
-                        match remove_bytes {
-                            Some(n) => if n <= data.len() {
-                                data = data[..data.len() - n].to_vec();
-                            },
-                            None => {}
-                        }
-                        Some(data)
-                    }
-                    Err(_) => None
-                }
-            };
-
-            self.path_changed = self.path.is_none() || &**self.path.as_ref().unwrap() != path.as_ref();
-
-            let mut file = try!(OpenOptions::new().write(true).truncate(true).create(true).open(&path));
-            try!(self.write_to(&mut file));
-
-            match data_opt {
-                Some(data) => try!(file.write_all(&data[..])),
-                None => {}
-            }
-        }
-
-        self.path = Some(path.as_ref().to_path_buf());
-        self.path_changed = false;
+        let mut storage = PlainStorage::new(file, location);
+        let mut w = storage.writer()?;
+        self.write_to(&mut w)?;
+        w.flush()?;
 
         Ok(())
     }
-
-    /// Attempts to save the tag back to the file which it was read from. An error with kind
-    /// `InvalidInput` will be returned if this is called on a tag which was not read from a file.
-    pub fn save(&mut self) -> ::Result<()> {
-        if self.path.is_none() {
-            return Err(::Error::new(::ErrorKind::InvalidInput, "attempted to save file which was not read from a path"))
-        }
-
-        let path = self.path.clone().unwrap();
-        self.write_to_path(path)
-    }
     //}}}
 }
+
+
+fn locate_id3v2<R>(reader: &mut R) -> ::Result<Option<ops::Range<u64>>>
+    where R: io::Read + io::Seek {
+    reader.seek(io::SeekFrom::Start(0))?;
+    let mut header = [0u8; 10];
+    let nread = reader.read(&mut header)?;
+    if nread < header.len() || &header[..3] != b"ID3" {
+        return Ok(None);
+    }
+    match header[3] {
+        2|3|4 => (),
+        _ => return Err(::Error::new(::ErrorKind::UnsupportedVersion(header[3]) , "unsupported id3 tag version")),
+    };
+
+    let size = ::util::unsynchsafe(BigEndian::read_u32(&header[6..10]));
+    reader.seek(io::SeekFrom::Start(size as u64))?;
+    let num_padding = reader.bytes()
+        .take_while(|rs| rs.as_ref().map(|b| *b == 0x00).unwrap_or(false))
+        .count();
+    Ok(Some(0..size as u64 + num_padding as u64))
+}
+
 
 // Tests {{{
 #[cfg(test)]
@@ -2411,6 +2229,13 @@ mod tests {
         flags.experimental = true;
         flags.footer = true;
         assert_eq!(flags.to_byte(Id3v24), 0xF0);
+    }
+
+    #[test]
+    fn test_locate_id3v2() {
+        let mut file = fs::File::open("testdata/id3v24.id3").unwrap();
+        let location = locate_id3v2(&mut file).unwrap();
+        assert!(location.is_some());
     }
 
     #[test]
