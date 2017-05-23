@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
 
@@ -22,6 +23,10 @@ mod timestamp;
 
 
 /// A structure representing an ID3 frame.
+///
+/// It is imporant to note that the (Partial)Eq and Hash implementations are based on the ID3 spec.
+/// This means that text frames with equal ID's are equal but picture frames with both "APIC" as ID
+/// are not because their uniqueness is also defined by their content.
 #[derive(Clone, Debug, Eq)]
 pub struct Frame {
     /// A sequence of 16 bytes used to uniquely identify this frame.
@@ -36,19 +41,30 @@ pub struct Frame {
 
 impl PartialEq for Frame {
     fn eq(&self, other: &Frame) -> bool {
-        self.id == other.id && self.content == other.content
+        match self.content {
+            Content::Text(_) => self.id == other.id,
+            _ => {
+                self.id == other.id && self.content == other.content
+            },
+        }
     }
 }
 
 impl Hash for Frame {
     fn hash<H>(&self, state: &mut H) where H: Hasher {
-        self.id.hash(state);
-        self.content.hash(state);
+        match self.content {
+            Content::Text(_) => self.id.hash(state),
+            _ => {
+                self.id.hash(state);
+                self.content.hash(state);
+            },
+        }
     }
 }
 
 impl Frame {
     /// Creates a new ID3v2.3 frame with the specified identifier.
+//    #[deprecated(note = "Use with_content")]
     pub fn new<T: Into<String>>(id: T) -> Frame {
         Frame::with_content(id, Content::Unknown(Vec::new()))
     }
@@ -194,14 +210,21 @@ impl Frame {
     /// assert_eq!(&txxx_frame.text().unwrap()[..], "description: value");
     /// ```
     pub fn text(&self) -> Option<Cow<str>> {
+        Some(Cow::Owned(format!("{}", self)))
+    }
+}
+
+impl fmt::Display for Frame {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self.content {
-            Content::Text(ref content) => Some(Cow::Borrowed(&content[..])),
-            Content::Link(ref content) => Some(Cow::Borrowed(&content[..])),
-            Content::Lyrics(ref content) => Some(Cow::Borrowed(&content.text[..])),
-            Content::ExtendedText(ref content) => Some(Cow::Owned(format!("{}: {}", content.description, content.value))),
-            Content::ExtendedLink(ref content) => Some(Cow::Owned(format!("{}: {}", content.description, content.link))),
-            Content::Comment(ref content) => Some(Cow::Owned(format!("{}: {}", content.description, content.text))),
-            _ => None
+            Content::Text(ref content) => write!(f, "{}", content),
+            Content::Link(ref content) => write!(f, "{}", content),
+            Content::Lyrics(ref content) => write!(f, "{}", content.text),
+            Content::ExtendedText(ref content) => write!(f, "{}: {}", content.description, content.value),
+            Content::ExtendedLink(ref content) => write!(f, "{}: {}", content.description, content.link),
+            Content::Comment(ref content) => write!(f, "{}: {}", content.description, content.text),
+            Content::Picture(ref content) => write!(f, "{}: {:?} ({:?})", content.description, content.picture_type, content.mime_type),
+            Content::Unknown(ref content) => write!(f, "unknown, {} bytes", content.len()),
         }
     }
 }

@@ -2,11 +2,12 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{self, Read, Write, Seek, SeekFrom, BufReader};
 use std::ops;
+use std::iter;
 use std::path::Path;
 
 use byteorder::{ByteOrder, BigEndian, ReadBytesExt, WriteBytesExt};
 
-use frame::{self, Frame, Comment, Lyrics, Picture, PictureType, Timestamp};
+use frame::{self, Frame, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType, Timestamp};
 use frame::Content;
 use ::storage::{PlainStorage, Storage};
 
@@ -137,19 +138,18 @@ impl Flags {
 
 // Tag {{{
 impl<'a> Tag {
-    /// Creates a new ID3v2.3 tag with no frames.
+    /// Creates a new ID3v2.4 tag with no frames.
     pub fn new() -> Tag {
-        Tag {
-            version: Version::Id3v24, flags: Flags::new(),
-            frames: Vec::new()
-        }
+        Tag::with_version(Version::Id3v24)
     }
 
     /// Creates a new ID3 tag with the specified version.
     pub fn with_version(version: Version) -> Tag {
-        let mut tag = Tag::new();
-        tag.version = version;
-        tag
+        Tag {
+            version: version,
+            flags: Flags::new(),
+            frames: Vec::new(),
+        }
     }
 
     // Frame ID Querying {{{
@@ -243,8 +243,6 @@ impl<'a> Tag {
 
     /// Sets the version of this tag.
     ///
-    /// ID3v2 versions 2 to 4 can be set. Trying to set any other version will cause a panic.
-    ///
     /// Any frames that could not be converted to the new version will be dropped.
     ///
     /// # Example
@@ -325,13 +323,91 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     ///
-    /// tag.push(Frame::new("TPE1"));
-    /// tag.push(Frame::new("APIC"));
+    /// tag.add_frame(Frame::new("TPE1"));
+    /// tag.add_frame(Frame::new("APIC"));
     ///
-    /// assert_eq!(tag.frames().len(), 2);
+    /// assert_eq!(tag.frames().count(), 2);
     /// ```
-    pub fn frames(&'a self) -> &'a Vec<Frame> {
-        &self.frames
+    pub fn frames(&'a self) -> Box<iter::Iterator<Item=&'a Frame> + 'a> {
+        Box::new(self.frames.iter())
+    }
+
+    /// Returns an iterator over the extended texts in the tag.
+    pub fn extended_texts(&'a self) -> Box<iter::Iterator<Item=&'a ExtendedText> + 'a> {
+        let iter = self.frames.iter()
+            .filter_map(|frame| frame.content.extended_text());
+        Box::new(iter)
+    }
+
+    /// Returns an iterator over the extended links in the tag.
+    pub fn extended_links(&'a self) -> Box<iter::Iterator<Item=&'a ExtendedLink> + 'a> {
+        let iter = self.frames.iter()
+            .filter_map(|frame| frame.content.extended_link());
+        Box::new(iter)
+    }
+
+    /// Returns an iterator over the comments in the tag.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::{Tag, Frame};
+    /// use id3::frame::{Content, Comment};
+    ///
+    /// let mut tag = Tag::new();
+    ///
+    /// let frame = Frame::with_content("COMM", Content::Comment(Comment {
+    ///     lang: "eng".to_owned(),
+    ///     description: "key1".to_owned(),
+    ///     text: "value1".to_owned()
+    /// }));
+    /// tag.add_frame(frame);
+    ///
+    /// let frame = Frame::with_content("COMM", Content::Comment(Comment {
+    ///     lang: "eng".to_owned(),
+    ///     description: "key2".to_owned(),
+    ///     text: "value2".to_owned()
+    /// }));
+    /// tag.add_frame(frame);
+    ///
+    /// assert_eq!(tag.comments().count(), 2);
+    /// ```
+    pub fn comments(&'a self) -> Box<iter::Iterator<Item=&'a Comment> + 'a> {
+        let iter = self.frames.iter()
+            .filter_map(|frame| frame.content.comment());
+        Box::new(iter)
+    }
+
+    /// Returns an iterator over the extended links in the tag.
+    pub fn lyrics(&'a self) -> Box<iter::Iterator<Item=&'a Lyrics> + 'a> {
+        let iter = self.frames.iter()
+            .filter_map(|frame| frame.content.lyrics());
+        Box::new(iter)
+    }
+
+    /// Returns an iterator over the pictures in the tag.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::{Tag, Frame};
+    /// use id3::frame::{Content, Picture, PictureType};
+    ///
+    /// let mut tag = Tag::new();
+    ///
+    /// let picture = Picture {
+    ///     mime_type: String::new(),
+    ///     picture_type: PictureType::Other,
+    ///     description: String::new(),
+    ///     data: Vec::new(),
+    /// };
+    /// tag.add_frame(Frame::with_content("APIC", Content::Picture(picture.clone())));
+    /// tag.add_frame(Frame::with_content("APIC", Content::Picture(picture.clone())));
+    ///
+    /// assert_eq!(tag.pictures().count(), 1);
+    /// ```
+    pub fn pictures(&'a self) -> Box<iter::Iterator<Item=&'a Picture> + 'a> {
+        let iter = self.frames.iter()
+            .filter_map(|frame| frame.content.picture());
+        Box::new(iter)
     }
 
     /// Returns a reference to the first frame with the specified identifier.
@@ -342,19 +418,14 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     ///
-    /// tag.push(Frame::new("TIT2"));
+    /// tag.add_frame(Frame::new("TIT2"));
     ///
     /// assert!(tag.get("TIT2").is_some());
     /// assert!(tag.get("TCON").is_none());
     /// ```
-    pub fn get(&'a self, id: &str) -> Option<&'a Frame> {
-        for frame in self.frames.iter() {
-            if &frame.id[..] == id {
-                return Some(frame);
-            }
-        }
-
-        None
+    pub fn get(&self, id: &str) -> Option<&Frame> {
+        self.frames.iter()
+            .find(|frame| frame.id == id)
     }
 
     /// Returns a vector of references to frames with the specified identifier.
@@ -366,12 +437,12 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     ///
     /// tag.push(Frame::new("TXXX"));
-    /// tag.push(Frame::new("TXXX"));
     /// tag.push(Frame::new("TALB"));
     ///
-    /// assert_eq!(tag.get_all("TXXX").len(), 2);
+    /// assert_eq!(tag.get_all("TXXX").len(), 1);
     /// assert_eq!(tag.get_all("TALB").len(), 1);
     /// ```
+    #[deprecated(note = "Combine frames() with Iterator::filter")]
     pub fn get_all(&'a self, id: &str) -> Vec<&'a Frame> {
         let mut matches = Vec::new();
         for frame in self.frames.iter() {
@@ -379,7 +450,6 @@ impl<'a> Tag {
                 matches.push(frame);
             }
         }
-
         matches
     }
 
@@ -396,12 +466,37 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.push(Frame::new("TALB"));
-    /// assert_eq!(&tag.frames()[0].id[..], "TALB");
+    /// assert_eq!(&tag.frames().nth(0).unwrap().id[..], "TALB");
     /// ```
-    pub fn push(&mut self, mut frame: Frame) -> bool {
-        frame.generate_uuid();
-        self.frames.push(frame);
-        true
+    #[deprecated(note = "Use add_frame")]
+    pub fn push(&mut self, new_frame: Frame) -> bool {
+        self.add_frame(new_frame)
+    }
+
+    /// Adds the frame to the tag, replacing any conflicting frame.
+    ///
+    /// The frame identifier will attempt to be converted into the corresponding identifier for the
+    /// tag version.
+    ///
+    /// Returns whether the frame was added to the tag. The only reason the frame would not be
+    /// added to the tag is if the frame identifier could not be converted from the frame version
+    /// to the tag version.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::{Tag, Frame};
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.push(Frame::new("TALB"));
+    /// tag.push(Frame::new("TALB"));
+    /// assert_eq!(&tag.frames().nth(0).unwrap().id[..], "TALB");
+    /// ```
+    pub fn add_frame(&mut self, new_frame: Frame) -> bool {
+        if let Some(conflict_index) = self.frames.iter().position(|frame| *frame == new_frame) {
+            self.frames.remove(conflict_index);
+        }
+        self.frames.push(new_frame);
+        true // TODO
     }
 
     /// Adds a text frame.
@@ -414,11 +509,23 @@ impl<'a> Tag {
     /// tag.add_text_frame("TRCK", "1/13");
     /// assert_eq!(tag.get("TRCK").unwrap().content.text().unwrap(), "1/13");
     /// ```
+    #[deprecated(note = "Use set_text()")]
     pub fn add_text_frame<K: Into<String>, V: Into<String>>(&mut self, id: K, text: V) {
-        let id = id.into();
-        self.remove(&id[..]);
-        let frame = Frame::with_content(id, Content::Text(text.into()));
-        self.frames.push(frame);
+        self.set_text(id, text);
+    }
+
+    /// Adds a text frame.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_text("TRCK", "1/13");
+    /// assert_eq!(tag.get("TRCK").unwrap().content.text().unwrap(), "1/13");
+    /// ```
+    pub fn set_text<K: Into<String>, V: Into<String>>(&mut self, id: K, text: V) {
+        self.add_frame(Frame::with_content(id, Content::Text(text.into())));
     }
 
     /// Removes the frame with the specified uuid.
@@ -430,11 +537,11 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     ///
     /// tag.push(Frame::new("TPE2"));
-    /// assert_eq!(tag.frames().len(), 1);
+    /// assert_eq!(tag.frames().count(), 1);
     ///
-    /// let uuid = tag.frames()[0].uuid.clone();
+    /// let uuid = tag.frames().nth(0).unwrap().uuid.clone();
     /// tag.remove_uuid(&uuid[..]);
-    /// assert_eq!(tag.frames().len(), 0);
+    /// assert_eq!(tag.frames().count(), 0);
     /// ```
     pub fn remove_uuid(&mut self, uuid: &[u8]) {
         self.frames.retain(|frame| {
@@ -451,16 +558,15 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     ///
     /// tag.push(Frame::new("TXXX"));
-    /// tag.push(Frame::new("TXXX"));
     /// tag.push(Frame::new("USLT"));
     ///
-    /// assert_eq!(tag.frames().len(), 3);
+    /// assert_eq!(tag.frames().count(), 2);
     ///
     /// tag.remove("TXXX");
-    /// assert_eq!(tag.frames().len(), 1);
+    /// assert_eq!(tag.frames().count(), 1);
     ///
     /// tag.remove("USLT");
-    /// assert_eq!(tag.frames().len(), 0);
+    /// assert_eq!(tag.frames().count(), 0);
     /// ```
     pub fn remove(&mut self, id: &str) {
         self.frames.retain(|frame| {
@@ -472,13 +578,30 @@ impl<'a> Tag {
     /// Returns `None` if the frame with the specified ID can't be found or if the content is not
     /// `Content::Text`.
     fn text_for_frame_id(&self, id: &str) -> Option<&str> {
-        match self.get(id) {
-            Some(frame) => match frame.content {
-                Content::Text(ref text) => Some(&text[..]),
-                _ => None
-            },
-            None => None
-        }
+        self.get(id)
+            .and_then(|frame| frame.content.text())
+    }
+
+    fn read_timestamp_frame(&self, id: &str) -> Option<Timestamp> {
+        self.get(id)
+            .and_then(|frame| frame.content.text())
+            .and_then(|text| text.parse().ok())
+    }
+
+    /// Loads a text frame by its ID and attempt to split it into two parts
+    ///
+    /// Internally used by track and disc getters and setters.
+    fn text_pair(&self, id: &str) -> Option<(u32, Option<u32>)> {
+        self.get(id)
+            .and_then(|frame| frame.content.text())
+            .and_then(|text| {
+                let mut split = text.splitn(2, '/');
+                if let Some(num) = split.next().unwrap().parse().ok() {
+                    Some((num, split.next().and_then(|s| s.parse().ok())))
+                } else {
+                    None
+                }
+            })
     }
 
     // Getters/Setters {{{
@@ -496,29 +619,25 @@ impl<'a> Tag {
     ///     description: "description1".to_owned(),
     ///     value: "value1".to_owned()
     /// });
-    /// tag.push(frame);
+    /// tag.add_frame(frame);
     ///
     /// let mut frame = Frame::new("TXXX");
     /// frame.content = Content::ExtendedText(frame::ExtendedText {
     ///     description: "description2".to_owned(),
     ///     value: "value2".to_owned()
     /// });
-    /// tag.push(frame);
+    /// tag.add_frame(frame);
     ///
     /// assert_eq!(tag.txxx().len(), 2);
     /// assert!(tag.txxx().contains(&("description1", "value1")));
     /// assert!(tag.txxx().contains(&("description2", "value2")));
     /// ```
     pub fn txxx(&self) -> Vec<(&str, &str)> {
-        let mut out = Vec::new();
-        for frame in self.get_all(self.txxx_id()).iter() {
-            match frame.content {
-                Content::ExtendedText(ref ext) => out.push((&ext.description[..], &ext.value[..])),
-                _ => { }
-            }
-        }
-
-        out
+        self.frames()
+            .filter(|frame| frame.id == self.txxx_id())
+            .filter_map(|frame| frame.content.extended_text())
+            .map(|ext| (ext.description.as_str(), ext.value.as_str()))
+            .collect()
     }
 
     /// Adds a user defined text frame (TXXX).
@@ -537,14 +656,11 @@ impl<'a> Tag {
     /// assert!(tag.txxx().contains(&("key2", "value2")));
     /// ```
     pub fn add_txxx<K: Into<String>, V: Into<String>>(&mut self, description: K, value: V) {
-        let description = description.into();
-        self.remove_txxx(Some(&description[..]), None);
-
         let frame = Frame::with_content(self.txxx_id(), Content::ExtendedText(frame::ExtendedText {
-            description: description,
-            value: value.into()
+            description: description.into(),
+            value: value.into(),
         }));
-        self.frames.push(frame);
+        self.add_frame(frame);
     }
 
     /// Removes the user defined text frame (TXXX) with the specified key and value.
@@ -606,37 +722,6 @@ impl<'a> Tag {
         });
     }
 
-    /// Returns a vector of references to the pictures in the tag.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::{Tag, Frame};
-    /// use id3::frame::{Content, Picture, PictureType};
-    ///
-    /// let mut tag = Tag::new();
-    ///
-    /// let picture = Picture {
-    ///     mime_type: String::new(),
-    ///     picture_type: PictureType::Other,
-    ///     description: String::new(),
-    ///     data: Vec::new(),
-    /// };
-    /// tag.push(Frame::with_content("APIC", Content::Picture(picture.clone())));
-    /// tag.push(Frame::with_content("APIC", Content::Picture(picture.clone())));
-    ///
-    /// assert_eq!(tag.pictures().len(), 2);
-    /// ```
-    pub fn pictures(&self) -> Vec<&Picture> {
-        let mut pictures = Vec::new();
-        for frame in self.get_all(self.picture_id()).iter() {
-            match frame.content {
-                Content::Picture(ref picture) => pictures.push(picture),
-                _ => { }
-            }
-        }
-        pictures
-    }
-
     /// Adds a picture frame (APIC).
     /// Any other pictures with the same type will be removed from the tag.
     ///
@@ -658,13 +743,12 @@ impl<'a> Tag {
     ///     description: "some other image".to_string(),
     ///     data: vec![],
     /// });
-    /// assert_eq!(tag.pictures().len(), 1);
-    /// assert_eq!(&tag.pictures()[0].mime_type[..], "image/png");
+    /// assert_eq!(tag.pictures().count(), 1);
+    /// assert_eq!(&tag.pictures().nth(0).unwrap().mime_type[..], "image/png");
     /// ```
     pub fn add_picture(&mut self, picture: Picture) {
-        self.remove_picture_by_type(picture.picture_type);
         let frame = Frame::with_content(self.picture_id(), Content::Picture(picture));
-        self.frames.push(frame);
+        self.add_frame(frame);
     }
 
     /// Removes all pictures of the specified type.
@@ -688,10 +772,10 @@ impl<'a> Tag {
     ///     data: vec![],
     /// });
     ///
-    /// assert_eq!(tag.pictures().len(), 2);
+    /// assert_eq!(tag.pictures().count(), 2);
     /// tag.remove_picture_by_type(PictureType::CoverFront);
-    /// assert_eq!(tag.pictures().len(), 1);
-    /// assert_eq!(tag.pictures()[0].picture_type, PictureType::Other);
+    /// assert_eq!(tag.pictures().count(), 1);
+    /// assert_eq!(tag.pictures().nth(0).unwrap().picture_type, PictureType::Other);
     /// ```
     pub fn remove_picture_by_type(&mut self, picture_type: PictureType) {
         let id = self.picture_id();
@@ -708,49 +792,6 @@ impl<'a> Tag {
         });
     }
 
-    /// Returns a vector of comment (COMM) key/value pairs.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::{Tag, Frame};
-    /// use id3::frame::{Content, Comment};
-    ///
-    /// let mut tag = Tag::new();
-    ///
-    /// let mut frame = Frame::new("COMM");
-    /// frame.content = Content::Comment(Comment {
-    ///     lang: "eng".to_owned(),
-    ///     description: "key1".to_owned(),
-    ///     text: "value1".to_owned()
-    /// });
-    /// tag.push(frame);
-    ///
-    /// let mut frame = Frame::new("COMM");
-    /// frame.content = Content::Comment(Comment {
-    ///     lang: "eng".to_owned(),
-    ///     description: "key2".to_owned(),
-    ///     text: "value2".to_owned()
-    /// });
-    /// tag.push(frame);
-    ///
-    /// assert_eq!(tag.comments().len(), 2);
-    /// assert!(tag.comments().contains(&("key1", "value1")));
-    /// assert!(tag.comments().contains(&("key2", "value2")));
-    /// ```
-    pub fn comments(&self) -> Vec<(&str, &str)> {
-        let mut out = Vec::new();
-        for frame in self.get_all(self.comment_id()).iter() {
-            match frame.content {
-                Content::Comment(ref comment) => {
-                    out.push((&comment.description[..], &comment.text[..]));
-                },
-                _ => { }
-            }
-        }
-
-        out
-    }
-
     /// Adds a comment (COMM).
     ///
     /// # Example
@@ -760,25 +801,26 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     ///
-    /// tag.add_comment(Comment {
+    /// let com1 = Comment {
     ///     lang: "eng".to_string(),
     ///     description: "key1".to_string(),
     ///     text: "value1".to_string(),
-    /// });
-    /// tag.add_comment(Comment {
+    /// };
+    /// let com2 = Comment {
     ///     lang: "eng".to_string(),
     ///     description: "key2".to_string(),
     ///     text: "value2".to_string(),
-    /// });
+    /// };
+    /// tag.add_comment(com1.clone());
+    /// tag.add_comment(com2.clone());
     ///
-    /// assert_eq!(tag.comments().len(), 2);
-    /// assert!(tag.comments().contains(&("key1", "value1")));
-    /// assert!(tag.comments().contains(&("key2", "value2")));
+    /// assert_eq!(tag.comments().count(), 2);
+    /// assert_ne!(None, tag.comments().position(|c| *c == com1));
+    /// assert_ne!(None, tag.comments().position(|c| *c == com2));
     /// ```
     pub fn add_comment(&mut self, comment: Comment) {
-        self.remove_comment(Some(&comment.description[..]), None);
         let frame = Frame::with_content(self.comment_id(), Content::Comment(comment));
-        self.frames.push(frame);
+        self.add_frame(frame);
     }
 
     /// Removes the comment (COMM) with the specified key and value.
@@ -802,13 +844,13 @@ impl<'a> Tag {
     ///     description: "key2".to_string(),
     ///     text: "value2".to_string(),
     /// });
-    /// assert_eq!(tag.comments().len(), 2);
+    /// assert_eq!(tag.comments().count(), 2);
     ///
     /// tag.remove_comment(Some("key1"), None);
-    /// assert_eq!(tag.comments().len(), 1);
+    /// assert_eq!(tag.comments().count(), 1);
     ///
     /// tag.remove_comment(None, Some("value2"));
-    /// assert_eq!(tag.comments().len(), 0);
+    /// assert_eq!(tag.comments().count(), 0);
     /// ```
     pub fn remove_comment(&mut self, description: Option<&str>, text: Option<&str>) {
         let id = self.comment_id();
@@ -852,27 +894,21 @@ impl<'a> Tag {
     ///
     /// let mut frame_valid = Frame::new("TYER");
     /// frame_valid.content = Content::Text("2014".to_owned());
-    /// tag.push(frame_valid);
+    /// tag.add_frame(frame_valid);
     /// assert_eq!(tag.year().unwrap(), 2014);
     ///
     /// tag.remove("TYER");
     ///
     /// let mut frame_invalid = Frame::new("TYER");
     /// frame_invalid.content = Content::Text("nope".to_owned());
-    /// tag.push(frame_invalid);
+    /// tag.add_frame(frame_invalid);
     /// assert!(tag.year().is_none());
     /// ```
-    pub fn year(&self) -> Option<usize> {
+    pub fn year(&self) -> Option<i32> {
         let id = self.year_id();
-        match self.get(id) {
-            Some(frame) => {
-                match frame.content {
-                    Content::Text(ref text) => text[..].parse::<usize>().ok(),
-                    _ => None
-                }
-            },
-            None => None
-        }
+        self.get(id)
+            .and_then(|frame| frame.content.text())
+            .and_then(|text| text.trim_left_matches("0").parse().ok())
     }
 
     /// Sets the year (TYER).
@@ -885,21 +921,9 @@ impl<'a> Tag {
     /// tag.set_year(2014);
     /// assert_eq!(tag.year().unwrap(), 2014);
     /// ```
-    pub fn set_year(&mut self, year: usize) {
+    pub fn set_year(&mut self, year: i32) {
         let id = self.year_id();
-        self.add_text_frame(id, format!("{}", year));
-    }
-
-    fn read_timestamp_frame(&self, id: &str) -> Option<Timestamp> {
-        match self.get(id) {
-            None => None,
-            Some(frame) => {
-                match frame.content {
-                    Content::Text(ref text) => text.parse().ok(),
-                    _ => None
-                }
-            }
-        }
+        self.set_text(id, format!("{:04}", year));
     }
 
     /// Return the content of the TRDC frame, if any
@@ -930,7 +954,7 @@ impl<'a> Tag {
     /// ```
     pub fn set_date_recorded(&mut self, timestamp: Timestamp) {
         let time_string = timestamp.to_string();
-        self.add_text_frame("TDRC", time_string);
+        self.set_text("TDRC", time_string);
     }
 
     /// Return the content of the TDRL frame, if any
@@ -961,7 +985,7 @@ impl<'a> Tag {
     /// ```
     pub fn set_date_released(&mut self, timestamp: Timestamp) {
         let time_string = timestamp.to_string();
-        self.add_text_frame("TDRL", time_string);
+        self.set_text("TDRL", time_string);
     }
 
     /// Returns the artist (TPE1).
@@ -975,7 +999,7 @@ impl<'a> Tag {
     ///
     /// let mut frame = Frame::new("TPE1");
     /// frame.content = Content::Text("artist".to_owned());
-    /// tag.push(frame);
+    /// tag.add_frame(frame);
     /// assert_eq!(tag.artist().unwrap(), "artist");
     /// ```
     pub fn artist(&self) -> Option<&str> {
@@ -994,7 +1018,7 @@ impl<'a> Tag {
     /// ```
     pub fn set_artist<T: Into<String>>(&mut self, artist: T) {
         let id = self.artist_id();
-        self.add_text_frame(id, artist);
+        self.set_text(id, artist);
     }
 
     /// Removes the artist (TPE1).
@@ -1026,7 +1050,7 @@ impl<'a> Tag {
     ///
     /// let mut frame = Frame::new("TPE2");
     /// frame.content = Content::Text("artist".to_owned());
-    /// tag.push(frame);
+    /// tag.add_frame(frame);
     /// assert_eq!(tag.album_artist().unwrap(), "artist");
     /// ```
     pub fn album_artist(&self) -> Option<&str> {
@@ -1044,9 +1068,8 @@ impl<'a> Tag {
     /// assert_eq!(tag.album_artist().unwrap(), "artist");
     /// ```
     pub fn set_album_artist<T: Into<String>>(&mut self, album_artist: T) {
-        self.remove("TSOP");
         let id = self.album_artist_id();
-        self.add_text_frame(id, album_artist);
+        self.set_text(id, album_artist);
     }
 
     /// Removes the album artist (TPE2).
@@ -1078,7 +1101,7 @@ impl<'a> Tag {
     ///
     /// let mut frame = Frame::new("TALB");
     /// frame.content = Content::Text("album".to_owned());
-    /// tag.push(frame);
+    /// tag.add_frame(frame);
     /// assert_eq!(tag.album().unwrap(), "album");
     /// ```
     pub fn album(&self) -> Option<&str> {
@@ -1097,7 +1120,7 @@ impl<'a> Tag {
     /// ```
     pub fn set_album<T: Into<String>>(&mut self, album: T) {
         let id = self.album_id();
-        self.add_text_frame(id, album);
+        self.set_text(id, album);
     }
 
     /// Removes the album (TALB).
@@ -1114,7 +1137,6 @@ impl<'a> Tag {
     /// assert!(tag.album().is_none());
     /// ```
     pub fn remove_album(&mut self) {
-        self.remove("TSOP");
         let id = self.album_id();
         self.remove(id);
     }
@@ -1130,7 +1152,7 @@ impl<'a> Tag {
     ///
     /// let mut frame = Frame::new("TIT2");
     /// frame.content = Content::Text("title".to_owned());
-    /// tag.push(frame);
+    /// tag.add_frame(frame);
     /// assert_eq!(tag.title().unwrap(), "title");
     /// ```
     pub fn title(&self) -> Option<&str> {
@@ -1148,9 +1170,8 @@ impl<'a> Tag {
     /// assert_eq!(tag.title().unwrap(), "title");
     /// ```
     pub fn set_title<T: Into<String>>(&mut self, title: T) {
-        self.remove("TSOT");
         let id = self.title_id();
-        self.add_text_frame(id, title);
+        self.set_text(id, title);
     }
 
     /// Removes the title (TIT2).
@@ -1182,11 +1203,12 @@ impl<'a> Tag {
     ///
     /// let mut frame = Frame::new("TLEN");
     /// frame.content = Content::Text("350".to_owned());
-    /// tag.push(frame);
+    /// tag.add_frame(frame);
     /// assert_eq!(tag.duration().unwrap(), 350);
     /// ```
     pub fn duration(&self) -> Option<u32> {
-        self.text_for_frame_id("TLEN").and_then(|t| t[..].parse::<u32>().ok())
+        self.text_for_frame_id("TLEN")
+            .and_then(|t| t.parse().ok())
     }
 
     /// Sets the duration (TLEN).
@@ -1200,7 +1222,7 @@ impl<'a> Tag {
     /// assert_eq!(tag.duration().unwrap(), 350);
     /// ```
     pub fn set_duration(&mut self, duration: u32) {
-        self.add_text_frame("TLEN", duration.to_string());
+        self.set_text("TLEN", duration.to_string());
     }
 
     /// Removes the duration (TLEN).
@@ -1231,7 +1253,7 @@ impl<'a> Tag {
     ///
     /// let mut frame = Frame::new("TCON");
     /// frame.content = Content::Text("genre".to_owned());
-    /// tag.push(frame);
+    /// tag.add_frame(frame);
     /// assert_eq!(tag.genre().unwrap(), "genre");
     /// ```
     pub fn genre(&self) -> Option<&str> {
@@ -1250,7 +1272,7 @@ impl<'a> Tag {
     /// ```
     pub fn set_genre<T: Into<String>>(&mut self, genre: T) {
         let id = self.genre_id();
-        self.add_text_frame(id, genre);
+        self.set_text(id, genre);
     }
 
     /// Removes the genre (TCON).
@@ -1273,31 +1295,7 @@ impl<'a> Tag {
 
     /// Returns the (disc, total_discs) tuple.
     fn disc_pair(&self) -> Option<(u32, Option<u32>)> {
-        match self.get(self.disc_id()) {
-            Some(frame) => {
-                match frame.content {
-                    Content::Text(ref text) => {
-                        let split: Vec<&str> = text[..].splitn(2, '/').collect();
-
-                        let total_discs = if split.len() == 2 {
-                            match split[1].parse::<u32>() {
-                                Ok(total_discs) => Some(total_discs),
-                                Err(_) => return None
-                            }
-                        } else {
-                            None
-                        };
-
-                        match split[0].parse::<u32>() {
-                            Ok(disc) => Some((disc, total_discs)),
-                            Err(_) => None
-                        }
-                    },
-                    _ => None
-                }
-            },
-            None => None
-        }
+        self.text_pair(self.disc_id())
     }
 
     /// Returns the disc number (TPOS).
@@ -1312,18 +1310,19 @@ impl<'a> Tag {
     ///
     /// let mut frame_valid = Frame::new("TPOS");
     /// frame_valid.content = Content::Text("4".to_owned());
-    /// tag.push(frame_valid);
+    /// tag.add_frame(frame_valid);
     /// assert_eq!(tag.disc().unwrap(), 4);
     ///
     /// tag.remove("TPOS");
     ///
     /// let mut frame_invalid = Frame::new("TPOS");
     /// frame_invalid.content = Content::Text("nope".to_owned());
-    /// tag.push(frame_invalid);
+    /// tag.add_frame(frame_invalid);
     /// assert!(tag.disc().is_none());
     /// ```
     pub fn disc(&self) -> Option<u32> {
-        self.disc_pair().and_then(|(disc, _)| Some(disc))
+        self.disc_pair()
+            .map(|(disc, _)| disc)
     }
 
     /// Sets the disc (TPOS).
@@ -1337,12 +1336,12 @@ impl<'a> Tag {
     /// assert_eq!(tag.disc().unwrap(), 2);
     /// ```
     pub fn set_disc(&mut self, disc: u32) {
-        let text = match self.disc_pair().and_then(|(_, total_discs)| total_discs) {
+        let text = match self.text_pair(self.disc_id()).and_then(|(_, total_discs)| total_discs) {
             Some(n) => format!("{}/{}", disc, n),
-            None => format!("{}", disc)
+            None => format!("{}", disc),
         };
         let id = self.disc_id();
-        self.add_text_frame(id, text);
+        self.set_text(id, text);
     }
 
     /// Removes the disc number (TPOS).
@@ -1375,18 +1374,19 @@ impl<'a> Tag {
     ///
     /// let mut frame_valid = Frame::new("TPOS");
     /// frame_valid.content = Content::Text("4/10".to_owned());
-    /// tag.push(frame_valid);
+    /// tag.add_frame(frame_valid);
     /// assert_eq!(tag.total_discs().unwrap(), 10);
     ///
     /// tag.remove("TPOS");
     ///
     /// let mut frame_invalid = Frame::new("TPOS");
     /// frame_invalid.content = Content::Text("4/nope".to_owned());
-    /// tag.push(frame_invalid);
+    /// tag.add_frame(frame_invalid);
     /// assert!(tag.total_discs().is_none());
     /// ```
     pub fn total_discs(&self) -> Option<u32> {
-        self.disc_pair().and_then(|(_, total_discs)| total_discs)
+        self.text_pair(self.disc_id())
+            .and_then(|(_, total_discs)| total_discs)
     }
 
     /// Sets the total number of discs (TPOS).
@@ -1400,12 +1400,12 @@ impl<'a> Tag {
     /// assert_eq!(tag.total_discs().unwrap(), 10);
     /// ```
     pub fn set_total_discs(&mut self, total_discs: u32) {
-        let text = match self.disc_pair() {
+        let text = match self.text_pair(self.disc_id()) {
             Some((disc, _)) => format!("{}/{}", disc, total_discs),
             None => format!("1/{}", total_discs)
         };
         let id = self.disc_id();
-        self.add_text_frame(id, text);
+        self.set_text(id, text);
     }
 
     /// Removes the total number of discs (TPOS).
@@ -1422,39 +1422,9 @@ impl<'a> Tag {
     /// assert!(tag.total_discs().is_none());
     /// ```
     pub fn remove_total_discs(&mut self) {
-        let id = self.disc_id();
-        match self.disc_pair() {
-            Some((disc, _)) => self.add_text_frame(id, format!("{}", disc)),
-            None => {}
-        }
-    }
-
-    /// Returns the (track, total_tracks) tuple.
-    fn track_pair(&self) -> Option<(u32, Option<u32>)> {
-        match self.get(self.track_id()) {
-            Some(frame) => {
-                match frame.content {
-                    Content::Text(ref text) => {
-                        let split: Vec<&str> = text[..].splitn(2, '/').collect();
-
-                        let total_tracks = if split.len() == 2 {
-                            match split[1].parse::<u32>() {
-                                Ok(total_tracks) => Some(total_tracks),
-                                Err(_) => return None
-                            }
-                        } else {
-                            None
-                        };
-
-                        match split[0].parse::<u32>() {
-                            Ok(track) => Some((track, total_tracks)),
-                            Err(_) => None
-                        }
-                    },
-                    _ => None
-                }
-            },
-            None => None
+        if let Some((disc, _)) = self.text_pair(self.disc_id()) {
+            let id = self.disc_id();
+            self.set_text(id, format!("{}", disc));
         }
     }
 
@@ -1470,18 +1440,19 @@ impl<'a> Tag {
     ///
     /// let mut frame_valid = Frame::new("TRCK");
     /// frame_valid.content = Content::Text("4".to_owned());
-    /// tag.push(frame_valid);
+    /// tag.add_frame(frame_valid);
     /// assert_eq!(tag.track().unwrap(), 4);
     ///
     /// tag.remove("TRCK");
     ///
     /// let mut frame_invalid = Frame::new("TRCK");
     /// frame_invalid.content = Content::Text("nope".to_owned());
-    /// tag.push(frame_invalid);
+    /// tag.add_frame(frame_invalid);
     /// assert!(tag.track().is_none());
     /// ```
     pub fn track(&self) -> Option<u32> {
-        self.track_pair().and_then(|(track, _)| Some(track))
+        self.text_pair(self.track_id())
+            .map(|(track, _)| track)
     }
 
     /// Sets the track (TRCK).
@@ -1495,12 +1466,12 @@ impl<'a> Tag {
     /// assert_eq!(tag.track().unwrap(), 10);
     /// ```
     pub fn set_track(&mut self, track: u32) {
-        let text = match self.track_pair().and_then(|(_, total_tracks)| total_tracks) {
+        let text = match self.text_pair(self.track_id()).and_then(|(_, total_tracks)| total_tracks) {
             Some(n) => format!("{}/{}", track, n),
             None => format!("{}", track)
         };
         let id = self.track_id();
-        self.add_text_frame(id, text);
+        self.set_text(id, text);
     }
 
     /// Removes the track number (TRCK).
@@ -1533,18 +1504,19 @@ impl<'a> Tag {
     ///
     /// let mut frame_valid = Frame::new("TRCK");
     /// frame_valid.content = Content::Text("4/10".to_owned());
-    /// tag.push(frame_valid);
+    /// tag.add_frame(frame_valid);
     /// assert_eq!(tag.total_tracks().unwrap(), 10);
     ///
     /// tag.remove("TRCK");
     ///
     /// let mut frame_invalid = Frame::new("TRCK");
     /// frame_invalid.content = Content::Text("4/nope".to_owned());
-    /// tag.push(frame_invalid);
+    /// tag.add_frame(frame_invalid);
     /// assert!(tag.total_tracks().is_none());
     /// ```
     pub fn total_tracks(&self) -> Option<u32> {
-        self.track_pair().and_then(|(_, total_tracks)| total_tracks)
+        self.text_pair(self.track_id())
+            .and_then(|(_, total_tracks)| total_tracks)
     }
 
     /// Sets the total number of tracks (TRCK).
@@ -1558,12 +1530,12 @@ impl<'a> Tag {
     /// assert_eq!(tag.total_tracks().unwrap(), 10);
     /// ```
     pub fn set_total_tracks(&mut self, total_tracks: u32) {
-        let text = match self.track_pair() {
+        let text = match self.text_pair(self.track_id()) {
             Some((track, _)) => format!("{}/{}", track, total_tracks),
             None => format!("1/{}", total_tracks)
         };
         let id = self.track_id();
-        self.add_text_frame(id, text);
+        self.set_text(id, text);
     }
 
     /// Removes the total number of tracks (TCON).
@@ -1580,39 +1552,9 @@ impl<'a> Tag {
     /// assert!(tag.total_tracks().is_none());
     /// ```
     pub fn remove_total_tracks(&mut self) {
-        let id = self.track_id();
-        match self.track_pair() {
-            Some((track, _)) => self.add_text_frame(id, format!("{}", track)),
-            None => {}
-        }
-    }
-
-    /// Returns the lyrics (USLT).
-    ///
-    /// # Example
-    /// ```
-    /// use id3::{Frame, Tag};
-    /// use id3::frame::Content;
-    /// use id3::frame::Lyrics;
-    ///
-    /// let mut tag = Tag::new();
-    ///
-    /// let mut frame = Frame::new("USLT");
-    /// frame.content = Content::Lyrics(Lyrics {
-    ///     lang: "eng".to_owned(),
-    ///     description: "description".to_owned(),
-    ///     text: "lyrics".to_owned()
-    /// });
-    /// tag.push(frame);
-    /// assert_eq!(tag.lyrics().unwrap(), "lyrics");
-    /// ```
-    pub fn lyrics(&self) -> Option<&str> {
-        match self.get(self.lyrics_id()) {
-            Some(frame) => match frame.content {
-                Content::Lyrics(ref lyrics) => Some(&lyrics.text[..]),
-                _ => None
-            },
-            None => None
+        if let Some((track, _)) = self.text_pair(self.track_id()) {
+            let id = self.track_id();
+            self.set_text(id, format!("{}", track));
         }
     }
 
@@ -1629,13 +1571,13 @@ impl<'a> Tag {
     ///     description: "".to_string(),
     ///     text: "The lyrics".to_string(),
     /// });
-    /// assert_eq!(tag.lyrics().unwrap(), "The lyrics");
+    /// assert_eq!(tag.lyrics().nth(0).unwrap().text, "The lyrics");
     /// ```
+    #[deprecated]
     pub fn set_lyrics(&mut self, lyrics: Lyrics) {
         let id = self.lyrics_id();
-        self.remove(id);
         let frame = Frame::with_content(id, Content::Lyrics(lyrics));
-        self.frames.push(frame);
+        self.add_frame(frame);
     }
 
     /// Removes the lyrics text (USLT) from the tag.
@@ -1651,10 +1593,11 @@ impl<'a> Tag {
     ///     description: "".to_string(),
     ///     text: "The lyrics".to_string(),
     /// });
-    /// assert!(tag.lyrics().is_some());
+    /// assert_eq!(1, tag.lyrics().count());
     /// tag.remove_lyrics();
-    /// assert!(tag.lyrics().is_none());
+    /// assert_eq!(0, tag.lyrics().count());
     /// ```
+    #[deprecated]
     pub fn remove_lyrics(&mut self) {
         let id = self.lyrics_id();
         self.remove(id);
@@ -1846,7 +1789,7 @@ impl From<::v1::Tag> for Tag {
         }
         if tag_v1.year.len() > 0 {
             let id = tag.year_id();
-            tag.add_text_frame(id, tag_v1.year.clone());
+            tag.set_text(id, tag_v1.year.clone());
         }
         if tag_v1.comment.len() > 0 {
             tag.add_comment(Comment {
@@ -1922,7 +1865,7 @@ mod tests {
         assert_eq!("Genre", tag.genre().unwrap());
         assert_eq!(1, tag.disc().unwrap());
         assert_eq!(1, tag.total_discs().unwrap());
-        assert_eq!(PictureType::CoverFront, tag.pictures().get(0).unwrap().picture_type);
+        assert_eq!(PictureType::CoverFront, tag.pictures().nth(0).unwrap().picture_type);
     }
 
     #[test]
@@ -1932,7 +1875,7 @@ mod tests {
         assert_eq!("Title", tag.title().unwrap());
         assert_eq!(1, tag.disc().unwrap());
         assert_eq!(1, tag.total_discs().unwrap());
-        assert_eq!(PictureType::CoverFront, tag.pictures().get(0).unwrap().picture_type);
+        assert_eq!(PictureType::CoverFront, tag.pictures().nth(0).unwrap().picture_type);
     }
 
     #[test]
