@@ -167,7 +167,6 @@ fn picture_to_bytes(request: EncoderRequest) -> Vec<u8> {
     match request.version {
         tag::Id3v22 => picture_to_bytes_v2(request),
         tag::Id3v23|tag::Id3v24 => picture_to_bytes_v3(request),
-        _ => panic!("Attempted to convert a picture with version ID3v1"),
     }
 }
 // }}}

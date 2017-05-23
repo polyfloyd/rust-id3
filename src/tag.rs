@@ -19,8 +19,6 @@ static DEFAULT_FILE_DISCARD: [&'static str; 11] = [
 /// Denotes the version of a tag.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Version {
-    /// ID3v1
-    Id3v1,
     /// ID3v2.2
     Id3v22,
     /// ID3v2.3
@@ -31,36 +29,16 @@ pub enum Version {
 pub use self::Version::*;
 
 impl Version {
-    /// Returns the major version.
+    /// Returns the minor version.
     ///
     /// # Example
     /// ```
     /// use id3::Version;
     ///
-    /// assert_eq!(Version::Id3v1.major(), 1);
-    /// assert_eq!(Version::Id3v24.major(), 2);
-    /// ```
-    pub fn major(&self) -> u32 {
-        match *self {
-            Id3v1 => 1,
-            Id3v22 => 2,
-            Id3v23 => 2,
-            Id3v24 => 2,
-        }
-    }
-
-    /// Returns the minor version. For ID3v1, this will be 0.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Version;
-    ///
-    /// assert_eq!(Version::Id3v1.minor(), 0);
     /// assert_eq!(Version::Id3v24.minor(), 4);
     /// ```
     pub fn minor(&self) -> u8 {
         match *self {
-            Id3v1 => 0,
             Id3v22 => 2,
             Id3v23 => 3,
             Id3v24 => 4,
@@ -1812,7 +1790,7 @@ impl<'a> Tag {
         }
 
         try!(writer.write_all(b"ID3"));
-        try!(writer.write_all(&[self.version.minor() as u8, self.version.major() as u8]));
+        try!(writer.write_all(&[self.version.minor() as u8, 2]));
         try!(writer.write_u8(self.flags.to_byte(self.version)));
         try!(writer.write_u32::<BigEndian>(::util::synchsafe(size)));
 

@@ -122,7 +122,6 @@ impl Frame {
             tag::Id3v22 => v2::read(reader as &mut Read, unsynchronization),
             tag::Id3v23 => v3::read(reader, unsynchronization),
             tag::Id3v24 => v4::read(reader as &mut Read),
-            _ =>  Err(::Error::new(::ErrorKind::UnsupportedVersion(version.minor() as u8), "unsupported id3 tag version"))
         }
     }
 
@@ -137,7 +136,6 @@ impl Frame {
             tag::Id3v22 => v2::write(writer, self, unsynchronization),
             tag::Id3v23 => v3::write(writer, self, unsynchronization),
             tag::Id3v24 => v4::write(writer, self),
-            _ =>  Err(::Error::new(::ErrorKind::UnsupportedVersion(version.minor() as u8), "unsupported id3 tag version"))
         }
     }
 
