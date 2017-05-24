@@ -4,18 +4,6 @@ use encoding::all::{UTF_16BE, UTF_16LE};
 use frame::Encoding;
 use std::collections::HashMap;
 
-/// Returns the synchsafe varaiant of a `u32` value.
-pub fn synchsafe(n: u32) -> u32 {
-    let mut x: u32 = n & 0x7F | (n & 0xFFFFFF80) << 1;
-    x = x & 0x7FFF | (x & 0xFFFF8000) << 1;
-    x = x & 0x7FFFFF | (x & 0xFF800000) << 1;
-    x
-}
-
-/// Returns the unsynchsafe varaiant of a `u32` value.
-pub fn unsynchsafe(n: u32) -> u32 {
-    (n & 0xFF | (n & 0xFF00) >> 1 | (n & 0xFF0000) >> 2 | (n & 0xFF000000) >> 3)
-}
 
 /// Returns a string created from the vector using Latin1 encoding, removing any trailing null
 /// bytes.
@@ -288,44 +276,11 @@ pub fn convert_id_3_to_2(id: &str) -> Option<&'static str> {
     ID_3_TO_2.get(id).map(|t| *t)
 }
 
-/// Undoes the changes done to a byte buffer by the unsynchronization scheme.
-pub fn resynchronize(buffer: &mut Vec<u8>) {
-    let mut discard_next_null_byte = false;
-    let mut i = 0;
-    while i < buffer.len() {
-        if buffer[i] == 0x00 && discard_next_null_byte {
-            buffer.remove(i);
-        }
-        discard_next_null_byte = i < buffer.len() && buffer[i] == 0xFF;
-        i += 1;
-    }
-}
-
-/// Applies the unsynchronization scheme to a byte buffer.
-pub fn unsynchronize(buffer: &mut Vec<u8>) {
-    let mut repeat_next_null_byte = false;
-    let mut i = 0;
-    while i < buffer.len() {
-        if buffer[i] == 0x00 && repeat_next_null_byte {
-            buffer.insert(i, 0);
-            i += 1;
-        }
-        repeat_next_null_byte = buffer[i] == 0xFF;
-        i += 1;
-    }
-}
-
 // Tests {{{
 #[cfg(test)]
 mod tests {
     use util;
     use frame::Encoding;
-
-    #[test]
-    fn test_synchsafe() {
-        assert_eq!(681570, util::synchsafe(176994));
-        assert_eq!(176994, util::unsynchsafe(681570));
-    }
 
     #[test]
     fn test_strings() {
@@ -368,14 +323,5 @@ mod tests {
 
         assert_eq!(util::find_delim(Encoding::UTF16BE, &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0x0, 0xFF, 0xFF], 2).unwrap(), 4);
         assert!(util::find_delim(Encoding::UTF16BE, &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0xFF, 0xFF], 2).is_none());
-    }
-
-    #[test]
-    fn test_synchronization() {
-        let mut v = vec![66, 0, 255, 0, 255, 0, 0, 255, 66];
-        util::unsynchronize(&mut v);
-        assert_eq!(v, [66, 0, 255, 0, 0, 255, 0, 0, 0, 255, 66]);
-        util::resynchronize(&mut v);
-        assert_eq!(v, [66, 0, 255, 0, 255, 0, 0, 255, 66]);
     }
 }

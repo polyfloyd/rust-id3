@@ -15,6 +15,7 @@ use self::stream::{v2, v3, v4};
 
 use parsers::{self, DecoderRequest, EncoderRequest};
 use ::tag::{self, Version};
+use ::unsynch;
 
 mod encoding;
 mod content;
@@ -367,7 +368,7 @@ mod tests {
 
         let mut bytes = Vec::new();
         bytes.extend(id.bytes());
-        bytes.extend(u32_to_bytes(::util::synchsafe(data.len() as u32)).into_iter());
+        bytes.extend(u32_to_bytes(unsynch::encode_u32(data.len() as u32)).into_iter());
         bytes.extend([0x60, 0x00].iter().cloned());
         bytes.extend(data.into_iter());
 

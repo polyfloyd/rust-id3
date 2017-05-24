@@ -4,13 +4,14 @@ use frame::{Encoding,Frame};
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use ::tag;
+use ::unsynch;
 
 pub fn read(reader: &mut Read) -> ::Result<Option<(u32, Frame)>> {
     let id = id_or_padding!(reader, 4);
     let mut frame = Frame::new(id);
     debug!("reading {}", frame.id());
 
-    let content_size = ::util::unsynchsafe(try!(reader.read_u32::<BigEndian>()));
+    let content_size = unsynch::decode_u32(try!(reader.read_u32::<BigEndian>()));
 
     let frameflags = try!(reader.read_u16::<BigEndian>());
     frame.flags.tag_alter_preservation = frameflags & 0x4000 != 0;
@@ -32,14 +33,14 @@ pub fn read(reader: &mut Read) -> ::Result<Option<(u32, Frame)>> {
 
     let mut read_size = content_size;
     if frame.flags.data_length_indicator {
-        let _decompressed_size = ::util::unsynchsafe(try!(reader.read_u32::<BigEndian>()));
+        let _decompressed_size = unsynch::decode_u32(try!(reader.read_u32::<BigEndian>()));
         read_size -= 4;
     }
 
     let mut data = Vec::<u8>::with_capacity(read_size as usize);
     try!(reader.take(read_size as u64).read_to_end(&mut data));
     if frame.flags.unsynchronization {
-        ::util::resynchronize(&mut data);
+        unsynch::decode_vec(&mut data);
     }
 
     try!(frame.parse_data(&data[..]));
@@ -65,14 +66,14 @@ pub fn write(writer: &mut Write, frame: &Frame) -> ::Result<u32> {
     }
 
     try!(writer.write_all(frame.id().as_bytes()));
-    try!(writer.write_u32::<BigEndian>(::util::synchsafe(content_size)));;
+    try!(writer.write_u32::<BigEndian>(unsynch::encode_u32(content_size)));;
     try!(writer.write_all(&frame.flags.to_bytes(0x4)[..]));
     if frame.flags.data_length_indicator {
         debug!("[{}] adding data length indicator", frame.id());
-        try!(writer.write_u32::<BigEndian>(::util::synchsafe(decompressed_size)));
+        try!(writer.write_u32::<BigEndian>(unsynch::encode_u32(decompressed_size)));
     }
     if frame.flags.unsynchronization {
-        ::util::unsynchronize(&mut content_bytes);
+        unsynch::encode_vec(&mut content_bytes);
     }
     try!(writer.write_all(&content_bytes[..]));
 

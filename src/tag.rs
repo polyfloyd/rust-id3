@@ -9,6 +9,7 @@ use byteorder::{ByteOrder, BigEndian, ReadBytesExt, WriteBytesExt};
 use frame::{self, Frame, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType, Timestamp};
 use frame::Content;
 use ::storage::{PlainStorage, Storage};
+use ::unsynch;
 
 static DEFAULT_FILE_DISCARD: &[&str] = &[
     "AENC",
@@ -1439,7 +1440,7 @@ impl<'a> Tag {
         try_io!(reader, reader.read(&mut ident));
         if &ident[..] == b"ID3" {
             try_io!(reader, reader.seek(SeekFrom::Current(3)));
-            let offset = 10 + ::util::unsynchsafe(try_io!(reader, reader.read_u32::<BigEndian>()));
+            let offset = 10 + unsynch::decode_u32(try_io!(reader, reader.read_u32::<BigEndian>()));
             try_io!(reader, reader.seek(SeekFrom::Start(offset as u64)));
         } else {
             try_io!(reader, reader.seek(SeekFrom::Start(0)));
@@ -1486,18 +1487,18 @@ impl<'a> Tag {
             return Err(::Error::new(::ErrorKind::UnsupportedFeature, "id3v2.2 compression is not supported"));
         }
 
-        let tag_size = ::util::unsynchsafe(reader.read_u32::<BigEndian>()?);
+        let tag_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?);
 
         let mut offset = 10;
 
         // TODO actually use the extended header data
         if tag.flags.extended_header {
-            let ext_size = ::util::unsynchsafe(reader.read_u32::<BigEndian>()?);
+            let ext_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?);
             offset += 4;
             let mut extended_header_data = Vec::with_capacity(ext_size as usize);
             reader.take(ext_size as u64).read_to_end(&mut extended_header_data)?;
             if tag.flags.unsynchronization {
-                ::util::resynchronize(&mut extended_header_data);
+                unsynch::decode_vec(&mut extended_header_data);
             }
             offset += ext_size;
         }
@@ -1545,7 +1546,7 @@ impl<'a> Tag {
         writer.write_all(b"ID3")?;
         writer.write_all(&[version.minor() as u8, 2])?;
         writer.write_u8(self.flags.to_byte(version))?;
-        writer.write_u32::<BigEndian>(::util::synchsafe(frame_data.len() as u32))?;
+        writer.write_u32::<BigEndian>(unsynch::encode_u32(frame_data.len() as u32))?;
         writer.write_all(&frame_data[..])?;
         Ok(())
     }
@@ -1613,7 +1614,7 @@ fn locate_id3v2<R>(reader: &mut R) -> ::Result<Option<ops::Range<u64>>>
         _ => return Err(::Error::new(::ErrorKind::UnsupportedVersion(header[3]) , "unsupported id3 tag version")),
     };
 
-    let size = ::util::unsynchsafe(BigEndian::read_u32(&header[6..10]));
+    let size = unsynch::decode_u32(BigEndian::read_u32(&header[6..10]));
     reader.seek(io::SeekFrom::Start(size as u64))?;
     let num_padding = reader.bytes()
         .take_while(|rs| rs.as_ref().map(|b| *b == 0x00).unwrap_or(false))

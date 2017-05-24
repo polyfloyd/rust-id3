@@ -4,6 +4,7 @@ use frame::{Encoding,Frame};
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use ::tag;
+use ::unsynch;
 
 pub fn read(reader: &mut Read, unsynchronization: bool) -> ::Result<Option<(u32, Frame)>> {
     let id = id_or_padding!(reader, 4);
@@ -37,7 +38,7 @@ pub fn read(reader: &mut Read, unsynchronization: bool) -> ::Result<Option<(u32,
     let mut data = Vec::<u8>::with_capacity(read_size as usize);
     try!(reader.take(read_size as u64).read_to_end(&mut data));
     if unsynchronization {
-        ::util::resynchronize(&mut data);
+        unsynch::decode_vec(&mut data);
     }
     try!(frame.parse_data(&data));
 
@@ -64,7 +65,7 @@ pub fn write(writer: &mut Write, frame: &Frame, unsynchronization: bool) -> ::Re
         try!(writer.write_u32::<BigEndian>(decompressed_size));
     }
     if unsynchronization {
-        ::util::unsynchronize(&mut content_bytes);
+        unsynch::encode_vec(&mut content_bytes);
     }
     try!(writer.write_all(&content_bytes[..]));
 

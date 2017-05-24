@@ -2,6 +2,7 @@ use byteorder::{ByteOrder, BigEndian};
 use std::io::{Read, Write};
 use frame::{Encoding,Frame};
 use ::tag::{self, Version};
+use ::unsynch;
 
 pub fn read(reader: &mut Read, unsynchronization: bool) -> ::Result<Option<(u32, Frame)>> {
     let id = id_or_padding!(reader, 3);
@@ -15,7 +16,7 @@ pub fn read(reader: &mut Read, unsynchronization: bool) -> ::Result<Option<(u32,
     let mut data = Vec::<u8>::with_capacity(read_size as usize);
     try!(reader.take(read_size as u64).read_to_end(&mut data));
     if unsynchronization {
-        ::util::resynchronize(&mut data);
+        unsynch::decode_vec(&mut data);
     }
     try!(frame.parse_data(&data));
 
@@ -33,7 +34,7 @@ pub fn write(writer: &mut Write, frame: &Frame, unsynchronization: bool) -> ::Re
     BigEndian::write_u32(&mut content_size_buf, content_size);
     try!(writer.write_all(&content_size_buf[1..4]));
     if unsynchronization {
-        ::util::unsynchronize(&mut content_bytes);
+        unsynch::encode_vec(&mut content_bytes);
     }
     try!(writer.write_all(&content_bytes[..]));
 
