@@ -6,11 +6,11 @@ use std::str;
 
 pub use self::encoding::Encoding;
 pub use self::content::{Content, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType};
-pub use self::flags::Flags;
 pub use self::timestamp::Timestamp;
 
 use flate2::read::ZlibDecoder;
 
+use self::flags::Flags;
 use self::stream::{v2, v3, v4};
 
 use parsers::{self, DecoderRequest, EncoderRequest};
