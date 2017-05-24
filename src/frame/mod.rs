@@ -191,6 +191,7 @@ impl Frame {
     /// });
     /// assert_eq!(&txxx_frame.text().unwrap()[..], "description: value");
     /// ```
+    #[deprecated(note = "Format using fmt::Display")]
     pub fn text(&self) -> Option<Cow<str>> {
         Some(Cow::Owned(format!("{}", self)))
     }
