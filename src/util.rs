@@ -1,14 +1,9 @@
 use encoding::{DecoderTrap, EncoderTrap};
 use encoding::Encoding as StrEncoding;
 use encoding::all::{UTF_16BE, UTF_16LE};
-use rand::{self, Rng};
 use frame::Encoding;
 use std::collections::HashMap;
 
-/// Returns a random sequence of 16 bytes, intended to be used as a UUID.
-pub fn uuid() -> Vec<u8> {
-    rand::thread_rng().gen_iter::<u8>().take(16).collect()
-}
 /// Returns the synchsafe varaiant of a `u32` value.
 pub fn synchsafe(n: u32) -> u32 {
     let mut x: u32 = n & 0x7F | (n & 0xFFFFFF80) << 1;
@@ -209,7 +204,7 @@ lazy_static! {
     };
 }
 
-/// Returns the coresponding ID3v2.3/ID3v2.4 ID given the ID3v2.2 ID. 
+/// Returns the coresponding ID3v2.3/ID3v2.4 ID given the ID3v2.2 ID.
 pub fn convert_id_2_to_3(id: &str) -> Option<&'static str> {
     ID_2_TO_3.get(id).map(|t| *t)
 }

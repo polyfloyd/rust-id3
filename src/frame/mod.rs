@@ -29,8 +29,6 @@ mod timestamp;
 /// are not because their uniqueness is also defined by their content.
 #[derive(Clone, Debug, Eq)]
 pub struct Frame {
-    /// A sequence of 16 bytes used to uniquely identify this frame.
-    pub uuid: Vec<u8>,
     /// The frame identifier.
     pub id: String,
     /// The frame flags.
@@ -72,7 +70,6 @@ impl Frame {
     /// Creates a frame with the specified ID and content.
     pub fn with_content<T: Into<String>>(id: T, content: Content) -> Frame {
         Frame {
-            uuid: ::util::uuid(),
             id: id.into(),
             flags: Flags::new(),
             content: content,
@@ -109,21 +106,6 @@ impl Frame {
     /// Sets the file_alter_preservation flag.
     pub fn set_file_alter_preservation(&mut self, file_alter_preservation: bool) {
         self.flags.file_alter_preservation = file_alter_preservation;
-    }
-
-    /// Generates a new uuid for this frame.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Frame;
-    ///
-    /// let mut frame = Frame::new("TYER");
-    /// let prev_uuid = frame.uuid.clone();
-    /// frame.generate_uuid();
-    /// assert!(prev_uuid != frame.uuid);
-    /// ```
-    pub fn generate_uuid(&mut self) {
-        self.uuid = ::util::uuid();
     }
 
     /// Attempts to read a frame from the reader.

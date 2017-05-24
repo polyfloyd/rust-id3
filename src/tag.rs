@@ -1,8 +1,8 @@
-use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{self, Read, Write, Seek, SeekFrom, BufReader};
-use std::ops;
 use std::iter;
+use std::mem;
+use std::ops;
 use std::path::Path;
 
 use byteorder::{ByteOrder, BigEndian, ReadBytesExt, WriteBytesExt};
@@ -60,7 +60,7 @@ pub struct Tag {
 
 /// Flags used in the ID3 header.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct Flags {
+struct Flags {
     /// Indicates whether or not unsynchronization is used.
     pub unsynchronization: bool,
     /// Indicates whether or not the header is followed by an extended header.
@@ -76,7 +76,7 @@ pub struct Flags {
 // Flags {{{
 impl Flags {
     /// Creates a new `Flags` with all flags set to false.
-    pub fn new() -> Flags {
+    fn new() -> Flags {
         Flags {
             unsynchronization: false, extended_header: false, experimental: false,
             footer: false, compression: false
@@ -84,7 +84,7 @@ impl Flags {
     }
 
     /// Creates a new `Flags` using the provided byte.
-    pub fn from_byte(byte: u8, version: Version) -> Flags {
+    fn from_byte(byte: u8, version: Version) -> Flags {
         let mut flags = Flags::new();
 
         flags.unsynchronization = byte & 0x80 != 0;
@@ -104,7 +104,7 @@ impl Flags {
     }
 
     /// Creates a byte representation of the flags suitable for writing to an ID3 tag.
-    pub fn to_byte(&self, version: Version) -> u8 {
+    fn to_byte(&self, version: Version) -> u8 {
         let mut byte = 0;
 
         if self.unsynchronization {
@@ -259,16 +259,17 @@ impl<'a> Tag {
         if self.version == version {
             return;
         }
-
-        let mut remove_uuid = Vec::new();
-        for mut frame in self.frames.iter_mut() {
-            if !Tag::convert_frame_version(&mut frame, self.version, version) {
-                remove_uuid.push(frame.uuid.clone());
-            }
-        }
-
-        self.frames.retain(|frame: &Frame| !remove_uuid.contains(&frame.uuid));
-
+        let old_version = self.version;
+        let num_frames = self.frames.len();
+        let old_frames = mem::replace(&mut self.frames, Vec::with_capacity(num_frames));
+        self.frames.extend(old_frames.into_iter()
+            .filter_map(|mut frame| {
+                if Tag::convert_frame_version(&mut frame, old_version, version) {
+                    Some(frame)
+                } else {
+                    None
+                }
+            }));
         self.version = version;
     }
 
@@ -526,27 +527,6 @@ impl<'a> Tag {
     /// ```
     pub fn set_text<K: Into<String>, V: Into<String>>(&mut self, id: K, text: V) {
         self.add_frame(Frame::with_content(id, Content::Text(text.into())));
-    }
-
-    /// Removes the frame with the specified uuid.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::{Tag, Frame};
-    ///
-    /// let mut tag = Tag::new();
-    ///
-    /// tag.push(Frame::new("TPE2"));
-    /// assert_eq!(tag.frames().count(), 1);
-    ///
-    /// let uuid = tag.frames().nth(0).unwrap().uuid.clone();
-    /// tag.remove_uuid(&uuid[..]);
-    /// assert_eq!(tag.frames().count(), 0);
-    /// ```
-    pub fn remove_uuid(&mut self, uuid: &[u8]) {
-        self.frames.retain(|frame| {
-            &frame.uuid[..] != uuid
-        });
     }
 
     /// Removes all frames with the specified identifier.
@@ -1656,7 +1636,7 @@ impl<'a> Tag {
         let mut tag = Tag::new();
 
         let mut identifier = [0u8; 3];
-        try!(reader.read(&mut identifier));
+        reader.read(&mut identifier)?;
         if &identifier[..] != b"ID3" {
             debug!("no id3 tag found");
             return Err(::Error::new(::ErrorKind::NoTag, "reader does not contain an id3 tag"))
@@ -1671,23 +1651,23 @@ impl<'a> Tag {
             _ => return Err(::Error::new(::ErrorKind::UnsupportedVersion(version_buf[0]) , "unsupported id3 tag version")),
         };
 
-        tag.flags = Flags::from_byte(try!(reader.read_u8()), tag.version);
+        tag.flags = Flags::from_byte(reader.read_u8()?, tag.version);
 
         if tag.flags.compression {
             debug!("id3v2.2 compression is unsupported");
             return Err(::Error::new(::ErrorKind::UnsupportedFeature, "id3v2.2 compression is not supported"));
         }
 
-        let tag_size = ::util::unsynchsafe(try!(reader.read_u32::<BigEndian>()));
+        let tag_size = ::util::unsynchsafe(reader.read_u32::<BigEndian>()?);
 
         let mut offset = 10;
 
         // TODO actually use the extended header data
         if tag.flags.extended_header {
-            let ext_size = ::util::unsynchsafe(try!(reader.read_u32::<BigEndian>()));
+            let ext_size = ::util::unsynchsafe(reader.read_u32::<BigEndian>()?);
             offset += 4;
             let mut extended_header_data = Vec::with_capacity(ext_size as usize);
-            try!(reader.take(ext_size as u64).read_to_end(&mut extended_header_data));
+            reader.take(ext_size as u64).read_to_end(&mut extended_header_data)?;
             if tag.flags.unsynchronization {
                 ::util::resynchronize(&mut extended_header_data);
             }
@@ -1714,62 +1694,46 @@ impl<'a> Tag {
         Ok(tag)
     }
 
-    /// Attempts to write the ID3 tag to the writer.
-    pub fn write_to(&mut self, writer: &mut Write) -> ::Result<()> {
-        // remove frames which have the flags indicating they should be removed
-        self.frames.retain(|frame| {
-            !(frame.tag_alter_preservation()
-                  || (frame.file_alter_preservation()
-                          || DEFAULT_FILE_DISCARD.contains(&&frame.id[..])))
-        });
-
-        let mut data_cache: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
-        let mut size = 0;
-
-        for frame in self.frames.iter() {
-            let mut frame_writer = Vec::new();
-            size += try!(frame.write_to(&mut frame_writer, self.version, self.flags.unsynchronization));
-            data_cache.insert(frame.uuid.clone(), frame_writer);
-        }
-
-        try!(writer.write_all(b"ID3"));
-        try!(writer.write_all(&[self.version.minor() as u8, 2]));
-        try!(writer.write_u8(self.flags.to_byte(self.version)));
-        try!(writer.write_u32::<BigEndian>(::util::synchsafe(size)));
-
-        for frame in self.frames.iter_mut() {
-            debug!("writing {}", frame.id);
-            match data_cache.get(&frame.uuid) {
-                Some(data) => {
-                    try!(writer.write_all(&data[..]));
-                    data.len() as u32
-                },
-                None => try!(frame.write_to(writer, self.version, self.flags.unsynchronization))
-            };
-        }
-
-        Ok(())
-    }
-
     /// Attempts to read an ID3 tag from the file at the indicated path.
     pub fn read_from_path<P: AsRef<Path>>(path: P) -> ::Result<Tag> {
         let mut file = BufReader::new(File::open(&path)?);
         Tag::read_from(&mut file)
     }
 
+    /// Attempts to write the ID3 tag to the writer using the specified version.
+    pub fn write_to(&self, writer: &mut io::Write, version: Version) -> ::Result<()> {
+        // remove frames which have the flags indicating they should be removed
+        let saved_frames = self.frames.iter()
+            .filter(|frame| {
+                !(frame.tag_alter_preservation()
+                  || (frame.file_alter_preservation()
+                      || DEFAULT_FILE_DISCARD.contains(&&frame.id[..])))
+            });
+
+        let mut frame_data = Vec::new();
+        for frame in saved_frames {
+            frame.write_to(&mut frame_data, version, self.flags.unsynchronization)?;
+        }
+        writer.write_all(b"ID3")?;
+        writer.write_all(&[version.minor() as u8, 2])?;
+        writer.write_u8(self.flags.to_byte(version))?;
+        writer.write_u32::<BigEndian>(::util::synchsafe(frame_data.len() as u32))?;
+        writer.write_all(&frame_data[..])?;
+        Ok(())
+    }
+
     /// Attempts to write the ID3 tag from the file at the indicated path. If the specified path is
     /// the same path which the tag was read from, then the tag will be written to the padding if
     /// possible.
-    pub fn write_to_path<P: AsRef<Path>>(&mut self, path: P) -> ::Result<()> {
+    pub fn write_to_path<P: AsRef<Path>>(&self, path: P, version: Version) -> ::Result<()> {
         let mut file = fs::File::open(path)?;
         let location = locate_id3v2(&mut file)?
             .unwrap_or(0..0); // Create a new tag if none could be located.
 
         let mut storage = PlainStorage::new(file, location);
         let mut w = storage.writer()?;
-        self.write_to(&mut w)?;
+        self.write_to(&mut w, version)?;
         w.flush()?;
-
         Ok(())
     }
     //}}}
@@ -1886,7 +1850,7 @@ mod tests {
         tag.set_genre("Genre");
 
         let mut buffer = Vec::new();
-        tag.write_to(&mut buffer).unwrap();
+        tag.write_to(&mut buffer, Id3v24).unwrap();
 
         let tag_read = Tag::read_from(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag.title(), tag_read.title());

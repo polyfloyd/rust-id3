@@ -3,7 +3,7 @@
 //! # Modifying an existing tag
 //!
 //! ```no_run
-//! use id3::Tag;
+//! use id3::{Tag, Version};
 //!
 //! let mut tag = Tag::read_from_path("music.mp3").unwrap();
 //!
@@ -13,7 +13,7 @@
 //! // or print it the easy way
 //! println!("{}", tag.artist().unwrap());
 //!
-//! tag.write_to_path("music.mp3").unwrap();
+//! tag.write_to_path("music.mp3", Version::Id3v24).unwrap();
 //! ```
 //!
 //! # Creating a new tag
@@ -32,7 +32,7 @@
 //! // or set it the easy way
 //! tag.set_album("album");
 //!
-//! tag.write_to_path("music.mp3").unwrap();
+//! tag.write_to_path("music.mp3", Version::Id3v24).unwrap();
 //! ```
 
 #![crate_name = "id3"]
