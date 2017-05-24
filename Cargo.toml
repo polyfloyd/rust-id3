@@ -12,7 +12,6 @@ include = ["src/*", "Cargo.toml", "LICENSE", "README.md"]
 
 [dependencies]
 log = "~0.3.7"
-rand = "~0.3.15"
 byteorder = "~1.0.0"
 lazy_static = "~0.2.8"
 flate2 = "~0.2.19"

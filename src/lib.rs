@@ -46,7 +46,6 @@ extern crate flate2;
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
-extern crate rand;
 extern crate regex;
 
 pub use tag::{Tag, Version};
