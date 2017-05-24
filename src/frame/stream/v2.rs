@@ -1,12 +1,12 @@
 use byteorder::{ByteOrder, BigEndian};
 use std::io::{Read, Write};
 use frame::{Encoding,Frame};
-use ::tag;
+use ::tag::{self, Version};
 
 pub fn read(reader: &mut Read, unsynchronization: bool) -> ::Result<Option<(u32, Frame)>> {
     let id = id_or_padding!(reader, 3);
     let mut frame = Frame::new(id);
-    debug!("reading {}", frame.id); 
+    debug!("reading {}", frame.id());
 
     let mut sizebytes = [0u8; 3];
     try!(reader.read(&mut sizebytes));
@@ -26,7 +26,9 @@ pub fn write(writer: &mut Write, frame: &Frame, unsynchronization: bool) -> ::Re
     let mut content_bytes = frame.content_to_bytes(tag::Id3v22, Encoding::UTF16);
     let content_size = content_bytes.len() as u32;
 
-    try!(writer.write_all(frame.id[..3].as_bytes()));
+    let id = frame.id_for_version(Version::Id3v22)
+        .ok_or(::Error::new(::ErrorKind::InvalidInput, "Unable to downgrade frame ID to ID3v2.2"))?;
+    try!(writer.write_all(id.as_bytes()));
     let mut content_size_buf = [0u8; 4];
     BigEndian::write_u32(&mut content_size_buf, content_size);
     try!(writer.write_all(&content_size_buf[1..4]));

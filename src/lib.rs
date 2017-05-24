@@ -8,7 +8,7 @@
 //! let mut tag = Tag::read_from_path("music.mp3").unwrap();
 //!
 //! // print the artist the hard way
-//! println!("{}", tag.get("TALB").unwrap().content.text().unwrap());
+//! println!("{}", tag.get("TALB").unwrap().content().text().unwrap());
 //!
 //! // or print it the easy way
 //! println!("{}", tag.artist().unwrap());
@@ -25,8 +25,7 @@
 //! let mut tag = Tag::with_version(Version::Id3v24);
 //!
 //! // set the album the hard way
-//! let mut frame = Frame::new("TALB");
-//! frame.content = Content::Text("album".to_owned());
+//! let frame = Frame::with_content("TALB", Content::Text("album".to_string()));
 //! tag.push(frame);
 //!
 //! // or set it the easy way

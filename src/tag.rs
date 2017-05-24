@@ -1,7 +1,6 @@
 use std::fs::{self, File};
 use std::io::{self, Read, Write, Seek, SeekFrom, BufReader};
 use std::iter;
-use std::mem;
 use std::ops;
 use std::path::Path;
 
@@ -11,9 +10,18 @@ use frame::{self, Frame, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, P
 use frame::Content;
 use ::storage::{PlainStorage, Storage};
 
-static DEFAULT_FILE_DISCARD: [&'static str; 11] = [
-    "AENC", "ETCO", "EQUA", "MLLT", "POSS",
-    "SYLT", "SYTC", "RVAD", "TENC", "TLEN", "TSIZ"
+static DEFAULT_FILE_DISCARD: &[&str] = &[
+    "AENC",
+    "ETCO",
+    "EQUA",
+    "MLLT",
+    "POSS",
+    "SYLT",
+    "SYTC",
+    "RVAD",
+    "TENC",
+    "TLEN",
+    "TSIZ",
 ];
 
 
@@ -51,8 +59,6 @@ impl Version {
 /// An ID3 tag containing metadata frames.
 #[derive(Clone, Debug)]
 pub struct Tag {
-    version: Version,
-    /// The ID3 header flags.
     flags: Flags,
     /// A vector of frames included in the tag.
     frames: Vec<Frame>,
@@ -140,67 +146,20 @@ impl Flags {
 impl<'a> Tag {
     /// Creates a new ID3v2.4 tag with no frames.
     pub fn new() -> Tag {
-        Tag::with_version(Version::Id3v24)
-    }
-
-    /// Creates a new ID3 tag with the specified version.
-    pub fn with_version(version: Version) -> Tag {
         Tag {
-            version: version,
             flags: Flags::new(),
             frames: Vec::new(),
         }
     }
 
-    // Frame ID Querying {{{
-    fn artist_id(&self) -> &'static str {
-        if self.version.minor() == 2 { "TP1" } else { "TPE1" }
+    /// Creates a new ID3 tag with the specified version.
+    #[deprecated(note = "Tags now use ID3v2.4 for internal storage")]
+    pub fn with_version(_: Version) -> Tag {
+        Tag {
+            flags: Flags::new(),
+            frames: Vec::new(),
+        }
     }
-
-    fn album_artist_id(&self) -> &'static str {
-        if self.version.minor() == 2 { "TP2" } else { "TPE2" }
-    }
-
-    fn album_id(&self) -> &'static str {
-        if self.version.minor() == 2 { "TAL" } else { "TALB" }
-    }
-
-    fn title_id(&self) -> &'static str {
-        if self.version.minor() == 2 { "TT2" } else { "TIT2" }
-    }
-
-    fn genre_id(&self) -> &'static str {
-        if self.version.minor() == 2 { "TCO" } else { "TCON" }
-    }
-
-    fn year_id(&self) -> &'static str {
-        if self.version.minor() == 2 { "TYE" } else { "TYER" }
-    }
-
-    fn track_id(&self) -> &'static str {
-        if self.version.minor() == 2 { "TRK" } else { "TRCK" }
-    }
-
-    fn lyrics_id(&self) -> &'static str {
-        if self.version.minor() == 2 { "ULT" } else { "USLT" }
-    }
-
-    fn picture_id(&self) -> &'static str {
-        if self.version.minor() == 2 { "PIC" } else { "APIC" }
-    }
-
-    fn comment_id(&self) -> &'static str {
-        if self.version.minor() == 2 { "COM" } else { "COMM" }
-    }
-
-    fn txxx_id(&self) -> &'static str {
-        if self.version.minor() == 2 { "TXX" } else { "TXXX" }
-    }
-
-    fn disc_id(&self) -> &'static str {
-        if self.version.minor() == 2 { "TPA" } else { "TPOS" }
-    }
-    // }}}
 
     // id3v1 {{{
     /// Returns true if the reader might contain a valid ID3v1 tag.
@@ -229,92 +188,14 @@ impl<'a> Tag {
     // }}}
 
     /// Returns the version of the tag.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::{Tag, Version};
-    ///
-    /// let tag = Tag::with_version(Version::Id3v23);
-    /// assert_eq!(tag.version(), Version::Id3v23);
-    /// ```
+    #[deprecated(note = "Tags now use ID3v2.4 for internal storage")]
     pub fn version(&self) -> Version {
-        self.version
+        Version::Id3v24
     }
 
     /// Sets the version of this tag.
-    ///
-    /// Any frames that could not be converted to the new version will be dropped.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::{Tag, Version};
-    ///
-    /// let mut tag = Tag::with_version(Version::Id3v24);
-    /// assert_eq!(tag.version(), Version::Id3v24);
-    ///
-    /// tag.set_version(Version::Id3v23);
-    /// assert_eq!(tag.version(), Version::Id3v23);
-    /// ```
-    pub fn set_version(&mut self, version: Version) {
-        if self.version == version {
-            return;
-        }
-        let old_version = self.version;
-        let num_frames = self.frames.len();
-        let old_frames = mem::replace(&mut self.frames, Vec::with_capacity(num_frames));
-        self.frames.extend(old_frames.into_iter()
-            .filter_map(|mut frame| {
-                if Tag::convert_frame_version(&mut frame, old_version, version) {
-                    Some(frame)
-                } else {
-                    None
-                }
-            }));
-        self.version = version;
-    }
-
-    fn convert_frame_version(frame: &mut Frame, old_version: Version, new_version: Version) -> bool {
-        if old_version == new_version {
-            return true;
-        }
-        if old_version == Id3v23 && new_version == Id3v24 {
-            return true;
-        }
-        if old_version == Id3v24 && new_version == Id3v23 {
-            return true;
-        }
-
-        if (old_version == Id3v23 || old_version == Id3v24) && new_version == Id3v22 {
-            // attempt to convert the id
-            frame.id = match ::util::convert_id_3_to_2(&frame.id[..]) {
-                Some(id) => id.to_owned(),
-                None => {
-                    debug!("no ID3v2.3 to ID3v2.3 mapping for {}", frame.id);
-                    return false;
-                }
-            }
-        } else if old_version == Id3v22 && (new_version == Id3v23 || new_version == Id3v24) {
-            // attempt to convert the id
-            frame.id = match ::util::convert_id_2_to_3(&frame.id[..]) {
-                Some(id) => id.to_owned(),
-                None => {
-                    debug!("no ID3v2.2 to ID3v2.3 mapping for {}", frame.id);
-                    return false;
-                }
-            };
-
-            // if the new version is v2.4 and the frame is compressed, we must enable the
-            // data_length_indicator flag
-            if new_version == Id3v24 && frame.compression() {
-                frame.set_compression(true);
-            }
-        } else {
-            // not sure when this would ever occur but lets just say the conversion failed
-            return false;
-        }
-
-        true
-    }
+    #[deprecated(note = "Tags now use ID3v2.4 for internal storage")]
+    pub fn set_version(&mut self, _: Version) { }
 
     /// Returns an iterator over the all frames in the tag.
     ///
@@ -336,14 +217,14 @@ impl<'a> Tag {
     /// Returns an iterator over the extended texts in the tag.
     pub fn extended_texts(&'a self) -> Box<iter::Iterator<Item=&'a ExtendedText> + 'a> {
         let iter = self.frames.iter()
-            .filter_map(|frame| frame.content.extended_text());
+            .filter_map(|frame| frame.content().extended_text());
         Box::new(iter)
     }
 
     /// Returns an iterator over the extended links in the tag.
     pub fn extended_links(&'a self) -> Box<iter::Iterator<Item=&'a ExtendedLink> + 'a> {
         let iter = self.frames.iter()
-            .filter_map(|frame| frame.content.extended_link());
+            .filter_map(|frame| frame.content().extended_link());
         Box::new(iter)
     }
 
@@ -374,14 +255,14 @@ impl<'a> Tag {
     /// ```
     pub fn comments(&'a self) -> Box<iter::Iterator<Item=&'a Comment> + 'a> {
         let iter = self.frames.iter()
-            .filter_map(|frame| frame.content.comment());
+            .filter_map(|frame| frame.content().comment());
         Box::new(iter)
     }
 
     /// Returns an iterator over the extended links in the tag.
     pub fn lyrics(&'a self) -> Box<iter::Iterator<Item=&'a Lyrics> + 'a> {
         let iter = self.frames.iter()
-            .filter_map(|frame| frame.content.lyrics());
+            .filter_map(|frame| frame.content().lyrics());
         Box::new(iter)
     }
 
@@ -407,7 +288,7 @@ impl<'a> Tag {
     /// ```
     pub fn pictures(&'a self) -> Box<iter::Iterator<Item=&'a Picture> + 'a> {
         let iter = self.frames.iter()
-            .filter_map(|frame| frame.content.picture());
+            .filter_map(|frame| frame.content().picture());
         Box::new(iter)
     }
 
@@ -426,7 +307,7 @@ impl<'a> Tag {
     /// ```
     pub fn get(&self, id: &str) -> Option<&Frame> {
         self.frames.iter()
-            .find(|frame| frame.id == id)
+            .find(|frame| frame.id() == id)
     }
 
     /// Returns a vector of references to frames with the specified identifier.
@@ -447,7 +328,7 @@ impl<'a> Tag {
     pub fn get_all(&'a self, id: &str) -> Vec<&'a Frame> {
         let mut matches = Vec::new();
         for frame in self.frames.iter() {
-            if &frame.id[..] == id {
+            if frame.id() == id {
                 matches.push(frame);
             }
         }
@@ -467,37 +348,31 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.push(Frame::new("TALB"));
-    /// assert_eq!(&tag.frames().nth(0).unwrap().id[..], "TALB");
+    /// assert_eq!(tag.frames().nth(0).unwrap().id(), "TALB");
     /// ```
     #[deprecated(note = "Use add_frame")]
     pub fn push(&mut self, new_frame: Frame) -> bool {
-        self.add_frame(new_frame)
+        self.add_frame(new_frame);
+        true
     }
 
-    /// Adds the frame to the tag, replacing any conflicting frame.
-    ///
-    /// The frame identifier will attempt to be converted into the corresponding identifier for the
-    /// tag version.
-    ///
-    /// Returns whether the frame was added to the tag. The only reason the frame would not be
-    /// added to the tag is if the frame identifier could not be converted from the frame version
-    /// to the tag version.
+    /// Adds the frame to the tag, replacing and returning any conflicting frame.
     ///
     /// # Example
     /// ```
     /// use id3::{Tag, Frame};
     ///
     /// let mut tag = Tag::new();
-    /// tag.push(Frame::new("TALB"));
-    /// tag.push(Frame::new("TALB"));
-    /// assert_eq!(&tag.frames().nth(0).unwrap().id[..], "TALB");
+    /// tag.add_frame(Frame::new("TALB"));
+    /// tag.add_frame(Frame::new("TALB"));
+    /// assert_eq!(tag.frames().nth(0).unwrap().id(), "TALB");
     /// ```
-    pub fn add_frame(&mut self, new_frame: Frame) -> bool {
-        if let Some(conflict_index) = self.frames.iter().position(|frame| *frame == new_frame) {
-            self.frames.remove(conflict_index);
-        }
+    pub fn add_frame(&mut self, new_frame: Frame) -> Option<Frame> {
+        let removed = self.frames.iter()
+            .position(|frame| *frame == new_frame)
+            .map(|conflict_index| self.frames.remove(conflict_index));
         self.frames.push(new_frame);
-        true // TODO
+        removed
     }
 
     /// Adds a text frame.
@@ -508,7 +383,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.add_text_frame("TRCK", "1/13");
-    /// assert_eq!(tag.get("TRCK").unwrap().content.text().unwrap(), "1/13");
+    /// assert_eq!(tag.get("TRCK").unwrap().content().text().unwrap(), "1/13");
     /// ```
     #[deprecated(note = "Use set_text()")]
     pub fn add_text_frame<K: Into<String>, V: Into<String>>(&mut self, id: K, text: V) {
@@ -523,10 +398,10 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.set_text("TRCK", "1/13");
-    /// assert_eq!(tag.get("TRCK").unwrap().content.text().unwrap(), "1/13");
+    /// assert_eq!(tag.get("TRCK").unwrap().content().text().unwrap(), "1/13");
     /// ```
     pub fn set_text<K: Into<String>, V: Into<String>>(&mut self, id: K, text: V) {
-        self.add_frame(Frame::with_content(id, Content::Text(text.into())));
+        self.add_frame(Frame::with_content(&id.into(), Content::Text(text.into())));
     }
 
     /// Removes all frames with the specified identifier.
@@ -550,7 +425,7 @@ impl<'a> Tag {
     /// ```
     pub fn remove(&mut self, id: &str) {
         self.frames.retain(|frame| {
-            &frame.id[..] != id
+            frame.id() != id
         });
     }
 
@@ -559,12 +434,12 @@ impl<'a> Tag {
     /// `Content::Text`.
     fn text_for_frame_id(&self, id: &str) -> Option<&str> {
         self.get(id)
-            .and_then(|frame| frame.content.text())
+            .and_then(|frame| frame.content().text())
     }
 
     fn read_timestamp_frame(&self, id: &str) -> Option<Timestamp> {
         self.get(id)
-            .and_then(|frame| frame.content.text())
+            .and_then(|frame| frame.content().text())
             .and_then(|text| text.parse().ok())
     }
 
@@ -573,7 +448,7 @@ impl<'a> Tag {
     /// Internally used by track and disc getters and setters.
     fn text_pair(&self, id: &str) -> Option<(u32, Option<u32>)> {
         self.get(id)
-            .and_then(|frame| frame.content.text())
+            .and_then(|frame| frame.content().text())
             .and_then(|text| {
                 let mut split = text.splitn(2, '/');
                 if let Some(num) = split.next().unwrap().parse().ok() {
@@ -594,18 +469,16 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     ///
-    /// let mut frame = Frame::new("TXXX");
-    /// frame.content = Content::ExtendedText(frame::ExtendedText {
+    /// let frame = Frame::with_content("TXXX", Content::ExtendedText(frame::ExtendedText {
     ///     description: "description1".to_owned(),
     ///     value: "value1".to_owned()
-    /// });
+    /// }));
     /// tag.add_frame(frame);
     ///
-    /// let mut frame = Frame::new("TXXX");
-    /// frame.content = Content::ExtendedText(frame::ExtendedText {
+    /// let frame = Frame::with_content("TXXX", Content::ExtendedText(frame::ExtendedText {
     ///     description: "description2".to_owned(),
     ///     value: "value2".to_owned()
-    /// });
+    /// }));
     /// tag.add_frame(frame);
     ///
     /// assert_eq!(tag.txxx().len(), 2);
@@ -615,8 +488,8 @@ impl<'a> Tag {
     #[deprecated(note = "Use extended_texts()")]
     pub fn txxx(&self) -> Vec<(&str, &str)> {
         self.frames()
-            .filter(|frame| frame.id == self.txxx_id())
-            .filter_map(|frame| frame.content.extended_text())
+            .filter(|frame| frame.id() == "TXXX")
+            .filter_map(|frame| frame.content().extended_text())
             .map(|ext| (ext.description.as_str(), ext.value.as_str()))
             .collect()
     }
@@ -637,7 +510,7 @@ impl<'a> Tag {
     /// assert!(tag.txxx().contains(&("key2", "value2")));
     /// ```
     pub fn add_txxx<K: Into<String>, V: Into<String>>(&mut self, description: K, value: V) {
-        let frame = Frame::with_content(self.txxx_id(), Content::ExtendedText(frame::ExtendedText {
+        let frame = Frame::with_content("TXXX", Content::ExtendedText(frame::ExtendedText {
             description: description.into(),
             value: value.into(),
         }));
@@ -674,13 +547,12 @@ impl<'a> Tag {
     /// assert_eq!(tag.txxx().len(), 0);
     /// ```
     pub fn remove_txxx(&mut self, description: Option<&str>, value: Option<&str>) {
-        let id = self.txxx_id();
         self.frames.retain(|frame| {
             let mut description_match = false;
             let mut value_match = false;
 
-            if &frame.id[..] == id {
-                match frame.content {
+            if frame.id() == "TXXX" {
+                match *frame.content() {
                     Content::ExtendedText(ref ext) => {
                         match description {
                             Some(s) => description_match = s == &ext.description[..],
@@ -728,7 +600,7 @@ impl<'a> Tag {
     /// assert_eq!(&tag.pictures().nth(0).unwrap().mime_type[..], "image/png");
     /// ```
     pub fn add_picture(&mut self, picture: Picture) {
-        let frame = Frame::with_content(self.picture_id(), Content::Picture(picture));
+        let frame = Frame::with_content("APIC", Content::Picture(picture));
         self.add_frame(frame);
     }
 
@@ -759,10 +631,9 @@ impl<'a> Tag {
     /// assert_eq!(tag.pictures().nth(0).unwrap().picture_type, PictureType::Other);
     /// ```
     pub fn remove_picture_by_type(&mut self, picture_type: PictureType) {
-        let id = self.picture_id();
         self.frames.retain(|frame| {
-            if &frame.id[..] == id {
-                let pic = match frame.content {
+            if frame.id() == "APIC" {
+                let pic = match *frame.content() {
                     Content::Picture(ref picture) => picture,
                     _ => return false
                 };
@@ -800,7 +671,7 @@ impl<'a> Tag {
     /// assert_ne!(None, tag.comments().position(|c| *c == com2));
     /// ```
     pub fn add_comment(&mut self, comment: Comment) {
-        let frame = Frame::with_content(self.comment_id(), Content::Comment(comment));
+        let frame = Frame::with_content("COMM", Content::Comment(comment));
         self.add_frame(frame);
     }
 
@@ -834,13 +705,12 @@ impl<'a> Tag {
     /// assert_eq!(tag.comments().count(), 0);
     /// ```
     pub fn remove_comment(&mut self, description: Option<&str>, text: Option<&str>) {
-        let id = self.comment_id();
         self.frames.retain(|frame| {
             let mut description_match = false;
             let mut text_match = false;
 
-            if &frame.id[..] == id {
-                match frame.content {
+            if frame.id() == "COMM" {
+                match *frame.content() {
                     Content::Comment(ref comment) =>  {
                         match description {
                             Some(s) => description_match = s == &comment.description[..],
@@ -873,22 +743,19 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     /// assert!(tag.year().is_none());
     ///
-    /// let mut frame_valid = Frame::new("TYER");
-    /// frame_valid.content = Content::Text("2014".to_owned());
+    /// let frame_valid = Frame::with_content("TYER", Content::Text("2014".to_owned()));
     /// tag.add_frame(frame_valid);
     /// assert_eq!(tag.year().unwrap(), 2014);
     ///
     /// tag.remove("TYER");
     ///
-    /// let mut frame_invalid = Frame::new("TYER");
-    /// frame_invalid.content = Content::Text("nope".to_owned());
+    /// let frame_invalid = Frame::with_content("TYER", Content::Text("nope".to_owned()));
     /// tag.add_frame(frame_invalid);
     /// assert!(tag.year().is_none());
     /// ```
     pub fn year(&self) -> Option<i32> {
-        let id = self.year_id();
-        self.get(id)
-            .and_then(|frame| frame.content.text())
+        self.get("TYER")
+            .and_then(|frame| frame.content().text())
             .and_then(|text| text.trim_left_matches("0").parse().ok())
     }
 
@@ -903,8 +770,7 @@ impl<'a> Tag {
     /// assert_eq!(tag.year().unwrap(), 2014);
     /// ```
     pub fn set_year(&mut self, year: i32) {
-        let id = self.year_id();
-        self.set_text(id, format!("{:04}", year));
+        self.set_text("TYER", format!("{:04}", year));
     }
 
     /// Return the content of the TRDC frame, if any
@@ -977,14 +843,12 @@ impl<'a> Tag {
     /// use id3::frame::Content;
     ///
     /// let mut tag = Tag::new();
-    ///
-    /// let mut frame = Frame::new("TPE1");
-    /// frame.content = Content::Text("artist".to_owned());
+    /// let frame = Frame::with_content("TPE1", Content::Text("artist".to_owned()));
     /// tag.add_frame(frame);
     /// assert_eq!(tag.artist().unwrap(), "artist");
     /// ```
     pub fn artist(&self) -> Option<&str> {
-        self.text_for_frame_id(self.artist_id())
+        self.text_for_frame_id("TPE1")
     }
 
     /// Sets the artist (TPE1).
@@ -998,8 +862,7 @@ impl<'a> Tag {
     /// assert_eq!(tag.artist().unwrap(), "artist");
     /// ```
     pub fn set_artist<T: Into<String>>(&mut self, artist: T) {
-        let id = self.artist_id();
-        self.set_text(id, artist);
+        self.set_text("TPE1", artist);
     }
 
     /// Removes the artist (TPE1).
@@ -1016,8 +879,7 @@ impl<'a> Tag {
     /// assert!(tag.artist().is_none());
     /// ```
     pub fn remove_artist(&mut self) {
-        let id = self.artist_id();
-        self.remove(id);
+        self.remove("TPE1");
     }
 
     /// Sets the album artist (TPE2).
@@ -1028,14 +890,12 @@ impl<'a> Tag {
     /// use id3::frame::Content;
     ///
     /// let mut tag = Tag::new();
-    ///
-    /// let mut frame = Frame::new("TPE2");
-    /// frame.content = Content::Text("artist".to_owned());
+    /// let frame = Frame::with_content("TPE2", Content::Text("artist".to_owned()));
     /// tag.add_frame(frame);
     /// assert_eq!(tag.album_artist().unwrap(), "artist");
     /// ```
     pub fn album_artist(&self) -> Option<&str> {
-        self.text_for_frame_id(self.album_artist_id())
+        self.text_for_frame_id("TPE2")
     }
 
     /// Sets the album artist (TPE2).
@@ -1049,8 +909,7 @@ impl<'a> Tag {
     /// assert_eq!(tag.album_artist().unwrap(), "artist");
     /// ```
     pub fn set_album_artist<T: Into<String>>(&mut self, album_artist: T) {
-        let id = self.album_artist_id();
-        self.set_text(id, album_artist);
+        self.set_text("TPE2", album_artist);
     }
 
     /// Removes the album artist (TPE2).
@@ -1067,8 +926,7 @@ impl<'a> Tag {
     /// assert!(tag.album_artist().is_none());
     /// ```
     pub fn remove_album_artist(&mut self) {
-        let id = self.album_artist_id();
-        self.remove(id);
+        self.remove("TPE2");
     }
 
     /// Returns the album (TALB).
@@ -1079,14 +937,12 @@ impl<'a> Tag {
     /// use id3::frame::Content;
     ///
     /// let mut tag = Tag::new();
-    ///
-    /// let mut frame = Frame::new("TALB");
-    /// frame.content = Content::Text("album".to_owned());
+    /// let frame = Frame::with_content("TALB", Content::Text("album".to_owned()));
     /// tag.add_frame(frame);
     /// assert_eq!(tag.album().unwrap(), "album");
     /// ```
     pub fn album(&self) -> Option<&str> {
-        self.text_for_frame_id(self.album_id())
+        self.text_for_frame_id("TALB")
     }
 
     /// Sets the album (TALB).
@@ -1100,8 +956,7 @@ impl<'a> Tag {
     /// assert_eq!(tag.album().unwrap(), "album");
     /// ```
     pub fn set_album<T: Into<String>>(&mut self, album: T) {
-        let id = self.album_id();
-        self.set_text(id, album);
+        self.set_text("TALB", album);
     }
 
     /// Removes the album (TALB).
@@ -1118,8 +973,7 @@ impl<'a> Tag {
     /// assert!(tag.album().is_none());
     /// ```
     pub fn remove_album(&mut self) {
-        let id = self.album_id();
-        self.remove(id);
+        self.remove("TALB");
     }
 
     /// Returns the title (TIT2).
@@ -1130,14 +984,12 @@ impl<'a> Tag {
     /// use id3::frame::Content;
     ///
     /// let mut tag = Tag::new();
-    ///
-    /// let mut frame = Frame::new("TIT2");
-    /// frame.content = Content::Text("title".to_owned());
+    /// let frame = Frame::with_content("TIT2", Content::Text("title".to_owned()));
     /// tag.add_frame(frame);
     /// assert_eq!(tag.title().unwrap(), "title");
     /// ```
     pub fn title(&self) -> Option<&str> {
-        self.text_for_frame_id(self.title_id())
+        self.text_for_frame_id("TIT2")
     }
 
     /// Sets the title (TIT2).
@@ -1151,8 +1003,7 @@ impl<'a> Tag {
     /// assert_eq!(tag.title().unwrap(), "title");
     /// ```
     pub fn set_title<T: Into<String>>(&mut self, title: T) {
-        let id = self.title_id();
-        self.set_text(id, title);
+        self.set_text("TIT2", title);
     }
 
     /// Removes the title (TIT2).
@@ -1169,8 +1020,7 @@ impl<'a> Tag {
     /// assert!(tag.title().is_none());
     /// ```
     pub fn remove_title(&mut self) {
-        let id = self.title_id();
-        self.remove(id);
+        self.remove("TIT2");
     }
 
     /// Returns the duration (TLEN).
@@ -1182,8 +1032,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     ///
-    /// let mut frame = Frame::new("TLEN");
-    /// frame.content = Content::Text("350".to_owned());
+    /// let frame = Frame::with_content("TLEN", Content::Text("350".to_owned()));
     /// tag.add_frame(frame);
     /// assert_eq!(tag.duration().unwrap(), 350);
     /// ```
@@ -1231,14 +1080,12 @@ impl<'a> Tag {
     /// use id3::frame::Content;
     ///
     /// let mut tag = Tag::new();
-    ///
-    /// let mut frame = Frame::new("TCON");
-    /// frame.content = Content::Text("genre".to_owned());
+    /// let frame = Frame::with_content("TCON", Content::Text("genre".to_owned()));
     /// tag.add_frame(frame);
     /// assert_eq!(tag.genre().unwrap(), "genre");
     /// ```
     pub fn genre(&self) -> Option<&str> {
-        self.text_for_frame_id(self.genre_id())
+        self.text_for_frame_id("TCON")
     }
 
     /// Sets the genre (TCON).
@@ -1252,8 +1099,7 @@ impl<'a> Tag {
     /// assert_eq!(tag.genre().unwrap(), "genre");
     /// ```
     pub fn set_genre<T: Into<String>>(&mut self, genre: T) {
-        let id = self.genre_id();
-        self.set_text(id, genre);
+        self.set_text("TCON", genre);
     }
 
     /// Removes the genre (TCON).
@@ -1270,13 +1116,12 @@ impl<'a> Tag {
     /// assert!(tag.genre().is_none());
     /// ```
     pub fn remove_genre(&mut self) {
-        let id = self.genre_id();
-        self.remove(id);
+        self.remove("TCON");
     }
 
     /// Returns the (disc, total_discs) tuple.
     fn disc_pair(&self) -> Option<(u32, Option<u32>)> {
-        self.text_pair(self.disc_id())
+        self.text_pair("TPOS")
     }
 
     /// Returns the disc number (TPOS).
@@ -1289,15 +1134,13 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     /// assert!(tag.disc().is_none());
     ///
-    /// let mut frame_valid = Frame::new("TPOS");
-    /// frame_valid.content = Content::Text("4".to_owned());
+    /// let mut frame_valid = Frame::with_content("TPOS", Content::Text("4".to_owned()));
     /// tag.add_frame(frame_valid);
     /// assert_eq!(tag.disc().unwrap(), 4);
     ///
     /// tag.remove("TPOS");
     ///
-    /// let mut frame_invalid = Frame::new("TPOS");
-    /// frame_invalid.content = Content::Text("nope".to_owned());
+    /// let mut frame_invalid = Frame::with_content("TPOS", Content::Text("nope".to_owned()));
     /// tag.add_frame(frame_invalid);
     /// assert!(tag.disc().is_none());
     /// ```
@@ -1317,12 +1160,11 @@ impl<'a> Tag {
     /// assert_eq!(tag.disc().unwrap(), 2);
     /// ```
     pub fn set_disc(&mut self, disc: u32) {
-        let text = match self.text_pair(self.disc_id()).and_then(|(_, total_discs)| total_discs) {
+        let text = match self.text_pair("TPOS").and_then(|(_, total_discs)| total_discs) {
             Some(n) => format!("{}/{}", disc, n),
             None => format!("{}", disc),
         };
-        let id = self.disc_id();
-        self.set_text(id, text);
+        self.set_text("TPOS", text);
     }
 
     /// Removes the disc number (TPOS).
@@ -1339,8 +1181,7 @@ impl<'a> Tag {
     /// assert!(tag.disc().is_none());
     /// ```
     pub fn remove_disc(&mut self) {
-        let id = self.disc_id();
-        self.remove(id);
+        self.remove("TPOS");
     }
 
     /// Returns the total number of discs (TPOS).
@@ -1353,20 +1194,18 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     /// assert!(tag.disc().is_none());
     ///
-    /// let mut frame_valid = Frame::new("TPOS");
-    /// frame_valid.content = Content::Text("4/10".to_owned());
+    /// let frame_valid = Frame::with_content("TPOS", Content::Text("4/10".to_owned()));
     /// tag.add_frame(frame_valid);
     /// assert_eq!(tag.total_discs().unwrap(), 10);
     ///
     /// tag.remove("TPOS");
     ///
-    /// let mut frame_invalid = Frame::new("TPOS");
-    /// frame_invalid.content = Content::Text("4/nope".to_owned());
+    /// let frame_invalid = Frame::with_content("TPOS", Content::Text("4/nope".to_owned()));
     /// tag.add_frame(frame_invalid);
     /// assert!(tag.total_discs().is_none());
     /// ```
     pub fn total_discs(&self) -> Option<u32> {
-        self.text_pair(self.disc_id())
+        self.text_pair("TPOS")
             .and_then(|(_, total_discs)| total_discs)
     }
 
@@ -1381,12 +1220,11 @@ impl<'a> Tag {
     /// assert_eq!(tag.total_discs().unwrap(), 10);
     /// ```
     pub fn set_total_discs(&mut self, total_discs: u32) {
-        let text = match self.text_pair(self.disc_id()) {
+        let text = match self.text_pair("TPOS") {
             Some((disc, _)) => format!("{}/{}", disc, total_discs),
             None => format!("1/{}", total_discs)
         };
-        let id = self.disc_id();
-        self.set_text(id, text);
+        self.set_text("TPOS", text);
     }
 
     /// Removes the total number of discs (TPOS).
@@ -1403,9 +1241,8 @@ impl<'a> Tag {
     /// assert!(tag.total_discs().is_none());
     /// ```
     pub fn remove_total_discs(&mut self) {
-        if let Some((disc, _)) = self.text_pair(self.disc_id()) {
-            let id = self.disc_id();
-            self.set_text(id, format!("{}", disc));
+        if let Some((disc, _)) = self.text_pair("TPOS") {
+            self.set_text("TPOS", format!("{}", disc));
         }
     }
 
@@ -1419,20 +1256,18 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     /// assert!(tag.track().is_none());
     ///
-    /// let mut frame_valid = Frame::new("TRCK");
-    /// frame_valid.content = Content::Text("4".to_owned());
+    /// let frame_valid = Frame::with_content("TRCK", Content::Text("4".to_owned()));
     /// tag.add_frame(frame_valid);
     /// assert_eq!(tag.track().unwrap(), 4);
     ///
     /// tag.remove("TRCK");
     ///
-    /// let mut frame_invalid = Frame::new("TRCK");
-    /// frame_invalid.content = Content::Text("nope".to_owned());
+    /// let frame_invalid = Frame::with_content("TRCK", Content::Text("nope".to_owned()));
     /// tag.add_frame(frame_invalid);
     /// assert!(tag.track().is_none());
     /// ```
     pub fn track(&self) -> Option<u32> {
-        self.text_pair(self.track_id())
+        self.text_pair("TRCK")
             .map(|(track, _)| track)
     }
 
@@ -1447,12 +1282,11 @@ impl<'a> Tag {
     /// assert_eq!(tag.track().unwrap(), 10);
     /// ```
     pub fn set_track(&mut self, track: u32) {
-        let text = match self.text_pair(self.track_id()).and_then(|(_, total_tracks)| total_tracks) {
+        let text = match self.text_pair("TRCK").and_then(|(_, total_tracks)| total_tracks) {
             Some(n) => format!("{}/{}", track, n),
             None => format!("{}", track)
         };
-        let id = self.track_id();
-        self.set_text(id, text);
+        self.set_text("TRCK", text);
     }
 
     /// Removes the track number (TRCK).
@@ -1469,8 +1303,7 @@ impl<'a> Tag {
     /// assert!(tag.track().is_none());
     /// ```
     pub fn remove_track(&mut self) {
-        let id = self.track_id();
-        self.remove(id);
+        self.remove("TRCK");
     }
 
     /// Returns the total number of tracks (TRCK).
@@ -1483,20 +1316,18 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     /// assert!(tag.total_tracks().is_none());
     ///
-    /// let mut frame_valid = Frame::new("TRCK");
-    /// frame_valid.content = Content::Text("4/10".to_owned());
+    /// let frame_valid = Frame::with_content("TRCK", Content::Text("4/10".to_owned()));
     /// tag.add_frame(frame_valid);
     /// assert_eq!(tag.total_tracks().unwrap(), 10);
     ///
     /// tag.remove("TRCK");
     ///
-    /// let mut frame_invalid = Frame::new("TRCK");
-    /// frame_invalid.content = Content::Text("4/nope".to_owned());
+    /// let frame_invalid = Frame::with_content("TRCK", Content::Text("4/nope".to_owned()));
     /// tag.add_frame(frame_invalid);
     /// assert!(tag.total_tracks().is_none());
     /// ```
     pub fn total_tracks(&self) -> Option<u32> {
-        self.text_pair(self.track_id())
+        self.text_pair("TRCK")
             .and_then(|(_, total_tracks)| total_tracks)
     }
 
@@ -1511,12 +1342,11 @@ impl<'a> Tag {
     /// assert_eq!(tag.total_tracks().unwrap(), 10);
     /// ```
     pub fn set_total_tracks(&mut self, total_tracks: u32) {
-        let text = match self.text_pair(self.track_id()) {
+        let text = match self.text_pair("TRCK") {
             Some((track, _)) => format!("{}/{}", track, total_tracks),
             None => format!("1/{}", total_tracks)
         };
-        let id = self.track_id();
-        self.set_text(id, text);
+        self.set_text("TRCK", text);
     }
 
     /// Removes the total number of tracks (TCON).
@@ -1533,9 +1363,8 @@ impl<'a> Tag {
     /// assert!(tag.total_tracks().is_none());
     /// ```
     pub fn remove_total_tracks(&mut self) {
-        if let Some((track, _)) = self.text_pair(self.track_id()) {
-            let id = self.track_id();
-            self.set_text(id, format!("{}", track));
+        if let Some((track, _)) = self.text_pair("TRCK") {
+            self.set_text("TRCK", format!("{}", track));
         }
     }
 
@@ -1554,10 +1383,9 @@ impl<'a> Tag {
     /// });
     /// assert_eq!(tag.lyrics().nth(0).unwrap().text, "The lyrics");
     /// ```
-    #[deprecated]
+    #[deprecated(note = "There can be more than one lyrics frame")]
     pub fn set_lyrics(&mut self, lyrics: Lyrics) {
-        let id = self.lyrics_id();
-        let frame = Frame::with_content(id, Content::Lyrics(lyrics));
+        let frame = Frame::with_content("USLT", Content::Lyrics(lyrics));
         self.add_frame(frame);
     }
 
@@ -1578,10 +1406,9 @@ impl<'a> Tag {
     /// tag.remove_lyrics();
     /// assert_eq!(0, tag.lyrics().count());
     /// ```
-    #[deprecated]
+    #[deprecated(note = "There can be more than one lyrics frame")]
     pub fn remove_lyrics(&mut self) {
-        let id = self.lyrics_id();
-        self.remove(id);
+        self.remove("USLT");
     }
     //}}}
 
@@ -1645,14 +1472,14 @@ impl<'a> Tag {
 
         let mut version_buf = [0; 2];
         reader.read_exact(&mut version_buf)?;
-        tag.version = match version_buf[0] {
+        let version = match version_buf[0] {
             2 => Version::Id3v22,
             3 => Version::Id3v23,
             4 => Version::Id3v24,
             _ => return Err(::Error::new(::ErrorKind::UnsupportedVersion(version_buf[0]) , "unsupported id3 tag version")),
         };
 
-        tag.flags = Flags::from_byte(reader.read_u8()?, tag.version);
+        tag.flags = Flags::from_byte(reader.read_u8()?, version);
 
         if tag.flags.compression {
             debug!("id3v2.2 compression is unsupported");
@@ -1676,7 +1503,7 @@ impl<'a> Tag {
         }
 
         while offset < tag_size + 10 {
-            let (bytes_read, frame) = match Frame::read_from(reader, tag.version, tag.flags.unsynchronization) {
+            let (bytes_read, frame) = match Frame::read_from(reader, version, tag.flags.unsynchronization) {
                 Ok(opt) => match opt {
                     Some(frame) => frame,
                     None => break //padding
@@ -1708,7 +1535,7 @@ impl<'a> Tag {
             .filter(|frame| {
                 !(frame.tag_alter_preservation()
                   || (frame.file_alter_preservation()
-                      || DEFAULT_FILE_DISCARD.contains(&&frame.id[..])))
+                      || DEFAULT_FILE_DISCARD.contains(&&frame.id())))
             });
 
         let mut frame_data = Vec::new();
@@ -1742,7 +1569,7 @@ impl<'a> Tag {
 
 impl From<::v1::Tag> for Tag {
     fn from(tag_v1: ::v1::Tag) -> Tag {
-        let mut tag = Tag::with_version(Version::Id3v24);
+        let mut tag = Tag::new();
         if tag_v1.title.len() > 0 {
             tag.set_title(tag_v1.title.clone());
         }
@@ -1753,8 +1580,7 @@ impl From<::v1::Tag> for Tag {
             tag.set_album(tag_v1.album.clone());
         }
         if tag_v1.year.len() > 0 {
-            let id = tag.year_id();
-            tag.set_text(id, tag_v1.year.clone());
+            tag.set_text("TYER", tag_v1.year.clone());
         }
         if tag_v1.comment.len() > 0 {
             tag.add_comment(Comment {

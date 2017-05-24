@@ -8,7 +8,7 @@ use ::tag;
 pub fn read(reader: &mut Read) -> ::Result<Option<(u32, Frame)>> {
     let id = id_or_padding!(reader, 4);
     let mut frame = Frame::new(id);
-    debug!("reading {}", frame.id);
+    debug!("reading {}", frame.id());
 
     let content_size = ::util::unsynchsafe(try!(reader.read_u32::<BigEndian>()));
 
@@ -23,10 +23,10 @@ pub fn read(reader: &mut Read) -> ::Result<Option<(u32, Frame)>> {
     frame.flags.data_length_indicator = frameflags & 0x01 != 0;
 
     if frame.flags.encryption {
-        debug!("[{}] encryption is not supported", frame.id);
+        debug!("[{}] encryption is not supported", frame.id());
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "encryption is not supported"));
     } else if frame.flags.grouping_identity {
-        debug!("[{}] grouping identity is not supported", frame.id);
+        debug!("[{}] grouping identity is not supported", frame.id());
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "grouping identity is not supported"));
     }
 
@@ -53,7 +53,7 @@ pub fn write(writer: &mut Write, frame: &Frame) -> ::Result<u32> {
     let decompressed_size = content_size;
 
     if frame.flags.compression {
-        debug!("[{}] compressing frame content", frame.id);
+        debug!("[{}] compressing frame content", frame.id());
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::Default);
         try!(encoder.write_all(&content_bytes[..]));
         content_bytes = try!(encoder.finish());
@@ -64,11 +64,11 @@ pub fn write(writer: &mut Write, frame: &Frame) -> ::Result<u32> {
         content_size += 4;
     }
 
-    try!(writer.write_all(frame.id[..4].as_bytes()));
+    try!(writer.write_all(frame.id().as_bytes()));
     try!(writer.write_u32::<BigEndian>(::util::synchsafe(content_size)));;
     try!(writer.write_all(&frame.flags.to_bytes(0x4)[..]));
     if frame.flags.data_length_indicator {
-        debug!("[{}] adding data length indicator", frame.id);
+        debug!("[{}] adding data length indicator", frame.id());
         try!(writer.write_u32::<BigEndian>(::util::synchsafe(decompressed_size)));
     }
     if frame.flags.unsynchronization {

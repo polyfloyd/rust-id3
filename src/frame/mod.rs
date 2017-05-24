@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
+use std::str;
 
 pub use self::encoding::Encoding;
 pub use self::content::{Content, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType};
@@ -13,7 +14,7 @@ use flate2::read::ZlibDecoder;
 use self::stream::{v2, v3, v4};
 
 use parsers::{self, DecoderRequest, EncoderRequest};
-use ::tag;
+use ::tag::{self, Version};
 
 mod encoding;
 mod content;
@@ -30,11 +31,11 @@ mod timestamp;
 #[derive(Clone, Debug, Eq)]
 pub struct Frame {
     /// The frame identifier.
-    pub id: String,
+    id: [u8; 4],
+    /// The parsed content of the frame.
+    content: Content,
     /// The frame flags.
     flags: Flags,
-    /// The parsed content of the frame.
-    pub content: Content,
 }
 
 impl PartialEq for Frame {
@@ -62,18 +63,64 @@ impl Hash for Frame {
 
 impl Frame {
     /// Creates a new ID3v2.3 frame with the specified identifier.
+    ///
+    /// # Panics
+    /// If the id's length is not 3 or 4 bytes long or not known.
 //    #[deprecated(note = "Use with_content")]
     pub fn new<T: Into<String>>(id: T) -> Frame {
-        Frame::with_content(id, Content::Unknown(Vec::new()))
+        Frame::with_content(&id.into(), Content::Unknown(Vec::new()))
     }
 
     /// Creates a frame with the specified ID and content.
-    pub fn with_content<T: Into<String>>(id: T, content: Content) -> Frame {
+    ///
+    /// Both ID3v2.2 and >ID3v2.3 IDs are accepted, although they will be converted to ID3v2.3
+    /// format.
+    ///
+    /// # Panics
+    /// If the id's length is not 3 or 4 bytes long or not known.
+    pub fn with_content(id: &str, content: Content) -> Frame {
+        assert!({
+            let l = id.bytes().count();
+            l == 3 || l == 4
+        });
         Frame {
-            id: id.into(),
-            flags: Flags::new(),
+            id: {
+                let idv3 = if id.len() == 3 {
+                    // ID3v2.3 supports all ID3v2.2 frames, unwrapping should be safe.
+                    ::util::convert_id_2_to_3(id).unwrap()
+                } else {
+                    id
+                };
+                let mut b = idv3.bytes();
+                [
+                    b.next().unwrap(),
+                    b.next().unwrap(),
+                    b.next().unwrap(),
+                    b.next().unwrap(),
+                ]
+            },
             content: content,
+            flags: Flags::new(),
         }
+    }
+
+    /// Returns the 4-byte ID of this frame.
+    pub fn id(&self) -> &str {
+        str::from_utf8(&self.id).unwrap()
+    }
+
+    /// Returns the ID that is compatible with specified version or None if no ID is available in
+    /// that version.
+    pub fn id_for_version(&self, version: Version) -> Option<&str> {
+        match version {
+            Version::Id3v22 => ::util::convert_id_3_to_2(self.id()),
+            Version::Id3v23|Version::Id3v24 => Some(str::from_utf8(&self.id).unwrap()),
+        }
+    }
+
+    /// Returns the content of the frame.
+    pub fn content(&self) -> &Content {
+        &self.content
     }
 
     // Getters/Setters
@@ -159,7 +206,7 @@ impl Frame {
         };
 
         let result = try!(parsers::decode(DecoderRequest {
-            id: &self.id[..],
+            id: &self.id(),
             data: match decompressed_opt {
                 Some(ref decompressed) => &decompressed[..],
                 None => data
@@ -180,15 +227,13 @@ impl Frame {
     /// ```
     /// use id3::frame::{self, Frame, Content};
     ///
-    /// let mut title_frame = Frame::new("TIT2");
-    /// title_frame.content = Content::Text("title".to_owned());
+    /// let title_frame = Frame::with_content("TIT2", Content::Text("title".to_owned()));
     /// assert_eq!(&title_frame.text().unwrap()[..], "title");
     ///
-    /// let mut txxx_frame = Frame::new("TXXX");
-    /// txxx_frame.content = Content::ExtendedText(frame::ExtendedText {
+    /// let mut txxx_frame = Frame::with_content("TXXX", Content::ExtendedText(frame::ExtendedText {
     ///     description: "description".to_owned(),
     ///     value: "value".to_owned()
-    /// });
+    /// }));
     /// assert_eq!(&txxx_frame.text().unwrap()[..], "description: value");
     /// ```
     #[deprecated(note = "Format using fmt::Display")]

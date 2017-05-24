@@ -8,7 +8,7 @@ use ::tag;
 pub fn read(reader: &mut Read, unsynchronization: bool) -> ::Result<Option<(u32, Frame)>> {
     let id = id_or_padding!(reader, 4);
     let mut frame = Frame::new(id);
-    debug!("reading {}", frame.id); 
+    debug!("reading {}", frame.id());
 
     let content_size = try!(reader.read_u32::<BigEndian>());
 
@@ -21,10 +21,10 @@ pub fn read(reader: &mut Read, unsynchronization: bool) -> ::Result<Option<(u32,
     frame.flags.grouping_identity = frameflags & 0x20 != 0;
 
     if frame.flags.encryption {
-        debug!("[{}] encryption is not supported", frame.id);
+        debug!("[{}] encryption is not supported", frame.id());
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "encryption is not supported"));
     } else if frame.flags.grouping_identity {
-        debug!("[{}] grouping identity is not supported", frame.id);
+        debug!("[{}] grouping identity is not supported", frame.id());
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "grouping identity is not supported"));
     }
 
@@ -50,14 +50,14 @@ pub fn write(writer: &mut Write, frame: &Frame, unsynchronization: bool) -> ::Re
     let decompressed_size = content_size;
 
     if frame.flags.compression {
-        debug!("[{}] compressing frame content", frame.id);
+        debug!("[{}] compressing frame content", frame.id());
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::Default);
         try!(encoder.write_all(&content_bytes[..]));
         content_bytes = try!(encoder.finish());
         content_size = content_bytes.len() as u32 + 4;
     }
 
-    try!(writer.write_all(frame.id[..4].as_bytes()));
+    try!(writer.write_all(frame.id().as_bytes()));
     try!(writer.write_u32::<BigEndian>(content_size));
     try!(writer.write_all(&frame.flags.to_bytes(0x3)[..]));
     if frame.flags.compression {
