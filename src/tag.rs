@@ -316,7 +316,7 @@ impl<'a> Tag {
         true
     }
 
-    /// Returns a vector of references to all frames in the tag.
+    /// Returns an iterator over the all frames in the tag.
     ///
     /// # Example
     /// ```
@@ -612,6 +612,7 @@ impl<'a> Tag {
     /// assert!(tag.txxx().contains(&("description1", "value1")));
     /// assert!(tag.txxx().contains(&("description2", "value2")));
     /// ```
+    #[deprecated(note = "Use extended_texts()")]
     pub fn txxx(&self) -> Vec<(&str, &str)> {
         self.frames()
             .filter(|frame| frame.id == self.txxx_id())
