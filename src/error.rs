@@ -17,8 +17,8 @@ pub enum ErrorKind {
     /// An error kind indicating that the reader does not contain an ID3 tag.
     NoTag,
     /// An error kind indicating that the reader contains an unsupported ID3 tag version. Contains
-    /// the version that was detected in the tag.
-    UnsupportedVersion(u8),
+    /// the major and minor versions that were detected in the tag.
+    UnsupportedVersion(u8, u8),
     /// An error kind indicating that parsing error has occurred.
     Parsing,
     /// An error kind indicating that some input was invalid.

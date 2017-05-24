@@ -1477,7 +1477,7 @@ impl<'a> Tag {
             2 => Version::Id3v22,
             3 => Version::Id3v23,
             4 => Version::Id3v24,
-            _ => return Err(::Error::new(::ErrorKind::UnsupportedVersion(version_buf[0]) , "unsupported id3 tag version")),
+            _ => return Err(::Error::new(::ErrorKind::UnsupportedVersion(version_buf[1], version_buf[0]) , "unsupported id3 tag version")),
         };
 
         tag.flags = Flags::from_byte(reader.read_u8()?, version);
@@ -1611,7 +1611,7 @@ fn locate_id3v2<R>(reader: &mut R) -> ::Result<Option<ops::Range<u64>>>
     }
     match header[3] {
         2|3|4 => (),
-        _ => return Err(::Error::new(::ErrorKind::UnsupportedVersion(header[3]) , "unsupported id3 tag version")),
+        _ => return Err(::Error::new(::ErrorKind::UnsupportedVersion(header[4], header[3]) , "unsupported id3 tag version")),
     };
 
     let size = unsynch::decode_u32(BigEndian::read_u32(&header[6..10]));
