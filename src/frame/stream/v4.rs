@@ -6,14 +6,14 @@ use flate2::Compression;
 use ::tag;
 use ::unsynch;
 
-pub fn read(reader: &mut Read) -> ::Result<Option<(u32, Frame)>> {
+pub fn read(reader: &mut Read) -> ::Result<Option<(usize, Frame)>> {
     let id = id_or_padding!(reader, 4);
     let mut frame = Frame::new(id);
     debug!("reading {}", frame.id());
 
-    let content_size = unsynch::decode_u32(try!(reader.read_u32::<BigEndian>()));
+    let content_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?);
 
-    let frameflags = try!(reader.read_u16::<BigEndian>());
+    let frameflags = reader.read_u16::<BigEndian>()?;
     frame.flags.tag_alter_preservation = frameflags & 0x4000 != 0;
     frame.flags.file_alter_preservation = frameflags & 0x2000 != 0;
     frame.flags.read_only = frameflags & 0x1000 != 0;
@@ -33,19 +33,12 @@ pub fn read(reader: &mut Read) -> ::Result<Option<(u32, Frame)>> {
 
     let mut read_size = content_size;
     if frame.flags.data_length_indicator {
-        let _decompressed_size = unsynch::decode_u32(try!(reader.read_u32::<BigEndian>()));
+        let _decompressed_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?);
         read_size -= 4;
     }
+    frame.content = super::decode_frame_content(reader.take(read_size as u64), frame.id(), frame.flags)?;
 
-    let mut data = Vec::<u8>::with_capacity(read_size as usize);
-    try!(reader.take(read_size as u64).read_to_end(&mut data));
-    if frame.flags.unsynchronization {
-        unsynch::decode_vec(&mut data);
-    }
-
-    try!(frame.parse_data(&data[..]));
-
-    Ok(Some((10 + content_size, frame)))
+    Ok(Some((10 + content_size as usize, frame)))
 }
 
 pub fn write(writer: &mut Write, frame: &Frame) -> ::Result<u32> {

@@ -4,23 +4,18 @@ use frame::{Encoding,Frame};
 use ::tag::{self, Version};
 use ::unsynch;
 
-pub fn read(reader: &mut Read, unsynchronization: bool) -> ::Result<Option<(u32, Frame)>> {
+pub fn read(reader: &mut Read, unsynchronization: bool) -> ::Result<Option<(usize, Frame)>> {
     let id = id_or_padding!(reader, 3);
     let mut frame = Frame::new(id);
+    frame.flags.unsynchronization = unsynchronization;
     debug!("reading {}", frame.id());
 
     let mut sizebytes = [0u8; 3];
-    try!(reader.read(&mut sizebytes));
+    reader.read(&mut sizebytes)?;
     let read_size = ((sizebytes[0] as u32) << 16) | ((sizebytes[1] as u32) << 8) | sizebytes[2] as u32;
+    frame.content = super::decode_frame_content(reader.take(read_size as u64), frame.id(), frame.flags)?;
 
-    let mut data = Vec::<u8>::with_capacity(read_size as usize);
-    try!(reader.take(read_size as u64).read_to_end(&mut data));
-    if unsynchronization {
-        unsynch::decode_vec(&mut data);
-    }
-    try!(frame.parse_data(&data));
-
-    Ok(Some((6 + read_size, frame)))
+    Ok(Some((6 + read_size as usize, frame)))
 }
 
 pub fn write(writer: &mut Write, frame: &Frame, unsynchronization: bool) -> ::Result<u32> {

@@ -1,19 +1,17 @@
 use std::borrow::Cow;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::io::{Read, Write};
+use std::io::{self, Write};
 use std::str;
 
 pub use self::encoding::Encoding;
 pub use self::content::{Content, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType};
 pub use self::timestamp::Timestamp;
 
-use flate2::read::ZlibDecoder;
-
 use self::flags::Flags;
 use self::stream::{v2, v3, v4};
 
-use parsers::{self, DecoderRequest, EncoderRequest};
+use parsers::{self, EncoderRequest};
 use ::tag::{self, Version};
 use ::unsynch;
 
@@ -163,11 +161,12 @@ impl Frame {
     ///
     /// Only reading from versions 2, 3, and 4 is supported. Attempting to read any other version
     /// will return an error with kind `UnsupportedVersion`.
-    pub fn read_from(reader: &mut Read, version: tag::Version, unsynchronization: bool) -> ::Result<Option<(u32, Frame)>> {
+    pub fn read_from<R>(reader: &mut R, version: tag::Version, unsynchronization: bool) -> ::Result<Option<(usize, Frame)>>
+        where R: io::Read {
         match version {
-            tag::Id3v22 => v2::read(reader as &mut Read, unsynchronization),
+            tag::Id3v22 => v2::read(reader, unsynchronization),
             tag::Id3v23 => v3::read(reader, unsynchronization),
-            tag::Id3v24 => v4::read(reader as &mut Read),
+            tag::Id3v24 => v4::read(reader),
         }
     }
 
@@ -197,25 +196,7 @@ impl Frame {
     ///
     /// Returns `Err` if the data is invalid for the frame type.
     fn parse_data(&mut self, data: &[u8]) -> ::Result<()> {
-        let decompressed_opt = if self.flags.compression {
-            let mut decoder = ZlibDecoder::new(data);
-            let mut decompressed = Vec::new();
-            try!(decoder.read_to_end(&mut decompressed));
-            Some(decompressed)
-        } else {
-            None
-        };
-
-        let result = try!(parsers::decode(DecoderRequest {
-            id: &self.id(),
-            data: match decompressed_opt {
-                Some(ref decompressed) => &decompressed[..],
-                None => data
-            }
-        }));
-
-        self.content = result.content;
-
+        self.content = stream::decode_frame_content(io::Cursor::new(data), self.id(), self.flags)?;
         Ok(())
     }
     // }}}

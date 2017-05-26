@@ -1,25 +1,32 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use std::io::{Read, Write};
-use frame::{Encoding,Frame};
+use std::io::{self, Read, Write};
+use std::str;
+use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
+use frame::{Encoding,Frame};
 use ::tag;
 use ::unsynch;
 
-pub fn read(reader: &mut Read, unsynchronization: bool) -> ::Result<Option<(u32, Frame)>> {
-    let id = id_or_padding!(reader, 4);
+pub fn read<R>(reader: &mut R, unsynchronization: bool) -> ::Result<Option<(usize, Frame)>>
+    where R: io::Read {
+    let mut frame_header = [0; 10];
+    let nread = reader.read(&mut frame_header)?;
+    if nread < frame_header.len() || frame_header[0] == 0x00 {
+        return Ok(None);
+    }
+    let id = str::from_utf8(&frame_header[0..4]).unwrap(); // FIXME
+
     let mut frame = Frame::new(id);
-    debug!("reading {}", frame.id());
 
-    let content_size = try!(reader.read_u32::<BigEndian>());
-
-    let frameflags = try!(reader.read_u16::<BigEndian>());
+    let content_size = BigEndian::read_u32(&frame_header[4..8]) as usize;
+    let frameflags = BigEndian::read_u16(&frame_header[8..10]);
     frame.flags.tag_alter_preservation = frameflags & 0x8000 != 0;
     frame.flags.file_alter_preservation = frameflags & 0x4000 != 0;
     frame.flags.read_only = frameflags & 0x2000 != 0;
     frame.flags.compression = frameflags & 0x80 != 0;
     frame.flags.encryption = frameflags & 0x40 != 0;
     frame.flags.grouping_identity = frameflags & 0x20 != 0;
+    frame.flags.unsynchronization = unsynchronization;
 
     if frame.flags.encryption {
         debug!("[{}] encryption is not supported", frame.id());
@@ -29,20 +36,15 @@ pub fn read(reader: &mut Read, unsynchronization: bool) -> ::Result<Option<(u32,
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "grouping identity is not supported"));
     }
 
-    let mut read_size = content_size;
-    if frame.flags.compression {
-        let _decompressed_size = try!(reader.read_u32::<BigEndian>());
-        read_size -= 4;
-    }
+    let read_size = if frame.flags.compression {
+        let _decompressed_size = reader.read_u32::<BigEndian>()?;
+        content_size - 4
+    } else {
+        content_size
+    };
+    frame.content = super::decode_frame_content(reader.take(read_size as u64), id, frame.flags)?;
 
-    let mut data = Vec::<u8>::with_capacity(read_size as usize);
-    try!(reader.take(read_size as u64).read_to_end(&mut data));
-    if unsynchronization {
-        unsynch::decode_vec(&mut data);
-    }
-    try!(frame.parse_data(&data));
-
-    Ok(Some((10 + content_size, frame)))
+    Ok(Some((10 + content_size as usize, frame)))
 }
 
 pub fn write(writer: &mut Write, frame: &Frame, unsynchronization: bool) -> ::Result<u32> {

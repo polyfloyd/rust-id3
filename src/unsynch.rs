@@ -2,6 +2,9 @@
 //! existing software and hardware. There is no use in 'unsynchronising' tags if the file is only
 //! to be processed only by ID3v2 aware software and hardware. Unsynchronisation is only useful
 //! with tags in MPEG 1/2 layer I, II and III, MPEG 2.5 and AAC files.
+use std::cmp;
+use std::io;
+use std::mem;
 
 
 /// Returns the synchsafe variant of a `u32` value.
@@ -20,6 +23,64 @@ pub fn decode_u32(n: u32) -> u32 {
         | (n & 0xFF000000) >> 3
 }
 
+/// Decoder for an unsynchronized stream of bytes.
+///
+/// The decoder has an internal buffer.
+pub struct Reader<R>
+    where R: io::Read {
+    reader: R,
+    buf: [u8; 8192],
+    next: usize,
+    available: usize,
+    discard_next_null_byte: bool,
+}
+
+impl<R> Reader<R>
+    where R: io::Read {
+    pub fn new(reader: R) -> Reader<R> {
+        Reader {
+            reader,
+            buf: [0; 8192],
+            next: 0,
+            available: 0,
+            discard_next_null_byte: false,
+        }
+    }
+}
+
+impl<R> io::Read for Reader<R>
+    where R: io::Read {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if self.next >= self.available {
+            self.available = self.reader.read(&mut self.buf)?;
+            self.next = 0;
+            if self.available == 0 {
+                return Ok(0);
+            }
+        }
+        if self.discard_next_null_byte && self.buf[self.next] == 0x00 {
+            self.next += 1;
+        }
+        self.discard_next_null_byte = false;
+
+        let max = cmp::min(self.available - self.next, buf.len());
+        let mut copy_range = self.next..self.next;
+        while copy_range.end - copy_range.start < max {
+            copy_range.end += 1;
+            if self.buf[copy_range.end - 1] == 0xff {
+                self.discard_next_null_byte = true;
+                break;
+            }
+        }
+
+        let copy_num = copy_range.end - copy_range.start;
+        buf[0..copy_num].copy_from_slice(&self.buf[copy_range]);
+        self.next += copy_num;
+        assert!(self.next <= self.available);
+        Ok(copy_num)
+    }
+}
+
 /// Applies the unsynchronization scheme to a byte buffer.
 pub fn encode_vec(buffer: &mut Vec<u8>) {
     let mut repeat_next_null_byte = false;
@@ -36,15 +97,10 @@ pub fn encode_vec(buffer: &mut Vec<u8>) {
 
 /// Undoes the changes done to a byte buffer by the unsynchronization scheme.
 pub fn decode_vec(buffer: &mut Vec<u8>) {
-    let mut discard_next_null_byte = false;
-    let mut i = 0;
-    while i < buffer.len() {
-        if buffer[i] == 0x00 && discard_next_null_byte {
-            buffer.remove(i);
-        }
-        discard_next_null_byte = i < buffer.len() && buffer[i] == 0xFF;
-        i += 1;
-    }
+    let buf_len = buffer.len();
+    let from_buf = mem::replace(buffer, Vec::with_capacity(buf_len));
+    let mut reader = Reader::new(io::Cursor::new(from_buf));
+    io::copy(&mut reader, buffer).unwrap();
 }
 
 

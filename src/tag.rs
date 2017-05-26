@@ -1,3 +1,4 @@
+use std::cmp;
 use std::fs::{self, File};
 use std::io::{self, Read, Write, Seek, SeekFrom, BufReader};
 use std::iter;
@@ -1461,62 +1462,50 @@ impl<'a> Tag {
     }
 
     /// Attempts to read an ID3 tag from the reader.
-    pub fn read_from(reader: &mut Read) -> ::Result<Tag> {
-        let mut tag = Tag::new();
-
-        let mut identifier = [0u8; 3];
-        reader.read(&mut identifier)?;
-        if &identifier[..] != b"ID3" {
-            debug!("no id3 tag found");
-            return Err(::Error::new(::ErrorKind::NoTag, "reader does not contain an id3 tag"))
+    pub fn read_from<R>(reader: &mut R) -> ::Result<Tag>
+        where R: io::Read {
+        let mut tag_header = [0; 10];
+        let nread = reader.read(&mut tag_header)?;
+        if nread < tag_header.len() || &tag_header[0..3] != b"ID3" {
+            return Err(::Error::new(::ErrorKind::NoTag, "reader does not contain an id3 tag"));
         }
-
-        let mut version_buf = [0; 2];
-        reader.read_exact(&mut version_buf)?;
-        let version = match version_buf[0] {
-            2 => Version::Id3v22,
-            3 => Version::Id3v23,
-            4 => Version::Id3v24,
-            _ => return Err(::Error::new(::ErrorKind::UnsupportedVersion(version_buf[1], version_buf[0]) , "unsupported id3 tag version")),
+        let (ver_major, ver_minor) = (tag_header[4], tag_header[3]);
+        let version = match (ver_major, ver_minor) {
+            (_, 2) => Version::Id3v22,
+            (_, 3) => Version::Id3v23,
+            (_, 4) => Version::Id3v24,
+            (_, _) => {
+                return Err(::Error::new(::ErrorKind::UnsupportedVersion(ver_major, ver_minor), "unsupported id3 tag version"));
+            },
         };
+        let flags = Flags::from_byte(tag_header[5], version);
+        let tag_size = unsynch::decode_u32(BigEndian::read_u32(&tag_header[6..10])) as usize;
 
-        tag.flags = Flags::from_byte(reader.read_u8()?, version);
-
-        if tag.flags.compression {
-            debug!("id3v2.2 compression is unsupported");
+        if flags.compression {
             return Err(::Error::new(::ErrorKind::UnsupportedFeature, "id3v2.2 compression is not supported"));
         }
 
-        let tag_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?);
+        let mut offset = tag_header.len();
 
-        let mut offset = 10;
-
-        // TODO actually use the extended header data
-        if tag.flags.extended_header {
-            let ext_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?);
-            offset += 4;
-            let mut extended_header_data = Vec::with_capacity(ext_size as usize);
-            reader.take(ext_size as u64).read_to_end(&mut extended_header_data)?;
-            if tag.flags.unsynchronization {
-                unsynch::decode_vec(&mut extended_header_data);
+        // TODO: actually use the extended header data.
+        if flags.extended_header {
+            let ext_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?) as usize;
+            offset += 4 + ext_size;
+            let mut ext_header = Vec::with_capacity(cmp::min(ext_size, 0xffff));
+            reader.take(ext_size as u64)
+                .read_to_end(&mut ext_header)?;
+            if flags.unsynchronization {
+                unsynch::decode_vec(&mut ext_header);
             }
-            offset += ext_size;
         }
 
-        while offset < tag_size + 10 {
-            let (bytes_read, frame) = match Frame::read_from(reader, version, tag.flags.unsynchronization) {
-                Ok(opt) => match opt {
-                    Some(frame) => frame,
-                    None => break //padding
-                },
-                Err(err) => {
-                    debug!("{:?}", err);
-                    return Err(err);
-                }
+        let mut tag = Tag::new();
+        while offset < tag_size + tag_header.len() {
+            let (bytes_read, frame) = match Frame::read_from(reader, version, flags.unsynchronization)? {
+                Some(frame) => frame,
+                None => break, // Padding.
             };
-
             tag.frames.push(frame);
-
             offset += bytes_read;
         }
 
