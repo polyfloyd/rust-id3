@@ -7,7 +7,8 @@ use std::str;
 pub use self::content::{Content, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType};
 pub use self::timestamp::Timestamp;
 
-use self::flags::Flags;
+#[doc(hidden)]
+pub use self::flags::Flags;
 use ::stream::frame::{self, v2, v3, v4};
 
 use ::tag::{self, Version};
@@ -213,136 +214,5 @@ impl fmt::Display for Frame {
             Content::Picture(ref content) => write!(f, "{}: {:?} ({:?})", content.description, content.picture_type, content.mime_type),
             Content::Unknown(ref content) => write!(f, "unknown, {} bytes", content.len()),
         }
-    }
-}
-
-// Tests {{{
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use frame::{Frame, Flags};
-    use ::stream::encoding::Encoding;
-    use ::stream::unsynch;
-
-    fn u32_to_bytes(n: u32) -> Vec<u8> {
-        vec!(((n & 0xFF000000) >> 24) as u8,
-             ((n & 0xFF0000) >> 16) as u8,
-             ((n & 0xFF00) >> 8) as u8,
-             (n & 0xFF) as u8
-            )
-    }
-
-    /// Parses the provided data and sets the `content` field. If the compression flag is set to
-    /// true then decompression will be performed.
-    ///
-    /// Returns `Err` if the data is invalid for the frame type.
-    fn parse_data(frame: &mut Frame, data: &[u8]) -> ::Result<()> {
-        frame.content = ::stream::frame::decode_content(io::Cursor::new(data), frame.id(), frame.flags)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_frame_flags_to_bytes_v3() {
-        let mut flags = Flags::new();
-        assert_eq!(flags.to_bytes(0x3), vec!(0x0, 0x0));
-        flags.tag_alter_preservation = true;
-        flags.file_alter_preservation = true;
-        flags.read_only = true;
-        flags.compression = true;
-        flags.encryption = true;
-        flags.grouping_identity = true;
-        assert_eq!(flags.to_bytes(0x3), vec!(0xE0, 0xE0));
-    }
-
-    #[test]
-    fn test_frame_flags_to_bytes_v4() {
-        let mut flags = Flags::new();
-        assert_eq!(flags.to_bytes(0x4), vec!(0x0, 0x0));
-        flags.tag_alter_preservation = true;
-        flags.file_alter_preservation = true;
-        flags.read_only = true;
-        flags.grouping_identity = true;
-        flags.compression = true;
-        flags.encryption = true;
-        flags.unsynchronization = true;
-        flags.data_length_indicator = true;
-        assert_eq!(flags.to_bytes(0x4), vec!(0x70, 0x4F));
-    }
-
-    #[test]
-    fn test_to_bytes_v2() {
-        let id = "TAL";
-        let text = "album";
-        let encoding = Encoding::UTF16;
-
-        let mut frame = Frame::new(id);
-
-        let mut data = Vec::new();
-        data.push(encoding as u8);
-        data.extend(::util::string_to_utf16(text).into_iter());
-
-        parse_data(&mut frame, &data[..]).unwrap();
-
-        let mut bytes = Vec::new();
-        bytes.extend(id.bytes());
-        bytes.extend((&u32_to_bytes(data.len() as u32)[1..]).iter().cloned());
-        bytes.extend(data.into_iter());
-
-        let mut writer = Vec::new();
-        frame.write_to(&mut writer, tag::Id3v22, false).unwrap();
-        assert_eq!(writer, bytes);
-    }
-
-    #[test]
-    fn test_to_bytes_v3() {
-        let id = "TALB";
-        let text = "album";
-        let encoding = Encoding::UTF16;
-
-        let mut frame = Frame::new(id);
-
-        let mut data = Vec::new();
-        data.push(encoding as u8);
-        data.extend(::util::string_to_utf16(text).into_iter());
-
-        parse_data(&mut frame, &data[..]).unwrap();
-
-        let mut bytes = Vec::new();
-        bytes.extend(id.bytes());
-        bytes.extend(u32_to_bytes(data.len() as u32).into_iter());
-        bytes.extend([0x00, 0x00].iter().cloned());
-        bytes.extend(data.into_iter());
-
-        let mut writer = Vec::new();
-        frame.write_to(&mut writer, tag::Id3v23, false).unwrap();
-        assert_eq!(writer, bytes);
-    }
-
-    #[test]
-    fn test_to_bytes_v4() {
-        let id = "TALB";
-        let text = "album";
-        let encoding = Encoding::UTF8;
-
-        let mut frame = Frame::new(id);
-
-        frame.flags.tag_alter_preservation = true;
-        frame.flags.file_alter_preservation = true;
-
-        let mut data = Vec::new();
-        data.push(encoding as u8);
-        data.extend(text.bytes());
-
-        parse_data(&mut frame, &data[..]).unwrap();
-
-        let mut bytes = Vec::new();
-        bytes.extend(id.bytes());
-        bytes.extend(u32_to_bytes(unsynch::encode_u32(data.len() as u32)).into_iter());
-        bytes.extend([0x60, 0x00].iter().cloned());
-        bytes.extend(data.into_iter());
-
-        let mut writer = Vec::new();
-        frame.write_to(&mut writer, tag::Id3v24, false).unwrap();
-        assert_eq!(writer, bytes);
     }
 }
