@@ -14,7 +14,7 @@ pub fn decode<R>(reader: &mut R, unsynchronisation: bool) -> ::Result<Option<(us
     if nread < frame_header.len() || frame_header[0] == 0x00 {
         return Ok(None);
     }
-    let id = str::from_utf8(&frame_header[0..3]).unwrap(); // FIXME
+    let id = str::from_utf8(&frame_header[0..3])?;
 
     let mut frame = Frame::new(id);
     debug!("reading {}", frame.id());

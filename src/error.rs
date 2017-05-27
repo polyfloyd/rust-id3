@@ -1,7 +1,8 @@
 use std::error;
-use std::io;
 use std::fmt;
-use std::string::FromUtf8Error;
+use std::io;
+use std::str;
+use std::string;
 
 /// Type alias for the result of tag operations.
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -68,9 +69,15 @@ impl From<io::Error> for Error {
     }
 }
 
-impl From<FromUtf8Error> for Error {
-    fn from(err: FromUtf8Error) -> Error {
+impl From<string::FromUtf8Error> for Error {
+    fn from(err: string::FromUtf8Error) -> Error {
         Error { kind: ErrorKind::StringDecoding(err.into_bytes()), description: "data is not valid utf-8" }
+    }
+}
+
+impl From<str::Utf8Error> for Error {
+    fn from(_: str::Utf8Error) -> Error {
+        Error { kind: ErrorKind::StringDecoding(vec![]), description: "data is not valid utf-8" }
     }
 }
 
