@@ -5,9 +5,9 @@ use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use frame::{Encoding,Frame};
 use ::tag;
-use ::unsynch;
+use ::stream::unsynch;
 
-pub fn read<R>(reader: &mut R, unsynchronization: bool) -> ::Result<Option<(usize, Frame)>>
+pub fn decode<R>(reader: &mut R, unsynchronization: bool) -> ::Result<Option<(usize, Frame)>>
     where R: io::Read {
     let mut frame_header = [0; 10];
     let nread = reader.read(&mut frame_header)?;
@@ -42,7 +42,7 @@ pub fn read<R>(reader: &mut R, unsynchronization: bool) -> ::Result<Option<(usiz
     } else {
         content_size
     };
-    frame.content = super::decode_frame_content(reader.take(read_size as u64), id, frame.flags)?;
+    frame.content = super::decode_content(reader.take(read_size as u64), id, frame.flags)?;
 
     Ok(Some((10 + content_size as usize, frame)))
 }

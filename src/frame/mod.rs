@@ -9,16 +9,15 @@ pub use self::content::{Content, ExtendedText, ExtendedLink, Comment, Lyrics, Pi
 pub use self::timestamp::Timestamp;
 
 use self::flags::Flags;
-use self::stream::{v2, v3, v4};
+use ::stream::frame::{self, v2, v3, v4};
 
 use parsers::{self, EncoderRequest};
 use ::tag::{self, Version};
-use ::unsynch;
 
 mod encoding;
 mod content;
-mod flags;
-mod stream;
+#[doc(hidden)]
+pub mod flags;
 mod timestamp;
 
 
@@ -32,9 +31,11 @@ pub struct Frame {
     /// The frame identifier.
     id: [u8; 4],
     /// The parsed content of the frame.
-    content: Content,
+    #[doc(hidden)]
+    pub content: Content,
     /// The frame flags.
-    flags: Flags,
+    #[doc(hidden)]
+    pub flags: Flags,
 }
 
 impl PartialEq for Frame {
@@ -163,11 +164,7 @@ impl Frame {
     /// will return an error with kind `UnsupportedVersion`.
     pub fn read_from<R>(reader: &mut R, version: tag::Version, unsynchronization: bool) -> ::Result<Option<(usize, Frame)>>
         where R: io::Read {
-        match version {
-            tag::Id3v22 => v2::read(reader, unsynchronization),
-            tag::Id3v23 => v3::read(reader, unsynchronization),
-            tag::Id3v24 => v4::read(reader),
-        }
+        frame::decode(reader, version, unsynchronization)
     }
 
     /// Attempts to write the frame to the writer.
@@ -185,21 +182,11 @@ impl Frame {
     }
 
     /// Creates a vector representation of the content suitable for writing to an ID3 tag.
-    fn content_to_bytes(&self, version: tag::Version, encoding: Encoding) -> Vec<u8> {
+    #[doc(hidden)]
+    pub fn content_to_bytes(&self, version: tag::Version, encoding: Encoding) -> Vec<u8> {
         let request = EncoderRequest { version: version, encoding: encoding, content: &self.content };
         parsers::encode(request)
     }
-
-    // Parsing {{{
-    /// Parses the provided data and sets the `content` field. If the compression flag is set to
-    /// true then decompression will be performed.
-    ///
-    /// Returns `Err` if the data is invalid for the frame type.
-    fn parse_data(&mut self, data: &[u8]) -> ::Result<()> {
-        self.content = stream::decode_frame_content(io::Cursor::new(data), self.id(), self.flags)?;
-        Ok(())
-    }
-    // }}}
 
     /// Returns a string representing the parsed content.
     ///
@@ -244,6 +231,7 @@ impl fmt::Display for Frame {
 mod tests {
     use super::*;
     use frame::{Frame, Flags, Encoding};
+    use ::stream::unsynch;
 
     fn u32_to_bytes(n: u32) -> Vec<u8> {
         vec!(((n & 0xFF000000) >> 24) as u8,
@@ -251,6 +239,15 @@ mod tests {
              ((n & 0xFF00) >> 8) as u8,
              (n & 0xFF) as u8
             )
+    }
+
+    /// Parses the provided data and sets the `content` field. If the compression flag is set to
+    /// true then decompression will be performed.
+    ///
+    /// Returns `Err` if the data is invalid for the frame type.
+    fn parse_data(frame: &mut Frame, data: &[u8]) -> ::Result<()> {
+        frame.content = ::stream::frame::decode_content(io::Cursor::new(data), frame.id(), frame.flags)?;
+        Ok(())
     }
 
     #[test]
@@ -293,7 +290,7 @@ mod tests {
         data.push(encoding as u8);
         data.extend(::util::string_to_utf16(text).into_iter());
 
-        frame.parse_data(&data[..]).unwrap();
+        parse_data(&mut frame, &data[..]).unwrap();
 
         let mut bytes = Vec::new();
         bytes.extend(id.bytes());
@@ -317,7 +314,7 @@ mod tests {
         data.push(encoding as u8);
         data.extend(::util::string_to_utf16(text).into_iter());
 
-        frame.parse_data(&data[..]).unwrap();
+        parse_data(&mut frame, &data[..]).unwrap();
 
         let mut bytes = Vec::new();
         bytes.extend(id.bytes());
@@ -345,7 +342,7 @@ mod tests {
         data.push(encoding as u8);
         data.extend(text.bytes());
 
-        frame.parse_data(&data[..]).unwrap();
+        parse_data(&mut frame, &data[..]).unwrap();
 
         let mut bytes = Vec::new();
         bytes.extend(id.bytes());

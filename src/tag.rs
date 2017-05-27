@@ -10,7 +10,7 @@ use byteorder::{ByteOrder, BigEndian, ReadBytesExt, WriteBytesExt};
 use frame::{self, Frame, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType, Timestamp};
 use frame::Content;
 use ::storage::{PlainStorage, Storage};
-use ::unsynch;
+use ::stream::unsynch;
 
 static DEFAULT_FILE_DISCARD: &[&str] = &[
     "AENC",

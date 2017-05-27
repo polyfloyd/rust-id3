@@ -2,9 +2,9 @@ use byteorder::{ByteOrder, BigEndian};
 use std::io::{Read, Write};
 use frame::{Encoding,Frame};
 use ::tag::{self, Version};
-use ::unsynch;
+use ::stream::unsynch;
 
-pub fn read(reader: &mut Read, unsynchronization: bool) -> ::Result<Option<(usize, Frame)>> {
+pub fn decode(reader: &mut Read, unsynchronization: bool) -> ::Result<Option<(usize, Frame)>> {
     let id = id_or_padding!(reader, 3);
     let mut frame = Frame::new(id);
     frame.flags.unsynchronization = unsynchronization;
@@ -13,7 +13,7 @@ pub fn read(reader: &mut Read, unsynchronization: bool) -> ::Result<Option<(usiz
     let mut sizebytes = [0u8; 3];
     reader.read(&mut sizebytes)?;
     let read_size = ((sizebytes[0] as u32) << 16) | ((sizebytes[1] as u32) << 8) | sizebytes[2] as u32;
-    frame.content = super::decode_frame_content(reader.take(read_size as u64), frame.id(), frame.flags)?;
+    frame.content = super::decode_content(reader.take(read_size as u64), frame.id(), frame.flags)?;
 
     Ok(Some((6 + read_size as usize, frame)))
 }

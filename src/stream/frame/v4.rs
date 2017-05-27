@@ -4,9 +4,9 @@ use frame::{Encoding,Frame};
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use ::tag;
-use ::unsynch;
+use ::stream::unsynch;
 
-pub fn read(reader: &mut Read) -> ::Result<Option<(usize, Frame)>> {
+pub fn decode(reader: &mut Read) -> ::Result<Option<(usize, Frame)>> {
     let id = id_or_padding!(reader, 4);
     let mut frame = Frame::new(id);
     debug!("reading {}", frame.id());
@@ -36,7 +36,7 @@ pub fn read(reader: &mut Read) -> ::Result<Option<(usize, Frame)>> {
         let _decompressed_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?);
         read_size -= 4;
     }
-    frame.content = super::decode_frame_content(reader.take(read_size as u64), frame.id(), frame.flags)?;
+    frame.content = super::decode_content(reader.take(read_size as u64), frame.id(), frame.flags)?;
 
     Ok(Some((10 + content_size as usize, frame)))
 }
