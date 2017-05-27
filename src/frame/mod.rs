@@ -8,14 +8,11 @@ pub use self::content::{Content, ExtendedText, ExtendedLink, Comment, Lyrics, Pi
 pub use self::timestamp::Timestamp;
 
 #[doc(hidden)]
-pub use self::flags::Flags;
 use ::stream::frame::{self, v2, v3, v4};
 
 use ::tag::{self, Version};
 
 mod content;
-#[doc(hidden)]
-pub mod flags;
 mod timestamp;
 
 
@@ -31,9 +28,9 @@ pub struct Frame {
     /// The parsed content of the frame.
     #[doc(hidden)]
     pub content: Content,
-    /// The frame flags.
-    #[doc(hidden)]
-    pub flags: Flags,
+
+    tag_alter_preservation: bool,
+    file_alter_preservation: bool,
 }
 
 impl PartialEq for Frame {
@@ -98,7 +95,8 @@ impl Frame {
                 ]
             },
             content: content,
-            flags: Flags::new(),
+            tag_alter_preservation: false,
+            file_alter_preservation: false,
         }
     }
 
@@ -121,36 +119,24 @@ impl Frame {
         &self.content
     }
 
-    // Getters/Setters
-    /// Returns whether the compression flag is set.
-    pub fn compression(&self) -> bool {
-        self.flags.compression
-    }
-
-    /// Sets the compression flag.
-    pub fn set_compression(&mut self, compression: bool) {
-        self.flags.compression = compression;
-        self.flags.data_length_indicator = compression;
-    }
-
     /// Returns whether the tag_alter_preservation flag is set.
     pub fn tag_alter_preservation(&self) -> bool {
-        self.flags.tag_alter_preservation
+        self.tag_alter_preservation
     }
 
     /// Sets the tag_alter_preservation flag.
     pub fn set_tag_alter_preservation(&mut self, tag_alter_preservation: bool) {
-        self.flags.tag_alter_preservation = tag_alter_preservation;
+        self.tag_alter_preservation = tag_alter_preservation;
     }
 
     /// Returns whether the file_alter_preservation flag is set.
     pub fn file_alter_preservation(&self) -> bool {
-        self.flags.file_alter_preservation
+        self.file_alter_preservation
     }
 
     /// Sets the file_alter_preservation flag.
     pub fn set_file_alter_preservation(&mut self, file_alter_preservation: bool) {
-        self.flags.file_alter_preservation = file_alter_preservation;
+        self.file_alter_preservation = file_alter_preservation;
     }
 
     /// Attempts to read a frame from the reader.
@@ -174,8 +160,19 @@ impl Frame {
     pub fn write_to(&self, writer: &mut Write, version: tag::Version, unsynchronization: bool) -> ::Result<u32> {
         match version {
             tag::Id3v22 => v2::write(writer, self, unsynchronization),
-            tag::Id3v23 => v3::write(writer, self, unsynchronization),
-            tag::Id3v24 => v4::write(writer, self),
+            tag::Id3v23 => {
+                let mut flags = v3::Flags::empty();
+                flags.set(v3::TAG_ALTER_PRESERVATION, self.tag_alter_preservation);
+                flags.set(v3::FILE_ALTER_PRESERVATION, self.file_alter_preservation);
+                v3::write(writer, self, v3::Flags::empty(), unsynchronization)
+            },
+            tag::Id3v24 => {
+                let mut flags = v4::Flags::empty();
+                flags.set(v4::UNSYNCHRONISATION, unsynchronization);
+                flags.set(v4::TAG_ALTER_PRESERVATION, self.tag_alter_preservation);
+                flags.set(v4::FILE_ALTER_PRESERVATION, self.file_alter_preservation);
+                v4::write(writer, self, flags)
+            },
         }
     }
 
