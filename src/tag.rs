@@ -1660,6 +1660,38 @@ mod tests {
     }
 
     #[test]
+    fn write_id3v22() {
+        let mut tag = Tag::new();
+        tag.set_title("Title");
+        tag.set_artist("Artist");
+        tag.set_genre("Genre");
+
+        let mut buffer = Vec::new();
+        tag.write_to(&mut buffer, Id3v22).unwrap();
+
+        let tag_read = Tag::read_from(&mut io::Cursor::new(buffer)).unwrap();
+        assert_eq!(tag.title(), tag_read.title());
+        assert_eq!(tag.artist(), tag_read.artist());
+        assert_eq!(tag.genre(), tag_read.genre());
+    }
+
+    #[test]
+    fn write_id3v23() {
+        let mut tag = Tag::new();
+        tag.set_title("Title");
+        tag.set_artist("Artist");
+        tag.set_genre("Genre");
+
+        let mut buffer = Vec::new();
+        tag.write_to(&mut buffer, Id3v23).unwrap();
+
+        let tag_read = Tag::read_from(&mut io::Cursor::new(buffer)).unwrap();
+        assert_eq!(tag.title(), tag_read.title());
+        assert_eq!(tag.artist(), tag_read.artist());
+        assert_eq!(tag.genre(), tag_read.genre());
+    }
+
+    #[test]
     fn write_id3v24() {
         let mut tag = Tag::new();
         tag.set_title("Title");
