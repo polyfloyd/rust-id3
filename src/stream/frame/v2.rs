@@ -1,7 +1,9 @@
 use byteorder::{ByteOrder, BigEndian};
 use std::io::{Read, Write};
-use frame::{Encoding,Frame};
+use frame::Frame;
 use ::tag::{self, Version};
+use ::stream::encoding::Encoding;
+use ::stream::frame;
 use ::stream::unsynch;
 
 pub fn decode(reader: &mut Read, unsynchronization: bool) -> ::Result<Option<(usize, Frame)>> {
@@ -19,7 +21,7 @@ pub fn decode(reader: &mut Read, unsynchronization: bool) -> ::Result<Option<(us
 }
 
 pub fn write(writer: &mut Write, frame: &Frame, unsynchronization: bool) -> ::Result<u32> {
-    let mut content_bytes = frame.content_to_bytes(tag::Id3v22, Encoding::UTF16);
+    let mut content_bytes = frame::content_to_bytes(frame, tag::Id3v22, Encoding::UTF16);
     let content_size = content_bytes.len() as u32;
 
     let id = frame.id_for_version(Version::Id3v22)

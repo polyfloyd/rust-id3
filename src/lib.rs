@@ -20,7 +20,7 @@
 //!
 //! ```no_run
 //! use id3::{Tag, Frame, Version};
-//! use id3::frame::{Content, Encoding};
+//! use id3::frame::Content;
 //!
 //! let mut tag = Tag::with_version(Version::Id3v24);
 //!

@@ -4,7 +4,6 @@ use std::hash::{Hash, Hasher};
 use std::io::{self, Write};
 use std::str;
 
-pub use self::encoding::Encoding;
 pub use self::content::{Content, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType};
 pub use self::timestamp::Timestamp;
 
@@ -13,7 +12,6 @@ use ::stream::frame::{self, v2, v3, v4};
 
 use ::tag::{self, Version};
 
-mod encoding;
 mod content;
 #[doc(hidden)]
 pub mod flags;
@@ -180,13 +178,6 @@ impl Frame {
         }
     }
 
-    /// Creates a vector representation of the content suitable for writing to an ID3 tag.
-    #[doc(hidden)]
-    pub fn content_to_bytes(&self, version: tag::Version, encoding: Encoding) -> Vec<u8> {
-        let request = ::stream::frame::content::EncoderRequest { version: version, encoding: encoding, content: &self.content };
-        ::stream::frame::content::encode(request)
-    }
-
     /// Returns a string representing the parsed content.
     ///
     /// Returns `None` if the parsed content can not be represented as text.
@@ -229,7 +220,8 @@ impl fmt::Display for Frame {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use frame::{Frame, Flags, Encoding};
+    use frame::{Frame, Flags};
+    use ::stream::encoding::Encoding;
     use ::stream::unsynch;
 
     fn u32_to_bytes(n: u32) -> Vec<u8> {

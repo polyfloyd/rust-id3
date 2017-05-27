@@ -3,9 +3,12 @@ use std::str;
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
-use frame::{Encoding,Frame};
+use frame::Frame;
 use ::tag;
+use ::stream::encoding::Encoding;
+use ::stream::frame;
 use ::stream::unsynch;
+
 
 pub fn decode<R>(reader: &mut R, unsynchronization: bool) -> ::Result<Option<(usize, Frame)>>
     where R: io::Read {
@@ -48,7 +51,7 @@ pub fn decode<R>(reader: &mut R, unsynchronization: bool) -> ::Result<Option<(us
 }
 
 pub fn write(writer: &mut Write, frame: &Frame, unsynchronization: bool) -> ::Result<u32> {
-    let mut content_bytes = frame.content_to_bytes(tag::Id3v23, Encoding::UTF16);
+    let mut content_bytes = frame::content_to_bytes(&frame, tag::Id3v23, Encoding::UTF16);
     let mut content_size = content_bytes.len() as u32;
     let decompressed_size = content_size;
 

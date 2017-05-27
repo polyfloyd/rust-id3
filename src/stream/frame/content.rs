@@ -1,5 +1,6 @@
-use frame::{Encoding, Picture, PictureType, Content, ExtendedLink};
+use frame::{Picture, PictureType, Content, ExtendedLink};
 use ::tag;
+use ::stream::encoding::Encoding;
 
 /// The result of a successfully parsed frame.
 pub struct DecoderResult {
@@ -469,7 +470,7 @@ fn parse_uslt(data: &[u8]) -> ::Result<DecoderResult> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use frame::{self, Picture, PictureType, Encoding};
+    use frame::{self, Picture, PictureType};
     use frame::Content;
     use std::collections::HashMap;
 

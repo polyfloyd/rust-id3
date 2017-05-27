@@ -5,6 +5,7 @@ use ::frame::flags::Flags;
 use ::stream::unsynch;
 use ::tag;
 use ::frame::Frame;
+use ::stream::encoding::Encoding;
 
 
 macro_rules! id_or_padding {
@@ -60,4 +61,11 @@ pub fn decode_content<R>(reader: R, id: &str, flags: Flags) -> ::Result<Content>
     } else {
         decode_maybe_compressed(reader, id, flags.compression)
     }
+}
+
+
+/// Creates a vector representation of the content suitable for writing to an ID3 tag.
+fn content_to_bytes(frame: &Frame, version: tag::Version, encoding: Encoding) -> Vec<u8> {
+    let request = ::stream::frame::content::EncoderRequest { version: version, encoding: encoding, content: &frame.content };
+    content::encode(request)
 }
