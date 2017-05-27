@@ -469,7 +469,6 @@ fn parse_uslt(data: &[u8]) -> ::Result<DecoderResult> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parsers;
     use frame::{self, Picture, PictureType, Encoding};
     use frame::Content;
     use std::collections::HashMap;
@@ -493,7 +492,7 @@ mod tests {
 
     #[test]
     fn test_apic_v2() {
-        assert!(parsers::decode("PIC",&[]).is_err());
+        assert!(decode("PIC",&[]).is_err());
 
         let mut format_map = HashMap::new();
         format_map.insert("image/jpeg", "JPG");
@@ -520,8 +519,8 @@ mod tests {
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(picture_data.iter().cloned());
 
-                    assert_eq!(*parsers::decode("PIC", &data[..]).unwrap().content.picture().unwrap(), picture);
-                    assert_eq!(parsers::encode(EncoderRequest {
+                    assert_eq!(*decode("PIC", &data[..]).unwrap().content.picture().unwrap(), picture);
+                    assert_eq!(encode(EncoderRequest {
                         encoding: encoding,
                         content: &Content::Picture(picture.clone()),
                         version: tag::Id3v22
@@ -533,7 +532,7 @@ mod tests {
 
     #[test]
     fn test_apic_v3() {
-        assert!(parsers::decode("APIC", &[]).is_err());
+        assert!(decode("APIC", &[]).is_err());
 
         for mime_type in vec!("", "image/jpeg").into_iter() {
             for description in vec!("", "description").into_iter() {
@@ -557,8 +556,8 @@ mod tests {
                     data.extend(delim_for_encoding(encoding).into_iter());
                     data.extend(picture_data.iter().cloned());
 
-                    assert_eq!(*parsers::decode("APIC", &data[..]).unwrap().content.picture().unwrap(), picture);
-                    assert_eq!(parsers::encode(EncoderRequest {
+                    assert_eq!(*decode("APIC", &data[..]).unwrap().content.picture().unwrap(), picture);
+                    assert_eq!(encode(EncoderRequest {
                         encoding: encoding,
                         content: &Content::Picture(picture.clone()),
                         version: tag::Id3v23,
@@ -570,7 +569,7 @@ mod tests {
 
     #[test]
     fn test_comm() {
-        assert!(parsers::decode("COMM", &[]).is_err());
+        assert!(decode("COMM", &[]).is_err());
 
         println!("valid");
         for description in vec!("", "description").into_iter() {
@@ -589,8 +588,8 @@ mod tests {
                         description: description.to_owned(),
                         text: comment.to_owned()
                     };
-                    assert_eq!(*parsers::decode("COMM", &data[..]).unwrap().content.comment().unwrap(), content);
-                    assert_eq!(parsers::encode(EncoderRequest {
+                    assert_eq!(*decode("COMM", &data[..]).unwrap().content.comment().unwrap(), content);
+                    assert_eq!(encode(EncoderRequest {
                         encoding: encoding,
                         content: &Content::Comment(content),
                         version: tag::Id3v23
@@ -609,7 +608,7 @@ mod tests {
             data.extend(b"eng".iter().cloned());
             data.extend(bytes_for_encoding(description, encoding).into_iter());
             data.extend(bytes_for_encoding(comment, encoding).into_iter());
-            assert!(parsers::decode("COMM", &data[..]).is_err());
+            assert!(decode("COMM", &data[..]).is_err());
         }
         println!("Empty description");
         let comment = "comment";
@@ -627,13 +626,13 @@ mod tests {
             };
             println!("data == {:?}", data);
             println!("content == {:?}", content);
-            assert_eq!(*parsers::decode("COMM", &data[..]).unwrap().content.comment().unwrap(), content);
+            assert_eq!(*decode("COMM", &data[..]).unwrap().content.comment().unwrap(), content);
         }
     }
 
     #[test]
     fn test_text() {
-        assert!(parsers::decode("TALB", &[]).is_err());
+        assert!(decode("TALB", &[]).is_err());
 
         for text in vec!("", "text").into_iter() {
             for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
@@ -642,8 +641,8 @@ mod tests {
                 data.push(encoding as u8);
                 data.extend(bytes_for_encoding(text, encoding).into_iter());
 
-                assert_eq!(parsers::decode("TALB", &data[..]).unwrap().content.text().unwrap(), text);
-                assert_eq!(parsers::encode(EncoderRequest {
+                assert_eq!(decode("TALB", &data[..]).unwrap().content.text().unwrap(), text);
+                assert_eq!(encode(EncoderRequest {
                     encoding: encoding,
                     content: &Content::Text(text.to_owned()),
                     version: tag::Id3v23
@@ -654,7 +653,7 @@ mod tests {
 
     #[test]
     fn test_null_terminated_text() {
-        assert!(parsers::decode("TRCK", &[]).is_err());
+        assert!(decode("TRCK", &[]).is_err());
         let text = "text\u{0}\u{0}";
         for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
             println!("`{}`, `{:?}`", text, encoding);
@@ -662,8 +661,8 @@ mod tests {
             data.push(encoding as u8);
             data.extend(bytes_for_encoding(text, encoding).into_iter());
 
-            assert_eq!(parsers::decode("TALB", &data[..]).unwrap().content.text().unwrap(), "text");
-            assert_eq!(parsers::encode(EncoderRequest {
+            assert_eq!(decode("TALB", &data[..]).unwrap().content.text().unwrap(), "text");
+            assert_eq!(encode(EncoderRequest {
                 encoding: encoding,
                 content: &Content::Text(text.to_owned()),
                 version: tag::Id3v23
@@ -673,7 +672,7 @@ mod tests {
 
     #[test]
     fn test_txxx() {
-        assert!(parsers::decode("TXXX", &[]).is_err());
+        assert!(decode("TXXX", &[]).is_err());
 
         println!("valid");
         for key in vec!("", "key").into_iter() {
@@ -690,8 +689,8 @@ mod tests {
                         description: key.to_owned(),
                         value: value.to_owned()
                     };
-                    assert_eq!(*parsers::decode("TXXX", &data[..]).unwrap().content.extended_text().unwrap(), content);
-                    assert_eq!(parsers::encode(EncoderRequest {
+                    assert_eq!(*decode("TXXX", &data[..]).unwrap().content.extended_text().unwrap(), content);
+                    assert_eq!(encode(EncoderRequest {
                         encoding: encoding,
                         content: &Content::ExtendedText(content),
                         version: tag::Id3v23
@@ -709,7 +708,7 @@ mod tests {
             data.push(encoding as u8);
             data.extend(bytes_for_encoding(key, encoding).into_iter());
             data.extend(bytes_for_encoding(value, encoding).into_iter());
-            assert!(parsers::decode("TXXX", &data[..]).is_err());
+            assert!(decode("TXXX", &data[..]).is_err());
         }
     }
 
@@ -719,8 +718,8 @@ mod tests {
             println!("`{:?}`", link);
             let data = link.as_bytes().to_vec();
 
-            assert_eq!(parsers::decode("WOAF", &data[..]).unwrap().content.link().unwrap(), link);
-            assert_eq!(parsers::encode(EncoderRequest { 
+            assert_eq!(decode("WOAF", &data[..]).unwrap().content.link().unwrap(), link);
+            assert_eq!(encode(EncoderRequest { 
                 encoding: Encoding::Latin1, 
                 content: &Content::Link(link.to_owned()), 
                 version: tag::Id3v23
@@ -730,7 +729,7 @@ mod tests {
 
     #[test]
     fn test_wxxx() {
-        assert!(parsers::decode("WXXX", &[]).is_err());
+        assert!(decode("WXXX", &[]).is_err());
 
         println!("valid");
         for description in vec!("", "rust").into_iter() {
@@ -747,8 +746,8 @@ mod tests {
                         description: description.to_owned(),
                         link: link.to_owned()
                     };
-                    assert_eq!(*parsers::decode("WXXX", &data[..]).unwrap().content.extended_link().unwrap(), content);
-                    assert_eq!(parsers::encode(EncoderRequest {
+                    assert_eq!(*decode("WXXX", &data[..]).unwrap().content.extended_link().unwrap(), content);
+                    assert_eq!(encode(EncoderRequest {
                         encoding: encoding,
                         content: &Content::ExtendedLink(content),
                         version: tag::Id3v23
@@ -766,13 +765,13 @@ mod tests {
             data.push(encoding as u8);
             data.extend(bytes_for_encoding(description, encoding).into_iter());
             data.extend(bytes_for_encoding(link, Encoding::Latin1).into_iter());
-            assert!(parsers::decode("WXXX", &data[..]).is_err());
+            assert!(decode("WXXX", &data[..]).is_err());
         }
     }
 
     #[test]
     fn test_uslt() {
-        assert!(parsers::decode("USLT", &[]).is_err());
+        assert!(decode("USLT", &[]).is_err());
 
         println!("valid");
         for description in vec!("", "description").into_iter() {
@@ -791,8 +790,8 @@ mod tests {
                         description: description.to_owned(),
                         text: text.to_owned()
                     };
-                    assert_eq!(*parsers::decode("USLT", &data[..]).unwrap().content.lyrics().unwrap(), content);
-                    assert_eq!(parsers::encode(EncoderRequest {
+                    assert_eq!(*decode("USLT", &data[..]).unwrap().content.lyrics().unwrap(), content);
+                    assert_eq!(encode(EncoderRequest {
                         encoding: encoding,
                         content: &Content::Lyrics(content),
                         version: tag::Id3v23
@@ -811,7 +810,7 @@ mod tests {
             data.extend(b"eng".iter().cloned());
             data.extend(bytes_for_encoding(description, encoding).into_iter());
             data.extend(bytes_for_encoding(lyrics, encoding).into_iter());
-            assert!(parsers::decode("USLT", &data[..]).is_err());
+            assert!(decode("USLT", &data[..]).is_err());
         }
     }
 }

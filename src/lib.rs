@@ -62,6 +62,5 @@ pub mod v1;
 
 mod error;
 mod tag;
-mod parsers;
 mod storage;
 mod stream;

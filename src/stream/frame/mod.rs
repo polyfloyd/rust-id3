@@ -1,6 +1,5 @@
 use std::io;
 use flate2::read::ZlibDecoder;
-use ::parsers;
 use ::frame::Content;
 use ::frame::flags::Flags;
 use ::stream::unsynch;
@@ -26,6 +25,7 @@ macro_rules! id_or_padding {
 pub mod v2;
 pub mod v3;
 pub mod v4;
+pub mod content;
 
 pub fn decode<R>(reader: &mut R, version: tag::Version, unsynchronization: bool) -> ::Result<Option<(usize, Frame)>>
     where R: io::Read {
@@ -42,7 +42,7 @@ pub fn decode_content<R>(reader: R, id: &str, flags: Flags) -> ::Result<Content>
         where RR: io::Read {
         let mut data = Vec::new();
         reader.read_to_end(&mut data)?;
-        let result = parsers::decode(id, &data[..])?;
+        let result = content::decode(id, &data[..])?;
         Ok(result.content)
     }
 

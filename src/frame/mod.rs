@@ -11,7 +11,6 @@ pub use self::timestamp::Timestamp;
 use self::flags::Flags;
 use ::stream::frame::{self, v2, v3, v4};
 
-use parsers::{self, EncoderRequest};
 use ::tag::{self, Version};
 
 mod encoding;
@@ -184,8 +183,8 @@ impl Frame {
     /// Creates a vector representation of the content suitable for writing to an ID3 tag.
     #[doc(hidden)]
     pub fn content_to_bytes(&self, version: tag::Version, encoding: Encoding) -> Vec<u8> {
-        let request = EncoderRequest { version: version, encoding: encoding, content: &self.content };
-        parsers::encode(request)
+        let request = ::stream::frame::content::EncoderRequest { version: version, encoding: encoding, content: &self.content };
+        ::stream::frame::content::encode(request)
     }
 
     /// Returns a string representing the parsed content.
