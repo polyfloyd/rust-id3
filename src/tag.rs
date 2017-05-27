@@ -7,9 +7,10 @@ use std::path::Path;
 
 use byteorder::{ByteOrder, BigEndian, ReadBytesExt, WriteBytesExt};
 
-use frame::{self, Frame, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType, Timestamp};
+use frame::{Frame, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType, Timestamp};
 use frame::Content;
 use ::storage::{PlainStorage, Storage};
+use ::stream::frame;
 use ::stream::unsynch;
 
 static DEFAULT_FILE_DISCARD: &[&str] = &[
@@ -512,7 +513,7 @@ impl<'a> Tag {
     /// assert!(tag.txxx().contains(&("key2", "value2")));
     /// ```
     pub fn add_txxx<K: Into<String>, V: Into<String>>(&mut self, description: K, value: V) {
-        let frame = Frame::with_content("TXXX", Content::ExtendedText(frame::ExtendedText {
+        let frame = Frame::with_content("TXXX", Content::ExtendedText(ExtendedText {
             description: description.into(),
             value: value.into(),
         }));
@@ -1501,7 +1502,7 @@ impl<'a> Tag {
 
         let mut tag = Tag::new();
         while offset < tag_size + tag_header.len() {
-            let (bytes_read, frame) = match Frame::read_from(reader, version, flags.unsynchronization)? {
+            let (bytes_read, frame) = match frame::decode(reader, version, flags.unsynchronization)? {
                 Some(frame) => frame,
                 None => break, // Padding.
             };
@@ -1530,7 +1531,7 @@ impl<'a> Tag {
 
         let mut frame_data = Vec::new();
         for frame in saved_frames {
-            frame.write_to(&mut frame_data, version, self.flags.unsynchronization)?;
+            frame::encode(&mut frame_data, frame, version, self.flags.unsynchronization)?;
         }
         writer.write_all(b"ID3")?;
         writer.write_all(&[version.minor() as u8, 2])?;

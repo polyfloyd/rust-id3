@@ -1,16 +1,11 @@
 use std::borrow::Cow;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::io::{self, Write};
 use std::str;
+use ::tag::Version;
 
 pub use self::content::{Content, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType};
 pub use self::timestamp::Timestamp;
-
-#[doc(hidden)]
-use ::stream::frame::{self, v2, v3, v4};
-
-use ::tag::{self, Version};
 
 mod content;
 mod timestamp;
@@ -137,43 +132,6 @@ impl Frame {
     /// Sets the file_alter_preservation flag.
     pub fn set_file_alter_preservation(&mut self, file_alter_preservation: bool) {
         self.file_alter_preservation = file_alter_preservation;
-    }
-
-    /// Attempts to read a frame from the reader.
-    ///
-    /// Returns a tuple containing the number of bytes read and a frame. If pading is encountered
-    /// then `None` is returned.
-    ///
-    /// Only reading from versions 2, 3, and 4 is supported. Attempting to read any other version
-    /// will return an error with kind `UnsupportedVersion`.
-    pub fn read_from<R>(reader: &mut R, version: tag::Version, unsynchronization: bool) -> ::Result<Option<(usize, Frame)>>
-        where R: io::Read {
-        frame::decode(reader, version, unsynchronization)
-    }
-
-    /// Attempts to write the frame to the writer.
-    ///
-    /// Returns the number of bytes written.
-    ///
-    /// Only writing to versions 2, 3, and 4 is supported. Attempting to write using any other
-    /// version will return an error with kind `UnsupportedVersion`.
-    pub fn write_to(&self, writer: &mut Write, version: tag::Version, unsynchronization: bool) -> ::Result<u32> {
-        match version {
-            tag::Id3v22 => v2::write(writer, self, unsynchronization),
-            tag::Id3v23 => {
-                let mut flags = v3::Flags::empty();
-                flags.set(v3::TAG_ALTER_PRESERVATION, self.tag_alter_preservation);
-                flags.set(v3::FILE_ALTER_PRESERVATION, self.file_alter_preservation);
-                v3::write(writer, self, v3::Flags::empty(), unsynchronization)
-            },
-            tag::Id3v24 => {
-                let mut flags = v4::Flags::empty();
-                flags.set(v4::UNSYNCHRONISATION, unsynchronization);
-                flags.set(v4::TAG_ALTER_PRESERVATION, self.tag_alter_preservation);
-                flags.set(v4::FILE_ALTER_PRESERVATION, self.file_alter_preservation);
-                v4::write(writer, self, flags)
-            },
-        }
     }
 
     /// Returns a string representing the parsed content.

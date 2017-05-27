@@ -63,6 +63,27 @@ pub fn decode_content<R>(reader: R, id: &str, compression: bool, unsynchronisati
 }
 
 
+pub fn encode<W>(writer: &mut W, frame: &Frame, version: tag::Version, unsynchronization: bool) -> ::Result<u32>
+    where W: io::Write {
+    match version {
+        tag::Id3v22 => v2::write(writer, frame, unsynchronization),
+        tag::Id3v23 => {
+            let mut flags = v3::Flags::empty();
+            flags.set(v3::TAG_ALTER_PRESERVATION, frame.tag_alter_preservation());
+            flags.set(v3::FILE_ALTER_PRESERVATION, frame.file_alter_preservation());
+            v3::write(writer, frame, v3::Flags::empty(), unsynchronization)
+        },
+        tag::Id3v24 => {
+            let mut flags = v4::Flags::empty();
+            flags.set(v4::UNSYNCHRONISATION, unsynchronization);
+            flags.set(v4::TAG_ALTER_PRESERVATION, frame.tag_alter_preservation());
+            flags.set(v4::FILE_ALTER_PRESERVATION, frame.file_alter_preservation());
+            v4::write(writer, frame, flags)
+        },
+    }
+}
+
+
 /// Creates a vector representation of the content suitable for writing to an ID3 tag.
 fn content_to_bytes(frame: &Frame, version: tag::Version, encoding: Encoding) -> Vec<u8> {
     let request = ::stream::frame::content::EncoderRequest { version: version, encoding: encoding, content: &frame.content };
@@ -104,7 +125,7 @@ mod tests {
         bytes.extend(data.into_iter());
 
         let mut writer = Vec::new();
-        frame.write_to(&mut writer, tag::Id3v22, false).unwrap();
+        encode(&mut writer, &frame, tag::Id3v22, false).unwrap();
         assert_eq!(writer, bytes);
     }
 
@@ -128,7 +149,7 @@ mod tests {
         bytes.extend(data.into_iter());
 
         let mut writer = Vec::new();
-        frame.write_to(&mut writer, tag::Id3v23, false).unwrap();
+        encode(&mut writer, &frame, tag::Id3v23, false).unwrap();
         assert_eq!(writer, bytes);
     }
 
@@ -154,7 +175,7 @@ mod tests {
         bytes.extend(data.into_iter());
 
         let mut writer = Vec::new();
-        frame.write_to(&mut writer, tag::Id3v24, false).unwrap();
+        encode(&mut writer, &frame, tag::Id3v24, false).unwrap();
         assert_eq!(writer, bytes);
     }
 }
