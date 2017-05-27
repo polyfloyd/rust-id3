@@ -31,16 +31,14 @@ pub fn decode<R>(reader: &mut R, unsynchronisation: bool) -> ::Result<Option<(us
     }
     let id = str::from_utf8(&frame_header[0..4])?;
 
-    let mut frame = Frame::new(id);
-
     let content_size = BigEndian::read_u32(&frame_header[4..8]) as usize;
     let flags = Flags::from_bits(BigEndian::read_u16(&frame_header[8..10]))
         .ok_or(::Error::new(::ErrorKind::Parsing, "unknown frame header flags are set"))?;
     if flags.contains(ENCRYPTION) {
-        debug!("[{}] encryption is not supported", frame.id());
+        debug!("[{}] encryption is not supported", id);
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "encryption is not supported"));
     } else if flags.contains(GROUPING_IDENTITY) {
-        debug!("[{}] grouping identity is not supported", frame.id());
+        debug!("[{}] grouping identity is not supported", id);
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "grouping identity is not supported"));
     }
 
@@ -50,8 +48,8 @@ pub fn decode<R>(reader: &mut R, unsynchronisation: bool) -> ::Result<Option<(us
     } else {
         content_size
     };
-    frame.content = super::decode_content(reader.take(read_size as u64), id, flags.contains(COMPRESSION), unsynchronisation)?;
-
+    let content = super::decode_content(reader.take(read_size as u64), id, flags.contains(COMPRESSION), unsynchronisation)?;
+    let frame = Frame::with_content(id, content);
     Ok(Some((10 + content_size as usize, frame)))
 }
 

@@ -1,12 +1,13 @@
-use std::io::{Read, Write};
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{self, Read, Write};
+use std::str;
+use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use ::frame::Frame;
-use ::tag;
 use ::stream::encoding::Encoding;
 use ::stream::frame;
 use ::stream::unsynch;
+use ::tag;
 
 
 bitflags! {
@@ -23,30 +24,34 @@ bitflags! {
 }
 
 
-pub fn decode(reader: &mut Read) -> ::Result<Option<(usize, Frame)>> {
-    let id = id_or_padding!(reader, 4);
-    let mut frame = Frame::new(id);
-    debug!("reading {}", frame.id());
-
-    let content_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?);
-
-    let flags = Flags::from_bits(reader.read_u16::<BigEndian>()?)
+pub fn decode<R>(reader: &mut R) -> ::Result<Option<(usize, Frame)>>
+    where R: io::Read {
+    let mut frame_header = [0; 10];
+    let nread = reader.read(&mut frame_header)?;
+    if nread < frame_header.len() || frame_header[0] == 0x00 {
+        return Ok(None);
+    }
+    let id = str::from_utf8(&frame_header[0..4])?;
+    let content_size = BigEndian::read_u32(&frame_header[4..8]) as usize;
+    let flags = Flags::from_bits(BigEndian::read_u16(&frame_header[8..10]))
         .ok_or(::Error::new(::ErrorKind::Parsing, "unknown frame header flags are set"))?;
     if flags.contains(ENCRYPTION) {
-        debug!("[{}] encryption is not supported", frame.id());
+        debug!("[{}] encryption is not supported", id);
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "encryption is not supported"));
     } else if flags.contains(GROUPING_IDENTITY) {
-        debug!("[{}] grouping identity is not supported", frame.id());
+        debug!("[{}] grouping identity is not supported", id);
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "grouping identity is not supported"));
     }
 
-    let mut read_size = content_size;
-    if flags.contains(DATA_LENGTH_INDICATOR) {
+    let read_size = if flags.contains(DATA_LENGTH_INDICATOR) {
         let _decompressed_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?);
-        read_size -= 4;
-    }
-    frame.content = super::decode_content(reader.take(read_size as u64), frame.id(), flags.contains(COMPRESSION), flags.contains(UNSYNCHRONISATION))?;
+        content_size - 4
+    } else {
+        content_size
+    };
 
+    let content = super::decode_content(reader.take(read_size as u64), id, flags.contains(COMPRESSION), flags.contains(UNSYNCHRONISATION))?;
+    let frame = Frame::with_content(id, content);
     Ok(Some((10 + content_size as usize, frame)))
 }
 

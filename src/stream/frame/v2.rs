@@ -15,14 +15,12 @@ pub fn decode<R>(reader: &mut R, unsynchronisation: bool) -> ::Result<Option<(us
         return Ok(None);
     }
     let id = str::from_utf8(&frame_header[0..3])?;
-
-    let mut frame = Frame::new(id);
-    debug!("reading {}", frame.id());
+    debug!("reading {}", id);
 
     let sizebytes = &frame_header[3..6];
     let read_size = ((sizebytes[0] as u32) << 16) | ((sizebytes[1] as u32) << 8) | sizebytes[2] as u32;
-    frame.content = super::decode_content(reader.take(read_size as u64), frame.id(), false, unsynchronisation)?;
-
+    let content = super::decode_content(reader.take(read_size as u64), id, false, unsynchronisation)?;
+    let frame = Frame::with_content(id, content);
     Ok(Some((6 + read_size as usize, frame)))
 }
 
