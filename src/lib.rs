@@ -1,3 +1,5 @@
+#![cfg_attr(all(test, feature = "unstable"), feature(test))]
+
 //! A library to read and write ID3v2 tags. ID3 versions v2.2, v2.3, and v2.4 are supported.
 //!
 //! # Modifying an existing tag
