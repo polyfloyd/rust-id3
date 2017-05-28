@@ -1,31 +1,15 @@
-use std::cmp;
 use std::fs::{self, File};
 use std::io::{self, Read, Write, Seek, SeekFrom, BufReader};
 use std::iter;
 use std::ops;
 use std::path::Path;
 
-use byteorder::{ByteOrder, BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{ByteOrder, BigEndian, ReadBytesExt};
 
 use frame::{Frame, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType, Timestamp};
 use frame::Content;
 use ::storage::{PlainStorage, Storage};
-use ::stream::frame;
-use ::stream::unsynch;
-
-static DEFAULT_FILE_DISCARD: &[&str] = &[
-    "AENC",
-    "ETCO",
-    "EQUA",
-    "MLLT",
-    "POSS",
-    "SYLT",
-    "SYTC",
-    "RVAD",
-    "TENC",
-    "TLEN",
-    "TSIZ",
-];
+use ::stream::{self, unsynch};
 
 
 /// Denotes the version of a tag.
@@ -62,106 +46,21 @@ impl Version {
 /// An ID3 tag containing metadata frames.
 #[derive(Clone, Debug)]
 pub struct Tag {
-    flags: Flags,
     /// A vector of frames included in the tag.
     frames: Vec<Frame>,
 }
-
-/// Flags used in the ID3 header.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-struct Flags {
-    /// Indicates whether or not unsynchronization is used.
-    pub unsynchronization: bool,
-    /// Indicates whether or not the header is followed by an extended header.
-    pub extended_header: bool,
-    /// Indicates whether the tag is in an experimental stage.
-    pub experimental: bool,
-    /// Indicates whether a footer is present.
-    pub footer: bool,
-    /// Indicates whether or not compression is used. This flag is only used in ID3v2.2.
-    pub compression: bool // v2.2 only
-}
-
-// Flags {{{
-impl Flags {
-    /// Creates a new `Flags` with all flags set to false.
-    fn new() -> Flags {
-        Flags {
-            unsynchronization: false, extended_header: false, experimental: false,
-            footer: false, compression: false
-        }
-    }
-
-    /// Creates a new `Flags` using the provided byte.
-    fn from_byte(byte: u8, version: Version) -> Flags {
-        let mut flags = Flags::new();
-
-        flags.unsynchronization = byte & 0x80 != 0;
-
-        if version == Version::Id3v22 {
-            flags.compression = byte & 0x40 != 0;
-        } else {
-            flags.extended_header = byte & 0x40 != 0;
-            flags.experimental = byte & 0x20 != 0;
-
-            if version == Version::Id3v24 {
-                flags.footer = byte & 0x10 != 0;
-            }
-        }
-
-        flags
-    }
-
-    /// Creates a byte representation of the flags suitable for writing to an ID3 tag.
-    fn to_byte(&self, version: Version) -> u8 {
-        let mut byte = 0;
-
-        if self.unsynchronization {
-            byte |= 0x80;
-        }
-
-        if version == Version::Id3v22 {
-            if self.compression {
-                byte |= 0x40;
-            }
-        } else {
-            if self.extended_header {
-                byte |= 0x40;
-            }
-
-            if self.experimental {
-                byte |= 0x20
-            }
-
-            if version == Version::Id3v24 {
-                if self.footer {
-                    byte |= 0x10;
-                }
-            }
-        }
-
-        byte
-    }
-}
-// }}}
 
 // Tag {{{
 impl<'a> Tag {
     /// Creates a new ID3v2.4 tag with no frames.
     pub fn new() -> Tag {
-        Tag {
-            flags: Flags::new(),
-            frames: Vec::new(),
-        }
+        Tag { frames: Vec::new() }
     }
 
     /// Creates a new ID3 tag with the specified version.
     #[deprecated(note = "Tags now use ID3v2.4 for internal storage")]
     pub fn with_version(_: Version) -> Tag {
-        Tag {
-            flags: Flags::new(),
-            frames: Vec::new(),
-        }
+        Tag { frames: Vec::new() }
     }
 
     // id3v1 {{{
@@ -1465,52 +1364,7 @@ impl<'a> Tag {
     /// Attempts to read an ID3 tag from the reader.
     pub fn read_from<R>(reader: &mut R) -> ::Result<Tag>
         where R: io::Read {
-        let mut tag_header = [0; 10];
-        let nread = reader.read(&mut tag_header)?;
-        if nread < tag_header.len() || &tag_header[0..3] != b"ID3" {
-            return Err(::Error::new(::ErrorKind::NoTag, "reader does not contain an id3 tag"));
-        }
-        let (ver_major, ver_minor) = (tag_header[4], tag_header[3]);
-        let version = match (ver_major, ver_minor) {
-            (_, 2) => Version::Id3v22,
-            (_, 3) => Version::Id3v23,
-            (_, 4) => Version::Id3v24,
-            (_, _) => {
-                return Err(::Error::new(::ErrorKind::UnsupportedVersion(ver_major, ver_minor), "unsupported id3 tag version"));
-            },
-        };
-        let flags = Flags::from_byte(tag_header[5], version);
-        let tag_size = unsynch::decode_u32(BigEndian::read_u32(&tag_header[6..10])) as usize;
-
-        if flags.compression {
-            return Err(::Error::new(::ErrorKind::UnsupportedFeature, "id3v2.2 compression is not supported"));
-        }
-
-        let mut offset = tag_header.len();
-
-        // TODO: actually use the extended header data.
-        if flags.extended_header {
-            let ext_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?) as usize;
-            offset += 4 + ext_size;
-            let mut ext_header = Vec::with_capacity(cmp::min(ext_size, 0xffff));
-            reader.take(ext_size as u64)
-                .read_to_end(&mut ext_header)?;
-            if flags.unsynchronization {
-                unsynch::decode_vec(&mut ext_header);
-            }
-        }
-
-        let mut tag = Tag::new();
-        while offset < tag_size + tag_header.len() {
-            let (bytes_read, frame) = match frame::decode(reader, version, flags.unsynchronization)? {
-                Some(frame) => frame,
-                None => break, // Padding.
-            };
-            tag.frames.push(frame);
-            offset += bytes_read;
-        }
-
-        Ok(tag)
+        stream::tag::decode(reader)
     }
 
     /// Attempts to read an ID3 tag from the file at the indicated path.
@@ -1520,25 +1374,13 @@ impl<'a> Tag {
     }
 
     /// Attempts to write the ID3 tag to the writer using the specified version.
-    pub fn write_to(&self, writer: &mut io::Write, version: Version) -> ::Result<()> {
-        // remove frames which have the flags indicating they should be removed
-        let saved_frames = self.frames.iter()
-            .filter(|frame| {
-                !(frame.tag_alter_preservation()
-                  || (frame.file_alter_preservation()
-                      || DEFAULT_FILE_DISCARD.contains(&&frame.id())))
-            });
-
-        let mut frame_data = Vec::new();
-        for frame in saved_frames {
-            frame::encode(&mut frame_data, frame, version, self.flags.unsynchronization)?;
-        }
-        writer.write_all(b"ID3")?;
-        writer.write_all(&[version.minor() as u8, 2])?;
-        writer.write_u8(self.flags.to_byte(version))?;
-        writer.write_u32::<BigEndian>(unsynch::encode_u32(frame_data.len() as u32))?;
-        writer.write_all(&frame_data[..])?;
-        Ok(())
+    pub fn write_to<W>(&self, writer: &mut W, version: Version) -> ::Result<()>
+        where W: io::Write {
+        stream::tag::EncoderBuilder::default()
+            .version(version)
+            .build()
+            .unwrap()
+            .encode(self, writer)
     }
 
     /// Attempts to write the ID3 tag from the file at the indicated path. If the specified path is
@@ -1619,18 +1461,6 @@ mod tests {
     use super::*;
     use std::fs;
     use std::io;
-    use tag::Flags;
-
-    #[test]
-    fn test_flags_to_bytes() {
-        let mut flags = Flags::new();
-        assert_eq!(flags.to_byte(Id3v24), 0x0);
-        flags.unsynchronization = true;
-        flags.extended_header = true;
-        flags.experimental = true;
-        flags.footer = true;
-        assert_eq!(flags.to_byte(Id3v24), 0xF0);
-    }
 
     #[test]
     fn test_locate_id3v2() {

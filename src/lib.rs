@@ -41,6 +41,8 @@
 #[macro_use]
 extern crate bitflags;
 extern crate byteorder;
+#[macro_use]
+extern crate derive_builder;
 extern crate encoding;
 extern crate flate2;
 #[macro_use]
@@ -49,13 +51,10 @@ extern crate lazy_static;
 extern crate log;
 extern crate regex;
 
-pub use tag::{Tag, Version};
-pub use frame::Frame;
-pub use frame::Timestamp;
 pub use error::{Result, Error, ErrorKind};
-
-/// Utilities used for reading/writing ID3 tags.
-mod util;
+pub use frame::{Frame, Content, Timestamp};
+pub use stream::tag::{Encoder, EncoderBuilder};
+pub use tag::{Tag, Version};
 
 /// Contains types and methods for operating on ID3 frames.
 pub mod frame;
@@ -63,6 +62,7 @@ pub mod frame;
 pub mod v1;
 
 mod error;
-mod tag;
 mod storage;
 mod stream;
+mod tag;
+mod util;
