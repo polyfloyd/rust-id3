@@ -52,7 +52,7 @@ impl Frame {
     ///
     /// # Panics
     /// If the id's length is not 3 or 4 bytes long or not known.
-//    #[deprecated(note = "Use with_content")]
+    #[deprecated(note = "Use with_content")]
     pub fn new<T: Into<String>>(id: T) -> Frame {
         Frame::with_content(&id.into(), Content::Unknown(Vec::new()))
     }
