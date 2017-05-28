@@ -42,7 +42,7 @@ impl Version {
 
 
 /// An ID3 tag containing metadata frames.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq)]
 pub struct Tag {
     /// A vector of frames included in the tag.
     frames: Vec<Frame>,
@@ -1396,6 +1396,14 @@ impl<'a> Tag {
         Ok(())
     }
     //}}}
+}
+
+impl PartialEq for Tag {
+    fn eq(&self, other: &Tag) -> bool {
+        self.frames.len() == other.frames.len()
+            && self.frames.iter()
+                .all(|frame| other.frames.contains(frame))
+    }
 }
 
 impl From<::v1::Tag> for Tag {

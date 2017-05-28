@@ -162,6 +162,14 @@ mod tests {
     use std::io;
     use ::frame::PictureType;
 
+    fn make_tag() -> Tag {
+        let mut tag = Tag::new();
+        tag.set_title("Title");
+        tag.set_artist("Artist");
+        tag.set_genre("Genre");
+        tag
+    }
+
     #[test]
     fn read_id3v23() {
         let mut file = fs::File::open("testdata/id3v23.id3").unwrap();
@@ -185,49 +193,110 @@ mod tests {
 
     #[test]
     fn write_id3v22() {
-        let mut tag = Tag::new();
-        tag.set_title("Title");
-        tag.set_artist("Artist");
-        tag.set_genre("Genre");
-
+        let tag = make_tag();
         let mut buffer = Vec::new();
-        tag.write_to(&mut buffer, Version::Id3v22).unwrap();
-
+        EncoderBuilder::default()
+            .version(Version::Id3v22)
+            .build()
+            .unwrap()
+            .encode(&tag, &mut buffer).unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
-        assert_eq!(tag.title(), tag_read.title());
-        assert_eq!(tag.artist(), tag_read.artist());
-        assert_eq!(tag.genre(), tag_read.genre());
+        assert_eq!(tag, tag_read);
+    }
+
+    #[test]
+    fn write_id3v22_unsynch() {
+        let tag = make_tag();
+        let mut buffer = Vec::new();
+        EncoderBuilder::default()
+            .unsynchronisation(true)
+            .version(Version::Id3v22)
+            .build()
+            .unwrap()
+            .encode(&tag, &mut buffer).unwrap();
+        let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
+        assert_eq!(tag, tag_read);
     }
 
     #[test]
     fn write_id3v23() {
-        let mut tag = Tag::new();
-        tag.set_title("Title");
-        tag.set_artist("Artist");
-        tag.set_genre("Genre");
-
+        let tag = make_tag();
         let mut buffer = Vec::new();
-        tag.write_to(&mut buffer, Version::Id3v23).unwrap();
-
+        EncoderBuilder::default()
+            .version(Version::Id3v23)
+            .build()
+            .unwrap()
+            .encode(&tag, &mut buffer).unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
-        assert_eq!(tag.title(), tag_read.title());
-        assert_eq!(tag.artist(), tag_read.artist());
-        assert_eq!(tag.genre(), tag_read.genre());
+        assert_eq!(tag, tag_read);
+    }
+
+    #[test]
+    fn write_id3v23_compression() {
+        let tag = make_tag();
+        let mut buffer = Vec::new();
+        EncoderBuilder::default()
+            .compression(true)
+            .version(Version::Id3v23)
+            .build()
+            .unwrap()
+            .encode(&tag, &mut buffer).unwrap();
+        let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
+        assert_eq!(tag, tag_read);
+    }
+
+    #[test]
+    fn write_id3v23_unsynch() {
+        let tag = make_tag();
+        let mut buffer = Vec::new();
+        EncoderBuilder::default()
+            .unsynchronisation(true)
+            .version(Version::Id3v23)
+            .build()
+            .unwrap()
+            .encode(&tag, &mut buffer).unwrap();
+        let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
+        assert_eq!(tag, tag_read);
     }
 
     #[test]
     fn write_id3v24() {
-        let mut tag = Tag::new();
-        tag.set_title("Title");
-        tag.set_artist("Artist");
-        tag.set_genre("Genre");
-
+        let tag = make_tag();
         let mut buffer = Vec::new();
-        tag.write_to(&mut buffer, Version::Id3v24).unwrap();
-
+        EncoderBuilder::default()
+            .version(Version::Id3v24)
+            .build()
+            .unwrap()
+            .encode(&tag, &mut buffer).unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
-        assert_eq!(tag.title(), tag_read.title());
-        assert_eq!(tag.artist(), tag_read.artist());
-        assert_eq!(tag.genre(), tag_read.genre());
+        assert_eq!(tag, tag_read);
+    }
+
+    #[test]
+    fn write_id3v24_compression() {
+        let tag = make_tag();
+        let mut buffer = Vec::new();
+        EncoderBuilder::default()
+            .compression(true)
+            .version(Version::Id3v24)
+            .build()
+            .unwrap()
+            .encode(&tag, &mut buffer).unwrap();
+        let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
+        assert_eq!(tag, tag_read);
+    }
+
+    #[test]
+    fn write_id3v24_unsynch() {
+        let tag = make_tag();
+        let mut buffer = Vec::new();
+        EncoderBuilder::default()
+            .unsynchronisation(true)
+            .version(Version::Id3v24)
+            .build()
+            .unwrap()
+            .encode(&tag, &mut buffer).unwrap();
+        let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
+        assert_eq!(tag, tag_read);
     }
 }
