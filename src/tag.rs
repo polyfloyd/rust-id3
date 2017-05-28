@@ -3,11 +3,9 @@ use std::io::{self, Read, Write, Seek, SeekFrom, BufReader};
 use std::iter;
 use std::ops;
 use std::path::Path;
-
 use byteorder::{ByteOrder, BigEndian, ReadBytesExt};
-
-use frame::{Frame, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType, Timestamp};
-use frame::Content;
+use ::frame::Content;
+use ::frame::{Frame, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType, Timestamp};
 use ::storage::{PlainStorage, Storage};
 use ::stream::{self, unsynch};
 
@@ -1455,12 +1453,10 @@ fn locate_id3v2<R>(reader: &mut R) -> ::Result<Option<ops::Range<u64>>>
 }
 
 
-// Tests {{{
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
-    use std::io;
 
     #[test]
     fn test_locate_id3v2() {
@@ -1468,74 +1464,4 @@ mod tests {
         let location = locate_id3v2(&mut file).unwrap();
         assert!(location.is_some());
     }
-
-    #[test]
-    fn read_id3v23() {
-        let mut file = fs::File::open("testdata/id3v23.id3").unwrap();
-        let tag = Tag::read_from(&mut file).unwrap();
-        assert_eq!("Title", tag.title().unwrap());
-        assert_eq!("Genre", tag.genre().unwrap());
-        assert_eq!(1, tag.disc().unwrap());
-        assert_eq!(1, tag.total_discs().unwrap());
-        assert_eq!(PictureType::CoverFront, tag.pictures().nth(0).unwrap().picture_type);
-    }
-
-    #[test]
-    fn read_id3v24() {
-        let mut file = fs::File::open("testdata/id3v24.id3").unwrap();
-        let tag = Tag::read_from(&mut file).unwrap();
-        assert_eq!("Title", tag.title().unwrap());
-        assert_eq!(1, tag.disc().unwrap());
-        assert_eq!(1, tag.total_discs().unwrap());
-        assert_eq!(PictureType::CoverFront, tag.pictures().nth(0).unwrap().picture_type);
-    }
-
-    #[test]
-    fn write_id3v22() {
-        let mut tag = Tag::new();
-        tag.set_title("Title");
-        tag.set_artist("Artist");
-        tag.set_genre("Genre");
-
-        let mut buffer = Vec::new();
-        tag.write_to(&mut buffer, Id3v22).unwrap();
-
-        let tag_read = Tag::read_from(&mut io::Cursor::new(buffer)).unwrap();
-        assert_eq!(tag.title(), tag_read.title());
-        assert_eq!(tag.artist(), tag_read.artist());
-        assert_eq!(tag.genre(), tag_read.genre());
-    }
-
-    #[test]
-    fn write_id3v23() {
-        let mut tag = Tag::new();
-        tag.set_title("Title");
-        tag.set_artist("Artist");
-        tag.set_genre("Genre");
-
-        let mut buffer = Vec::new();
-        tag.write_to(&mut buffer, Id3v23).unwrap();
-
-        let tag_read = Tag::read_from(&mut io::Cursor::new(buffer)).unwrap();
-        assert_eq!(tag.title(), tag_read.title());
-        assert_eq!(tag.artist(), tag_read.artist());
-        assert_eq!(tag.genre(), tag_read.genre());
-    }
-
-    #[test]
-    fn write_id3v24() {
-        let mut tag = Tag::new();
-        tag.set_title("Title");
-        tag.set_artist("Artist");
-        tag.set_genre("Genre");
-
-        let mut buffer = Vec::new();
-        tag.write_to(&mut buffer, Id3v24).unwrap();
-
-        let tag_read = Tag::read_from(&mut io::Cursor::new(buffer)).unwrap();
-        assert_eq!(tag.title(), tag_read.title());
-        assert_eq!(tag.artist(), tag_read.artist());
-        assert_eq!(tag.genre(), tag_read.genre());
-    }
 }
-// }}}

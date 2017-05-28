@@ -125,3 +125,81 @@ impl Encoder {
         Ok(())
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::io;
+    use ::frame::PictureType;
+
+    #[test]
+    fn read_id3v23() {
+        let mut file = fs::File::open("testdata/id3v23.id3").unwrap();
+        let tag = decode(&mut file).unwrap();
+        assert_eq!("Title", tag.title().unwrap());
+        assert_eq!("Genre", tag.genre().unwrap());
+        assert_eq!(1, tag.disc().unwrap());
+        assert_eq!(1, tag.total_discs().unwrap());
+        assert_eq!(PictureType::CoverFront, tag.pictures().nth(0).unwrap().picture_type);
+    }
+
+    #[test]
+    fn read_id3v24() {
+        let mut file = fs::File::open("testdata/id3v24.id3").unwrap();
+        let tag = decode(&mut file).unwrap();
+        assert_eq!("Title", tag.title().unwrap());
+        assert_eq!(1, tag.disc().unwrap());
+        assert_eq!(1, tag.total_discs().unwrap());
+        assert_eq!(PictureType::CoverFront, tag.pictures().nth(0).unwrap().picture_type);
+    }
+
+    #[test]
+    fn write_id3v22() {
+        let mut tag = Tag::new();
+        tag.set_title("Title");
+        tag.set_artist("Artist");
+        tag.set_genre("Genre");
+
+        let mut buffer = Vec::new();
+        tag.write_to(&mut buffer, Version::Id3v22).unwrap();
+
+        let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
+        assert_eq!(tag.title(), tag_read.title());
+        assert_eq!(tag.artist(), tag_read.artist());
+        assert_eq!(tag.genre(), tag_read.genre());
+    }
+
+    #[test]
+    fn write_id3v23() {
+        let mut tag = Tag::new();
+        tag.set_title("Title");
+        tag.set_artist("Artist");
+        tag.set_genre("Genre");
+
+        let mut buffer = Vec::new();
+        tag.write_to(&mut buffer, Version::Id3v23).unwrap();
+
+        let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
+        assert_eq!(tag.title(), tag_read.title());
+        assert_eq!(tag.artist(), tag_read.artist());
+        assert_eq!(tag.genre(), tag_read.genre());
+    }
+
+    #[test]
+    fn write_id3v24() {
+        let mut tag = Tag::new();
+        tag.set_title("Title");
+        tag.set_artist("Artist");
+        tag.set_genre("Genre");
+
+        let mut buffer = Vec::new();
+        tag.write_to(&mut buffer, Version::Id3v24).unwrap();
+
+        let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
+        assert_eq!(tag.title(), tag_read.title());
+        assert_eq!(tag.artist(), tag_read.artist());
+        assert_eq!(tag.genre(), tag_read.genre());
+    }
+}
