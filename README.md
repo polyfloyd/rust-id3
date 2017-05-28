@@ -1,4 +1,4 @@
-# rust-id3 
+# rust-id3
 
 [![Build Status](https://travis-ci.org/jameshurst/rust-id3.svg)](https://travis-ci.org/jameshurst/rust-id3)
 [![](http://meritbadge.herokuapp.com/id3)](https://crates.io/crates/id3)
@@ -19,15 +19,13 @@ id3 = "0.1.12"
 ```rust
 use id3::Tag;
 
-let mut tag = Tag::read_from_path("music.mp3").unwrap();
+let tag = Tag::read_from_path("music.mp3").unwrap();
 
 // print the artist the hard way
 println!("{}", tag.get("TALB").unwrap().content.text());
 
 // or print it the easy way
 println!("{}", tag.artist().unwrap());
-
-tag.save().unwrap();
 ```
 
 ## Supported ID3 Versions
@@ -44,6 +42,5 @@ tag.save().unwrap();
 
 ## Contributors
 
-  * [Olivier Renaud](https://bitbucket.org/olivren) 
-    * Initial ID3v1 reading code 
-
+  * [Olivier Renaud](https://bitbucket.org/olivren)
+    * Initial ID3v1 reading code
