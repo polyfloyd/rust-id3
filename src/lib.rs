@@ -47,8 +47,6 @@ extern crate encoding;
 extern crate flate2;
 #[macro_use]
 extern crate lazy_static;
-#[macro_use]
-extern crate log;
 extern crate regex;
 
 pub use error::{Result, Error, ErrorKind};

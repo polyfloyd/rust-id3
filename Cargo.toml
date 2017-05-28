@@ -17,5 +17,4 @@ derive_builder = { version = "~0.4.7", features = [ "private_fields" ] }
 encoding = "~0.2.33"
 flate2 = "~0.2.19"
 lazy_static = "~0.2.8"
-log = "~0.3.7"
 regex = "~0.2.1"

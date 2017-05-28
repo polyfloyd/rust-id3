@@ -36,10 +36,8 @@ pub fn decode<R>(reader: &mut R) -> ::Result<Option<(usize, Frame)>>
     let flags = Flags::from_bits(BigEndian::read_u16(&frame_header[8..10]))
         .ok_or(::Error::new(::ErrorKind::Parsing, "unknown frame header flags are set"))?;
     if flags.contains(ENCRYPTION) {
-        debug!("[{}] encryption is not supported", id);
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "encryption is not supported"));
     } else if flags.contains(GROUPING_IDENTITY) {
-        debug!("[{}] grouping identity is not supported", id);
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "grouping identity is not supported"));
     }
 
@@ -61,7 +59,6 @@ pub fn write(writer: &mut Write, frame: &Frame, flags: Flags) -> ::Result<u32> {
     let decompressed_size = content_size;
 
     if flags.contains(COMPRESSION) {
-        debug!("[{}] compressing frame content", frame.id());
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::Default);
         try!(encoder.write_all(&content_bytes[..]));
         content_bytes = try!(encoder.finish());
@@ -76,7 +73,6 @@ pub fn write(writer: &mut Write, frame: &Frame, flags: Flags) -> ::Result<u32> {
     try!(writer.write_u32::<BigEndian>(unsynch::encode_u32(content_size)));;
     try!(writer.write_u16::<BigEndian>(flags.bits()));
     if flags.contains(DATA_LENGTH_INDICATOR) {
-        debug!("[{}] adding data length indicator", frame.id());
         try!(writer.write_u32::<BigEndian>(unsynch::encode_u32(decompressed_size)));
     }
     if flags.contains(UNSYNCHRONISATION) {

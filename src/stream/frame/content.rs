@@ -376,8 +376,7 @@ fn parse_apic_v2(data: &[u8]) -> ::Result<DecoderResult> {
     let mime_type = match &format[..] {
         "PNG" => "image/png".to_owned(),
         "JPG" => "image/jpeg".to_owned(),
-        other => {
-            debug!("can't determine MIME type for `{}`", other);
+        _ => {
             return Err(::Error::new(::ErrorKind::UnsupportedFeature,
                                      "can't determine MIME type for image format"))
         }

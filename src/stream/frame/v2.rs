@@ -15,7 +15,6 @@ pub fn decode<R>(reader: &mut R, unsynchronisation: bool) -> ::Result<Option<(us
         return Ok(None);
     }
     let id = str::from_utf8(&frame_header[0..3])?;
-    debug!("reading {}", id);
 
     let sizebytes = &frame_header[3..6];
     let read_size = ((sizebytes[0] as u32) << 16) | ((sizebytes[1] as u32) << 8) | sizebytes[2] as u32;
