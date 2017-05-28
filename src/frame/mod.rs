@@ -18,12 +18,8 @@ mod timestamp;
 /// are not because their uniqueness is also defined by their content.
 #[derive(Clone, Debug, Eq)]
 pub struct Frame {
-    /// The frame identifier.
     id: [u8; 4],
-    /// The parsed content of the frame.
-    #[doc(hidden)]
-    pub content: Content,
-
+    content: Content,
     tag_alter_preservation: bool,
     file_alter_preservation: bool,
 }

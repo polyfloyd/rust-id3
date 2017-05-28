@@ -70,7 +70,7 @@ pub fn encode<W>(writer: &mut W, frame: &Frame, version: tag::Version, unsynchro
 
 /// Creates a vector representation of the content suitable for writing to an ID3 tag.
 fn content_to_bytes(frame: &Frame, version: tag::Version, encoding: Encoding) -> Vec<u8> {
-    let request = ::stream::frame::content::EncoderRequest { version: version, encoding: encoding, content: &frame.content };
+    let request = ::stream::frame::content::EncoderRequest { version: version, encoding: encoding, content: frame.content() };
     content::encode(request)
 }
 
