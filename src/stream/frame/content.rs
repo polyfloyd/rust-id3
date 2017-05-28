@@ -7,7 +7,7 @@ pub struct DecoderResult {
     /// The text encoding used in the frame.
     pub encoding: Encoding,
     /// The parsed content of the frame.
-    pub content: Content 
+    pub content: Content
 }
 
 impl DecoderResult {
@@ -86,17 +86,17 @@ macro_rules! encode {
                 },
                 Encoding::UTF8 => EncodingParams {
                     delim_len: 1,
-                    string_func: Box::new(|buf: &mut Vec<u8>, string: &str| 
+                    string_func: Box::new(|buf: &mut Vec<u8>, string: &str|
                         buf.extend(string.bytes()))
                 },
                 Encoding::UTF16 => EncodingParams {
                     delim_len: 2,
-                    string_func: Box::new(|buf: &mut Vec<u8>, string: &str| 
+                    string_func: Box::new(|buf: &mut Vec<u8>, string: &str|
                         buf.extend(::util::string_to_utf16(string).into_iter()))
                 },
                 Encoding::UTF16BE => EncodingParams {
                     delim_len: 2,
-                    string_func: Box::new(|buf: &mut Vec<u8>, string: &str| 
+                    string_func: Box::new(|buf: &mut Vec<u8>, string: &str|
                         buf.extend(::util::string_to_utf16be(string).into_iter()))
                 }
             };
@@ -124,25 +124,25 @@ fn weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
 
 fn extended_weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let content = request.content.extended_link().unwrap();
-    return encode!(encoding(request.encoding), string(content.description), delim(0), 
+    return encode!(encoding(request.encoding), string(content.description), delim(0),
                    bytes(content.link.as_bytes()));
 }
 
 fn lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let content = request.content.lyrics().unwrap();
-    return encode!(encoding(request.encoding), bytes(content.lang[..3].as_bytes()), 
+    return encode!(encoding(request.encoding), bytes(content.lang[..3].as_bytes()),
                    string(content.description), delim(0), string(content.text));
 }
 
 fn comment_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let content = request.content.comment().unwrap();
-    return encode!(encoding(request.encoding), bytes(content.lang[..3].as_bytes()), 
+    return encode!(encoding(request.encoding), bytes(content.lang[..3].as_bytes()),
                    string(content.description), delim(0), string(content.text));
 }
 
 fn picture_to_bytes_v3(request: EncoderRequest) -> Vec<u8> {
     let content = request.content.picture().unwrap();
-    return encode!(encoding(request.encoding), bytes(content.mime_type.as_bytes()), byte(0), 
+    return encode!(encoding(request.encoding), bytes(content.mime_type.as_bytes()), byte(0),
             byte(content.picture_type), string(content.description), delim(0), bytes(content.data));
 }
 
@@ -155,8 +155,8 @@ fn picture_to_bytes_v2(request: EncoderRequest) -> Vec<u8> {
         _ => panic!("unknown MIME type") // TODO handle this better. Return None?
     };
 
-    return encode!(encoding(request.encoding), bytes(format.as_bytes()), byte(picture.picture_type), 
-            string(picture.description), delim(0), bytes(picture.data)); 
+    return encode!(encoding(request.encoding), bytes(format.as_bytes()), byte(picture.picture_type),
+            string(picture.description), delim(0), bytes(picture.data));
 }
 
 fn picture_to_bytes(request: EncoderRequest) -> Vec<u8> {
@@ -347,10 +347,10 @@ macro_rules! decode {
             };
 
             let params = DecodingParams::for_encoding(encoding);
-            
+
             let mut i = 1;
-            Ok(DecoderResult { 
-                encoding: encoding, 
+            Ok(DecoderResult {
+                encoding: encoding,
                 content: Content::$result_type( $result_type {
                     $($field: decode_part!($bytes, params, i, $part ( $($params)* ) ),)+
                 })
@@ -400,14 +400,14 @@ fn parse_apic_v2(data: &[u8]) -> ::Result<DecoderResult> {
 /// Attempts to parse the data as an ID3v2.3/ID3v2.4 picture frame.
 /// Returns a `Content::Picture`.
 fn parse_apic_v3(data: &[u8]) -> ::Result<DecoderResult> {
-    return decode!(data, Picture, mime_type: latin1(true), picture_type : picture_type(), 
+    return decode!(data, Picture, mime_type: latin1(true), picture_type : picture_type(),
                    description: string(true), data: bytes());
 }
 
 /// Attempts to parse the data as a comment frame.
 /// Returns a `Content::Comment`.
 fn parse_comm(data: &[u8]) -> ::Result<DecoderResult> {
-    return decode!(data, Comment, lang: fixed_string(3), description: string(true), 
+    return decode!(data, Comment, lang: fixed_string(3), description: string(true),
                    text: string(false));
 }
 
@@ -461,7 +461,7 @@ fn parse_wxxx(data: &[u8]) -> ::Result<DecoderResult> {
 /// Attempts to parse the data as an unsynchronized lyrics text frame.
 /// Returns a `Content::Lyrics`.
 fn parse_uslt(data: &[u8]) -> ::Result<DecoderResult> {
-    return decode!(data, Lyrics, lang: fixed_string(3), description: string(true), 
+    return decode!(data, Lyrics, lang: fixed_string(3), description: string(true),
                    text: string(false));
 }
 // }}}
@@ -720,9 +720,9 @@ mod tests {
             let data = link.as_bytes().to_vec();
 
             assert_eq!(decode("WOAF", &data[..]).unwrap().content.link().unwrap(), link);
-            assert_eq!(encode(EncoderRequest { 
-                encoding: Encoding::Latin1, 
-                content: &Content::Link(link.to_owned()), 
+            assert_eq!(encode(EncoderRequest {
+                encoding: Encoding::Latin1,
+                content: &Content::Link(link.to_owned()),
                 version: tag::Id3v23
             }), data);
         }
@@ -734,7 +734,7 @@ mod tests {
 
         println!("valid");
         for description in vec!("", "rust").into_iter() {
-            for link in vec!("", "http://www.rust-lang.org/").into_iter() { 
+            for link in vec!("", "http://www.rust-lang.org/").into_iter() {
                 for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
                     println!("`{}`, `{}`, `{:?}`", description, link, encoding);
                     let mut data = Vec::new();

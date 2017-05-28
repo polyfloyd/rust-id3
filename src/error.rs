@@ -58,7 +58,7 @@ impl error::Error for Error {
     fn cause(&self) -> Option<&error::Error> {
         match self.kind {
             ErrorKind::Io(ref err) => Some(err),
-            _ => None 
+            _ => None
         }
     }
 }

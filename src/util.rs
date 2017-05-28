@@ -16,7 +16,7 @@ pub fn string_from_latin1(data: &[u8]) -> ::Result<String> {
 /// Returns a string created from the vector using UTF-16 (with byte order mark) encoding.
 /// Returns `None` if the vector is not a valid UTF-16 string.
 pub fn string_from_utf16(data: &[u8]) -> ::Result<String> {
-    if data.len() < 2 { 
+    if data.len() < 2 {
         return Err(::Error::new(::ErrorKind::StringDecoding(data.to_vec()), "data is not valid utf16"))
     }
 
@@ -96,7 +96,7 @@ pub fn find_delim(encoding: Encoding, data: &[u8], index: usize) -> Option<usize
             Some(i)
         },
         Encoding::UTF16 | Encoding::UTF16BE => {
-            while i + 1 < data.len() 
+            while i + 1 < data.len()
                 && (data[i] != 0 || data[i + 1] != 0) {
                     i += 2;
                 }
@@ -107,7 +107,7 @@ pub fn find_delim(encoding: Encoding, data: &[u8], index: usize) -> Option<usize
 
             Some(i)
         }
-    } 
+    }
 }
 
 /// Returns the delimiter length for the specified encoding.
@@ -271,7 +271,7 @@ lazy_static! {
     };
 }
 
-/// Returns the coresponding ID3v2.2 ID given the ID3v2.3/ID3v2.3 ID. 
+/// Returns the coresponding ID3v2.2 ID given the ID3v2.3/ID3v2.3 ID.
 pub fn convert_id_3_to_2(id: &str) -> Option<&'static str> {
     ID_3_TO_2.get(id).map(|t| *t)
 }
@@ -301,7 +301,7 @@ mod tests {
         // big endian BOM
         assert_eq!(&string_from_utf16(b"\xFE\xFF\x01\x5B\x1E\xD1\x04\x3C\x1E\xC5\x00\x20\x01\x5B\x01\x67\x01\x57\x1E\xC9\x01\x48\x01\x1D").unwrap()[..], text);
 
-        // little endian BOM 
+        // little endian BOM
         assert_eq!(&string_from_utf16(b"\xFF\xFE\x5B\x01\xD1\x1E\x3C\x04\xC5\x1E\x20\x00\x5B\x01\x67\x01\x57\x01\xC9\x1E\x48\x01\x1D\x01").unwrap()[..], text);
     }
 
