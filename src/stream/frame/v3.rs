@@ -1,13 +1,13 @@
 use std::io::{self, Read, Write};
 use std::str;
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
-use flate2::write::ZlibEncoder;
 use flate2::Compression;
+use flate2::write::ZlibEncoder;
 use frame::Frame;
-use ::tag;
 use ::stream::encoding::Encoding;
 use ::stream::frame;
 use ::stream::unsynch;
+use ::tag;
 
 
 bitflags! {
@@ -48,32 +48,30 @@ pub fn decode<R>(reader: &mut R, unsynchronisation: bool) -> ::Result<Option<(us
     };
     let content = super::decode_content(reader.take(read_size as u64), id, flags.contains(COMPRESSION), unsynchronisation)?;
     let frame = Frame::with_content(id, content);
-    Ok(Some((10 + content_size as usize, frame)))
+    Ok(Some((10 + content_size, frame)))
 }
 
-pub fn write(writer: &mut Write, frame: &Frame, flags: Flags, unsynchronization: bool) -> ::Result<u32> {
-    let mut content_bytes = frame::content_to_bytes(&frame, tag::Id3v23, Encoding::UTF16);
-    let mut content_size = content_bytes.len() as u32;
-    let decompressed_size = content_size;
-
-    if flags.contains(COMPRESSION) {
+pub fn encode(writer: &mut Write, frame: &Frame, flags: Flags, unsynchronization: bool) -> ::Result<usize> {
+    let (mut content_buf, comp_hint_delta, decompressed_size) = if flags.contains(COMPRESSION) {
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::Default);
-        try!(encoder.write_all(&content_bytes[..]));
-        content_bytes = try!(encoder.finish());
-        content_size = content_bytes.len() as u32 + 4;
-    }
+        let content_size = frame::content::encode(&mut encoder, frame.content(), tag::Id3v23, Encoding::UTF16)?;
+        let content_buf = encoder.finish()?;
+        (content_buf, 4, Some(content_size))
+    } else {
+        let mut content_buf = Vec::new();
+        frame::content::encode(&mut content_buf, frame.content(), tag::Id3v23, Encoding::UTF16)?;
+        (content_buf, 0, None)
+    };
 
-    try!(writer.write_all(frame.id().as_bytes()));
-    try!(writer.write_u32::<BigEndian>(content_size));
-    try!(writer.write_u16::<BigEndian>(flags.bits()));
-    if flags.contains(COMPRESSION) {
-        try!(writer.write_u32::<BigEndian>(decompressed_size));
+    writer.write_all(frame.id().as_bytes())?;
+    writer.write_u32::<BigEndian>((content_buf.len() + comp_hint_delta) as u32)?;
+    writer.write_u16::<BigEndian>(flags.bits())?;
+    if let Some(s) = decompressed_size {
+        writer.write_u32::<BigEndian>(s as u32)?;
     }
     if unsynchronization {
-        unsynch::encode_vec(&mut content_bytes);
+        unsynch::encode_vec(&mut content_buf);
     }
-    try!(writer.write_all(&content_bytes[..]));
-
-    Ok(10 + content_size)
+    writer.write_all(&content_buf)?;
+    Ok(10 + comp_hint_delta + content_buf.len())
 }
-

@@ -23,20 +23,20 @@ pub fn decode<R>(reader: &mut R, unsynchronisation: bool) -> ::Result<Option<(us
     Ok(Some((6 + read_size as usize, frame)))
 }
 
-pub fn write(writer: &mut Write, frame: &Frame, unsynchronisation: bool) -> ::Result<u32> {
-    let mut content_bytes = frame::content_to_bytes(frame, tag::Id3v22, Encoding::UTF16);
-    let content_size = content_bytes.len() as u32;
-
+pub fn encode(writer: &mut Write, frame: &Frame, unsynchronisation: bool) -> ::Result<usize> {
+    let mut content_buf = Vec::new();
+    frame::content::encode(&mut content_buf, frame.content(), tag::Id3v22, Encoding::UTF16)?;
+    assert_ne!(0, content_buf.len());
     let id = frame.id_for_version(Version::Id3v22)
         .ok_or(::Error::new(::ErrorKind::InvalidInput, "Unable to downgrade frame ID to ID3v2.2"))?;
-    try!(writer.write_all(id.as_bytes()));
-    let mut content_size_buf = [0u8; 4];
-    BigEndian::write_u32(&mut content_size_buf, content_size);
-    try!(writer.write_all(&content_size_buf[1..4]));
+    assert_eq!(3, id.len());
+    writer.write_all(id.as_bytes())?;
+    let mut size_buf = [0; 4];
+    BigEndian::write_u32(&mut size_buf, content_buf.len() as u32);
+    writer.write_all(&size_buf[1..4])?;
     if unsynchronisation {
-        unsynch::encode_vec(&mut content_bytes);
+        unsynch::encode_vec(&mut content_buf);
     }
-    try!(writer.write_all(&content_bytes[..]));
-
-    Ok(6 + content_size)
+    writer.write_all(&content_buf)?;
+    Ok(7 + content_buf.len())
 }

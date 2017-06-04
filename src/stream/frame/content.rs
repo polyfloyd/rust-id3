@@ -1,6 +1,7 @@
-use frame::{Picture, PictureType, Content, ExtendedLink};
-use ::tag;
+use std::io;
+use ::frame::{Picture, PictureType, Content, ExtendedLink};
 use ::stream::encoding::Encoding;
+use ::tag;
 
 /// The result of a successfully parsed frame.
 pub struct DecoderResult {
@@ -17,46 +18,49 @@ impl DecoderResult {
     }
 }
 
-pub struct EncoderRequest<'a> {
-    pub version: tag::Version,
-    pub encoding: Encoding,
-    pub content: &'a Content
+struct EncoderRequest<'a> {
+    version: tag::Version,
+    encoding: Encoding,
+    content: &'a Content
 }
 
 /// Creates a vector representation of the request.
-pub fn encode(request: EncoderRequest) -> Vec<u8> {
-    match request.content {
-        &Content::Text(_) => text_to_bytes(request),
-        &Content::ExtendedText(_) => extended_text_to_bytes(request),
-        &Content::Link(_) => weblink_to_bytes(request),
-        &Content::ExtendedLink(_) => extended_weblink_to_bytes(request),
-        &Content::Lyrics(_) => lyrics_to_bytes(request),
-        &Content::Comment(_) => comment_to_bytes(request),
-        &Content::Picture(_) => picture_to_bytes(request),
-        &Content::Unknown(ref data) => data.clone()
-    }
+pub fn encode<W>(mut writer: W, content: &Content, version: tag::Version, encoding: Encoding) -> ::Result<usize>
+    where W: io::Write {
+    let request = EncoderRequest {
+        version,
+        encoding,
+        content,
+    };
+    let bytes = match *content {
+        Content::Text(_) => text_to_bytes(request),
+        Content::ExtendedText(_) => extended_text_to_bytes(request),
+        Content::Link(_) => weblink_to_bytes(request),
+        Content::ExtendedLink(_) => extended_weblink_to_bytes(request),
+        Content::Lyrics(_) => lyrics_to_bytes(request),
+        Content::Comment(_) => comment_to_bytes(request),
+        Content::Picture(_) => picture_to_bytes(request),
+        Content::Unknown(ref data) => data.clone()
+    };
+    writer.write_all(&bytes)?;
+    Ok(bytes.len())
 }
 
 /// Attempts to decode the request.
-pub fn decode(id: &str, data: &[u8]) -> ::Result<DecoderResult> {
+pub fn decode<R>(id: &str, mut reader: R) -> ::Result<DecoderResult>
+    where R: io::Read {
+    let mut data = Vec::new();
+    reader.read_to_end(&mut data)?;
     match id {
-        "APIC" => parse_apic_v3(data),
-        "PIC" => parse_apic_v2(data),
-        "TXXX" | "TXX" => parse_txxx(data),
-        "WXXX" | "WXX" => parse_wxxx(data),
-        "COMM" | "COM" => parse_comm(data),
-        "USLT" | "ULT" => parse_uslt(data),
-        _ => {
-            if id[..].len() > 0 {
-                if id[..].chars().next().unwrap() == 'T' {
-                    return parse_text(data);
-                } else if id[..].chars().next().unwrap() == 'W' {
-                    return parse_weblink(data);
-                }
-            }
-
-            Ok(DecoderResult::new(Encoding::UTF16, Content::Unknown(data.to_vec())))
-        }
+        "APIC" => parse_apic_v3(data.as_slice()),
+        "PIC" => parse_apic_v2(data.as_slice()),
+        "TXXX" | "TXX" => parse_txxx(data.as_slice()),
+        "WXXX" | "WXX" => parse_wxxx(data.as_slice()),
+        "COMM" | "COM" => parse_comm(data.as_slice()),
+        "USLT" | "ULT" => parse_uslt(data.as_slice()),
+        id if id.starts_with("T") => parse_text(data.as_slice()),
+        id if id.starts_with("W") => parse_weblink(data.as_slice()),
+        _ => Ok(DecoderResult::new(Encoding::UTF16, Content::Unknown(data))),
     }
 }
 
@@ -204,13 +208,13 @@ impl<'a> DecodingParams<'a> {
     }
 }
 
-fn encoding_from_byte(n: u8) -> Option<Encoding> {
+fn encoding_from_byte(n: u8) -> ::Result<Encoding> {
     match n {
-        0 => Some(Encoding::Latin1),
-        1 => Some(Encoding::UTF16),
-        2 => Some(Encoding::UTF16BE),
-        3 => Some(Encoding::UTF8),
-        _ => None,
+        0 => Ok(Encoding::Latin1),
+        1 => Ok(Encoding::UTF16),
+        2 => Ok(Encoding::UTF16BE),
+        3 => Ok(Encoding::UTF8),
+        _ => Err(::Error::new(::ErrorKind::Parsing, "unknown encoding"))
     }
 }
 
@@ -341,10 +345,7 @@ macro_rules! decode {
 
             assert_data!($bytes);
 
-            let encoding = match encoding_from_byte($bytes[0]) {
-                Some(encoding) => encoding,
-                None => return Err(::Error::new(::ErrorKind::Parsing, "invalid encoding byte"))
-            };
+            let encoding = encoding_from_byte($bytes[0])?;
 
             let params = DecodingParams::for_encoding(encoding);
 
@@ -364,10 +365,7 @@ macro_rules! decode {
 fn parse_apic_v2(data: &[u8]) -> ::Result<DecoderResult> {
     assert_data!(data);
 
-    let encoding = match encoding_from_byte(data[0]) {
-        Some(encoding) => encoding,
-        None => return Err(::Error::new(::ErrorKind::Parsing, "invalid encoding byte"))
-    };
+    let encoding = encoding_from_byte(data[0])?;
 
     let params = DecodingParams::for_encoding(encoding);
 
@@ -414,10 +412,7 @@ fn parse_comm(data: &[u8]) -> ::Result<DecoderResult> {
 /// Returns a `Content::Text`.
 fn parse_text(data: &[u8]) -> ::Result<DecoderResult> {
     assert_data!(data);
-    let encoding = match encoding_from_byte(data[0]) {
-        Some(encoding) => encoding,
-        None => return Err(::Error::new(::ErrorKind::Parsing, "invalid encoding byte"))
-    };
+    let encoding = encoding_from_byte(data[0])?;
 
     let params = DecodingParams::for_encoding(encoding);
     let mut i = 1;
@@ -441,10 +436,7 @@ fn parse_weblink(data: &[u8]) -> ::Result<DecoderResult> {
 fn parse_wxxx(data: &[u8]) -> ::Result<DecoderResult> {
     assert_data!(data);
 
-    let encoding = match encoding_from_byte(data[0]) {
-        Some(encoding) => encoding,
-        None => return Err(::Error::new(::ErrorKind::Parsing, "invalid encoding byte"))
-    };
+    let encoding = encoding_from_byte(data[0])?;
 
     let params = DecodingParams::for_encoding(encoding);
     let mut i = 1;
@@ -492,7 +484,7 @@ mod tests {
 
     #[test]
     fn test_apic_v2() {
-        assert!(decode("PIC",&[]).is_err());
+        assert!(decode("PIC",&[][..]).is_err());
 
         let mut format_map = HashMap::new();
         format_map.insert("image/jpeg", "JPG");
@@ -520,11 +512,9 @@ mod tests {
                     data.extend(picture_data.iter().cloned());
 
                     assert_eq!(*decode("PIC", &data[..]).unwrap().content.picture().unwrap(), picture);
-                    assert_eq!(encode(EncoderRequest {
-                        encoding: encoding,
-                        content: &Content::Picture(picture.clone()),
-                        version: tag::Id3v22
-                    }), data);
+                    let mut data_out = Vec::new();
+                    encode(&mut data_out, &Content::Picture(picture.clone()), tag::Id3v22, encoding).unwrap();
+                    assert_eq!(data, data_out);
                 }
             }
         }
@@ -532,7 +522,7 @@ mod tests {
 
     #[test]
     fn test_apic_v3() {
-        assert!(decode("APIC", &[]).is_err());
+        assert!(decode("APIC", &[][..]).is_err());
 
         for mime_type in vec!("", "image/jpeg").into_iter() {
             for description in vec!("", "description").into_iter() {
@@ -557,11 +547,9 @@ mod tests {
                     data.extend(picture_data.iter().cloned());
 
                     assert_eq!(*decode("APIC", &data[..]).unwrap().content.picture().unwrap(), picture);
-                    assert_eq!(encode(EncoderRequest {
-                        encoding: encoding,
-                        content: &Content::Picture(picture.clone()),
-                        version: tag::Id3v23,
-                    }), data);
+                    let mut data_out = Vec::new();
+                    encode(&mut data_out, &Content::Picture(picture.clone()), tag::Id3v23, encoding).unwrap();
+                    assert_eq!(data, data_out);
                 }
             }
         }
@@ -569,7 +557,7 @@ mod tests {
 
     #[test]
     fn test_comm() {
-        assert!(decode("COMM", &[]).is_err());
+        assert!(decode("COMM", &[][..]).is_err());
 
         println!("valid");
         for description in vec!("", "description").into_iter() {
@@ -589,11 +577,9 @@ mod tests {
                         text: comment.to_owned()
                     };
                     assert_eq!(*decode("COMM", &data[..]).unwrap().content.comment().unwrap(), content);
-                    assert_eq!(encode(EncoderRequest {
-                        encoding: encoding,
-                        content: &Content::Comment(content),
-                        version: tag::Id3v23
-                    }), data);
+                    let mut data_out = Vec::new();
+                    encode(&mut data_out, &Content::Comment(content), tag::Id3v23, encoding).unwrap();
+                    assert_eq!(data, data_out);
                 }
             }
         }
@@ -632,7 +618,7 @@ mod tests {
 
     #[test]
     fn test_text() {
-        assert!(decode("TALB", &[]).is_err());
+        assert!(decode("TALB", &[][..]).is_err());
 
         for text in vec!("", "text").into_iter() {
             for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
@@ -642,18 +628,16 @@ mod tests {
                 data.extend(bytes_for_encoding(text, encoding).into_iter());
 
                 assert_eq!(decode("TALB", &data[..]).unwrap().content.text().unwrap(), text);
-                assert_eq!(encode(EncoderRequest {
-                    encoding: encoding,
-                    content: &Content::Text(text.to_owned()),
-                    version: tag::Id3v23
-                } ), data);
+                let mut data_out = Vec::new();
+                encode(&mut data_out, &Content::Text(text.to_owned()), tag::Id3v23, encoding).unwrap();
+                assert_eq!(data, data_out);
             }
         }
     }
 
     #[test]
     fn test_null_terminated_text() {
-        assert!(decode("TRCK", &[]).is_err());
+        assert!(decode("TRCK", &[][..]).is_err());
         let text = "text\u{0}\u{0}";
         for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
             println!("`{}`, `{:?}`", text, encoding);
@@ -662,17 +646,15 @@ mod tests {
             data.extend(bytes_for_encoding(text, encoding).into_iter());
 
             assert_eq!(decode("TALB", &data[..]).unwrap().content.text().unwrap(), "text");
-            assert_eq!(encode(EncoderRequest {
-                encoding: encoding,
-                content: &Content::Text(text.to_owned()),
-                version: tag::Id3v23
-            } ), data);
+            let mut data_out = Vec::new();
+            encode(&mut data_out, &Content::Text(text.to_owned()), tag::Id3v23, encoding).unwrap();
+            assert_eq!(data, data_out);
         }
     }
 
     #[test]
     fn test_txxx() {
-        assert!(decode("TXXX", &[]).is_err());
+        assert!(decode("TXXX", &[][..]).is_err());
 
         println!("valid");
         for key in vec!("", "key").into_iter() {
@@ -690,11 +672,9 @@ mod tests {
                         value: value.to_owned()
                     };
                     assert_eq!(*decode("TXXX", &data[..]).unwrap().content.extended_text().unwrap(), content);
-                    assert_eq!(encode(EncoderRequest {
-                        encoding: encoding,
-                        content: &Content::ExtendedText(content),
-                        version: tag::Id3v23
-                    }), data);
+                    let mut data_out = Vec::new();
+                    encode(&mut data_out, &Content::ExtendedText(content), tag::Id3v23, encoding).unwrap();
+                    assert_eq!(data, data_out);
                 }
             }
         }
@@ -719,17 +699,15 @@ mod tests {
             let data = link.as_bytes().to_vec();
 
             assert_eq!(decode("WOAF", &data[..]).unwrap().content.link().unwrap(), link);
-            assert_eq!(encode(EncoderRequest {
-                encoding: Encoding::Latin1,
-                content: &Content::Link(link.to_owned()),
-                version: tag::Id3v23
-            }), data);
+            let mut data_out = Vec::new();
+            encode(&mut data_out, &Content::Link(link.to_owned()), tag::Id3v23, Encoding::Latin1).unwrap();
+            assert_eq!(data, data_out);
         }
     }
 
     #[test]
     fn test_wxxx() {
-        assert!(decode("WXXX", &[]).is_err());
+        assert!(decode("WXXX", &[][..]).is_err());
 
         println!("valid");
         for description in vec!("", "rust").into_iter() {
@@ -747,11 +725,9 @@ mod tests {
                         link: link.to_owned()
                     };
                     assert_eq!(*decode("WXXX", &data[..]).unwrap().content.extended_link().unwrap(), content);
-                    assert_eq!(encode(EncoderRequest {
-                        encoding: encoding,
-                        content: &Content::ExtendedLink(content),
-                        version: tag::Id3v23
-                    }), data);
+                    let mut data_out = Vec::new();
+                    encode(&mut data_out, &Content::ExtendedLink(content), tag::Id3v23, encoding).unwrap();
+                    assert_eq!(data, data_out);
                 }
             }
         }
@@ -771,7 +747,7 @@ mod tests {
 
     #[test]
     fn test_uslt() {
-        assert!(decode("USLT", &[]).is_err());
+        assert!(decode("USLT", &[][..]).is_err());
 
         println!("valid");
         for description in vec!("", "description").into_iter() {
@@ -791,11 +767,9 @@ mod tests {
                         text: text.to_owned()
                     };
                     assert_eq!(*decode("USLT", &data[..]).unwrap().content.lyrics().unwrap(), content);
-                    assert_eq!(encode(EncoderRequest {
-                        encoding: encoding,
-                        content: &Content::Lyrics(content),
-                        version: tag::Id3v23
-                    }), data);
+                    let mut data_out = Vec::new();
+                    encode(&mut data_out, &Content::Lyrics(content), tag::Id3v23, encoding).unwrap();
+                    assert_eq!(data, data_out);
                 }
             }
         }
