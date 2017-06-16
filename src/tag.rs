@@ -81,8 +81,8 @@ impl<'a> Tag {
     /// converted into an ID3v2.3 tag upon success.
     #[deprecated(note = "Use tag_v1.into()")]
     pub fn read_from_path_v1<P: AsRef<Path>>(path: P) -> ::Result<Tag> {
-        let mut file = File::open(&path)?;
-        let tag_v1 = ::v1::Tag::read_from(&mut file)?;
+        let file = File::open(&path)?;
+        let tag_v1 = ::v1::Tag::read_from(file)?;
         Ok(tag_v1.into())
     }
     // }}}
@@ -1352,27 +1352,27 @@ impl<'a> Tag {
 
     /// Will return true if the reader is a candidate for an ID3 tag. The reader position will be
     /// reset back to the previous position before returning.
-    pub fn is_candidate<R: Read + Seek>(reader: &mut R) -> ::Result<bool> {
+    pub fn is_candidate<R: Read + Seek>(mut reader: R) -> ::Result<bool> {
         let initial_position = reader.seek(io::SeekFrom::Current(0))?;
-        let rs = locate_id3v2(reader);
+        let rs = locate_id3v2(&mut reader);
         reader.seek(io::SeekFrom::Start(initial_position))?;
         Ok(rs?.is_some())
     }
 
     /// Attempts to read an ID3 tag from the reader.
-    pub fn read_from<R>(reader: &mut R) -> ::Result<Tag>
+    pub fn read_from<R>(reader: R) -> ::Result<Tag>
         where R: io::Read {
         stream::tag::decode(reader)
     }
 
     /// Attempts to read an ID3 tag from the file at the indicated path.
     pub fn read_from_path<P: AsRef<Path>>(path: P) -> ::Result<Tag> {
-        let mut file = BufReader::new(File::open(&path)?);
-        Tag::read_from(&mut file)
+        let file = BufReader::new(File::open(&path)?);
+        Tag::read_from(file)
     }
 
     /// Attempts to write the ID3 tag to the writer using the specified version.
-    pub fn write_to<W>(&self, writer: &mut W, version: Version) -> ::Result<()>
+    pub fn write_to<W>(&self, writer: W, version: Version) -> ::Result<()>
         where W: io::Write {
         stream::tag::EncoderBuilder::default()
             .version(version)
@@ -1439,7 +1439,7 @@ impl From<::v1::Tag> for Tag {
 }
 
 
-fn locate_id3v2<R>(reader: &mut R) -> ::Result<Option<ops::Range<u64>>>
+fn locate_id3v2<R>(mut reader: R) -> ::Result<Option<ops::Range<u64>>>
     where R: io::Read + io::Seek {
     reader.seek(io::SeekFrom::Start(0))?;
     let mut header = [0u8; 10];
@@ -1468,8 +1468,8 @@ mod tests {
 
     #[test]
     fn test_locate_id3v2() {
-        let mut file = fs::File::open("testdata/id3v24.id3").unwrap();
-        let location = locate_id3v2(&mut file).unwrap();
+        let file = fs::File::open("testdata/id3v24.id3").unwrap();
+        let location = locate_id3v2(file).unwrap();
         assert!(location.is_some());
     }
 }

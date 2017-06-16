@@ -74,7 +74,7 @@ impl Tag {
     /// Checks whether the reader contains an ID3v1 tag.
     ///
     /// The reader position will be reset back to the previous position before returning.
-    pub fn is_candidate<R>(reader: &mut R) -> ::Result<bool>
+    pub fn is_candidate<R>(mut reader: R) -> ::Result<bool>
         where R: io::Read + io::Seek {
         let initial_position = reader.seek(io::SeekFrom::Current(0))?;
         reader.seek(io::SeekFrom::End(TAG_CHUNK.start))?;
@@ -85,7 +85,7 @@ impl Tag {
     }
 
     /// Seeks to and reads a ID3v1 tag from the reader or None if no tag was found.
-    pub fn read_from<R>(reader: &mut R) -> ::Result<Tag>
+    pub fn read_from<R>(mut reader: R) -> ::Result<Tag>
         where R: io::Read + io::Seek {
         let mut tag_buf = [0; 355];
         let file_len = reader.seek(io::SeekFrom::End(0))?;
@@ -184,7 +184,7 @@ mod benchmarks {
         fs::File::open("testdata/id3v1.id3").unwrap()
             .read_to_end(&mut buf).unwrap();
         b.iter(|| {
-            Tag::read_from(&mut io::Cursor::new(buf.as_slice())).unwrap();
+            Tag::read_from(io::Cursor::new(buf.as_slice())).unwrap();
         });
     }
 }
@@ -197,8 +197,8 @@ mod tests {
 
     #[test]
     fn read_id3v1() {
-        let mut file = fs::File::open("testdata/id3v1.id3").unwrap();
-        let tag = Tag::read_from(&mut file).unwrap();
+        let file = fs::File::open("testdata/id3v1.id3").unwrap();
+        let tag = Tag::read_from(file).unwrap();
         assert_eq!("Title", tag.title);
         assert_eq!("Artist", tag.artist);
         assert_eq!("Album", tag.album);

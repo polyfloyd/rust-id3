@@ -32,7 +32,7 @@ bitflags! {
 }
 
 
-pub fn decode<R>(reader: &mut R) -> ::Result<Tag>
+pub fn decode<R>(mut reader: R) -> ::Result<Tag>
     where R: io::Read {
     let mut tag_header = [0; 10];
     let nread = reader.read(&mut tag_header)?;
@@ -63,7 +63,8 @@ pub fn decode<R>(reader: &mut R) -> ::Result<Tag>
         let ext_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?) as usize;
         offset += 4 + ext_size;
         let mut ext_header = Vec::with_capacity(cmp::min(ext_size, 0xffff));
-        reader.take(ext_size as u64)
+        reader.by_ref()
+            .take(ext_size as u64)
             .read_to_end(&mut ext_header)?;
         if flags.contains(UNSYNCHRONISATION) {
             unsynch::decode_vec(&mut ext_header);
@@ -72,7 +73,7 @@ pub fn decode<R>(reader: &mut R) -> ::Result<Tag>
 
     let mut tag = Tag::new();
     while offset < tag_size + tag_header.len() {
-        let (bytes_read, frame) = match frame::decode(reader, version, flags.contains(UNSYNCHRONISATION))? {
+        let (bytes_read, frame) = match frame::decode(&mut reader, version, flags.contains(UNSYNCHRONISATION))? {
             Some(frame) => frame,
             None => break, // Padding.
         };
@@ -97,7 +98,7 @@ pub struct Encoder {
 
 impl Encoder {
     /// Encodes the specified tag using the settings set in the endoder.
-    pub fn encode<W>(&self, tag: &Tag, writer: &mut W) -> ::Result<()>
+    pub fn encode<W>(&self, tag: &Tag, mut writer: W) -> ::Result<()>
         where W: io::Write {
         // remove frames which have the flags indicating they should be removed
         let saved_frames = tag.frames()
