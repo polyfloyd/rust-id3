@@ -1314,6 +1314,7 @@ impl<'a> Tag {
 
     // Reading/Writing {{{
     /// Returns the contents of the reader without any ID3 metadata.
+    #[deprecated(note = "Use Tag::skip() instead")]
     pub fn skip_metadata<R: Read + Seek>(reader: &mut R) -> Vec<u8> {
         macro_rules! try_io {
             ($reader:ident, $action:expr) => {
@@ -1357,6 +1358,18 @@ impl<'a> Tag {
         let rs = locate_id3v2(&mut reader);
         reader.seek(io::SeekFrom::Start(initial_position))?;
         Ok(rs?.is_some())
+    }
+
+    /// Detects the presense of an ID3v2 tag at the current position of the reader and skips it if
+    /// it if found. Returns true if a tag was found.
+    pub fn skip<R: Read + Seek>(mut reader: &mut R) -> ::Result<bool> {
+        let initial_position = reader.seek(io::SeekFrom::Current(0))?;
+        let range = locate_id3v2(&mut reader)?;
+        let end = range.as_ref()
+            .map(|r| r.end)
+            .unwrap_or(0);
+        reader.seek(io::SeekFrom::Start(initial_position + end))?;
+        Ok(range.is_some())
     }
 
     /// Attempts to read an ID3 tag from the reader.
@@ -1441,7 +1454,6 @@ impl From<::v1::Tag> for Tag {
 
 fn locate_id3v2<R>(mut reader: R) -> ::Result<Option<ops::Range<u64>>>
     where R: io::Read + io::Seek {
-    reader.seek(io::SeekFrom::Start(0))?;
     let mut header = [0u8; 10];
     let nread = reader.read(&mut header)?;
     if nread < header.len() || &header[..3] != b"ID3" {
