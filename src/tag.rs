@@ -1422,30 +1422,30 @@ impl PartialEq for Tag {
 impl From<::v1::Tag> for Tag {
     fn from(tag_v1: ::v1::Tag) -> Tag {
         let mut tag = Tag::new();
+        if let Some(genre) = tag_v1.genre() {
+            tag.set_genre(genre.to_string());
+        }
         if tag_v1.title.len() > 0 {
-            tag.set_title(tag_v1.title.clone());
+            tag.set_title(tag_v1.title);
         }
         if tag_v1.artist.len() > 0 {
-            tag.set_artist(tag_v1.artist.clone());
+            tag.set_artist(tag_v1.artist);
         }
         if tag_v1.album.len() > 0 {
-            tag.set_album(tag_v1.album.clone());
+            tag.set_album(tag_v1.album);
         }
         if tag_v1.year.len() > 0 {
-            tag.set_text("TYER", tag_v1.year.clone());
+            tag.set_text("TYER", tag_v1.year);
         }
         if tag_v1.comment.len() > 0 {
             tag.add_comment(Comment {
                 lang: "eng".to_string(),
                 description: "".to_string(),
-                text: tag_v1.comment.clone(),
+                text: tag_v1.comment,
             });
         }
         if let Some(track) = tag_v1.track {
             tag.set_track(track as u32);
-        }
-        if let Some(genre) = tag_v1.genre() {
-            tag.set_genre(genre.to_string());
         }
         tag
     }
