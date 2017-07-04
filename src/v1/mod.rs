@@ -86,7 +86,7 @@ impl Tag {
         Ok(&buf[..nread] == b"TAG")
     }
 
-    /// Seeks to and reads a ID3v1 tag from the reader or None if no tag was found.
+    /// Seeks to and reads a ID3v1 tag from the reader.
     pub fn read_from<R>(mut reader: R) -> ::Result<Tag>
         where R: io::Read + io::Seek {
         let mut tag_buf = [0; 355];
