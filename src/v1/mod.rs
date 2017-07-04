@@ -1,4 +1,6 @@
-use std::io;
+use std::cmp;
+use std::fs;
+use std::io::{self, Read, Seek};
 use std::ops;
 
 /// Location of the ID3v1 tag chunk relative to the end of the file.
@@ -91,7 +93,7 @@ impl Tag {
         let file_len = reader.seek(io::SeekFrom::End(0))?;
         if file_len >= XTAG_CHUNK.start.abs() as u64 {
             reader.seek(io::SeekFrom::End(XTAG_CHUNK.start))?;
-            reader.read_exact(&mut tag_buf[..])?;
+            reader.read_exact(&mut tag_buf)?;
         } else if file_len >= TAG_CHUNK.start.abs() as u64 {
             let l = tag_buf.len() as i64;
             reader.seek(io::SeekFrom::End(TAG_CHUNK.start))?;
@@ -159,6 +161,45 @@ impl Tag {
         })
     }
 
+    /// Removes an ID3v1 tag plus possible extended data if any.
+    ///
+    /// The file cursor position will be reset back to the previous position before returning.
+    ///
+    /// Returns true if the file initially contained a tag.
+    pub fn remove(file: &mut fs::File) -> ::Result<bool> {
+        let cur_pos = file.seek(io::SeekFrom::Current(0))?;
+        let file_len = file.metadata()?.len();
+        let has_ext_tag = if file_len >= XTAG_CHUNK.start.abs() as u64 {
+            file.seek(io::SeekFrom::End(XTAG_CHUNK.start))?;
+            let mut b = [0; 4];
+            file.read_exact(&mut b)?;
+            &b == b"TAG+"
+        } else {
+            false
+        };
+        let has_tag = if file_len >= TAG_CHUNK.start.abs() as u64 {
+            file.seek(io::SeekFrom::End(TAG_CHUNK.start))?;
+            let mut b = [0; 3];
+            file.read_exact(&mut b)?;
+            &b == b"TAG"
+        } else {
+            false
+        };
+
+        let truncate_to = if has_ext_tag && has_tag {
+            Some(file_len - XTAG_CHUNK.start.abs() as u64)
+        } else if has_tag {
+            Some(file_len - TAG_CHUNK.start.abs() as u64)
+        } else {
+            None
+        };
+        file.seek(io::SeekFrom::Start(cmp::min(truncate_to.unwrap_or(cur_pos), cur_pos)))?;
+        if let Some(l) = truncate_to {
+            file.set_len(l)?;
+        }
+        Ok(truncate_to.is_some())
+    }
+
     /// Returns `genre_str`, falling back to translating `genre_id` to a string.
     pub fn genre(&self) -> Option<&str> {
         if let Some(ref g) = self.genre_str {
@@ -170,6 +211,7 @@ impl Tag {
             .map(|s| *s)
     }
 }
+
 
 #[cfg(all(test, feature = "unstable"))]
 mod benchmarks {
@@ -192,6 +234,7 @@ mod benchmarks {
 
 #[cfg(test)]
 mod tests {
+    extern crate tempdir;
     use super::*;
     use std::fs;
 
@@ -211,5 +254,25 @@ mod tests {
         assert!(tag.genre_str.is_none());
         assert!(tag.start_time.is_none());
         assert!(tag.end_time.is_none());
+    }
+
+    #[test]
+    fn remove_id3v1() {
+        let tmp = tempdir::TempDir::new("id3_v1").unwrap();
+        let tmp_name = tmp.path().join("remove_id3v1_tag");
+        {
+            let mut tag_file = fs::File::create(&tmp_name).unwrap();
+            let mut original = fs::File::open("testdata/id3v1.id3").unwrap();
+            io::copy(&mut original, &mut tag_file).unwrap();
+        }
+        let mut tag_file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&tmp_name)
+            .unwrap();
+        tag_file.seek(io::SeekFrom::Start(0)).unwrap();
+        assert!(Tag::remove(&mut tag_file).unwrap());
+        tag_file.seek(io::SeekFrom::Start(0)).unwrap();
+        assert!(!Tag::remove(&mut tag_file).unwrap());
     }
 }
