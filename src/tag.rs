@@ -361,30 +361,6 @@ impl<'a> Tag {
 
     // Getters/Setters {{{
     /// Returns a vector of the extended text (TXXX) description/value pairs.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::{Tag, Frame};
-    /// use id3::frame::{self, Content};
-    ///
-    /// let mut tag = Tag::new();
-    ///
-    /// let frame = Frame::with_content("TXXX", Content::ExtendedText(frame::ExtendedText {
-    ///     description: "description1".to_owned(),
-    ///     value: "value1".to_owned()
-    /// }));
-    /// tag.add_frame(frame);
-    ///
-    /// let frame = Frame::with_content("TXXX", Content::ExtendedText(frame::ExtendedText {
-    ///     description: "description2".to_owned(),
-    ///     value: "value2".to_owned()
-    /// }));
-    /// tag.add_frame(frame);
-    ///
-    /// assert_eq!(tag.txxx().len(), 2);
-    /// assert!(tag.txxx().contains(&("description1", "value1")));
-    /// assert!(tag.txxx().contains(&("description2", "value2")));
-    /// ```
     #[deprecated(note = "Use extended_texts()")]
     pub fn txxx(&self) -> Vec<(&str, &str)> {
         self.frames()
@@ -402,19 +378,25 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     ///
-    /// tag.add_txxx("key1", "value1");
-    /// tag.add_txxx("key2", "value2");
+    /// tag.add_extended_text("key1", "value1");
+    /// tag.add_extended_text("key2", "value2");
     ///
-    /// assert_eq!(tag.txxx().len(), 2);
-    /// assert!(tag.txxx().contains(&("key1", "value1")));
-    /// assert!(tag.txxx().contains(&("key2", "value2")));
+    /// assert_eq!(tag.extended_texts().count(), 2);
+    /// assert!(tag.extended_texts().any(|t| t.description == "key1" && t.value == "value1"));
+    /// assert!(tag.extended_texts().any(|t| t.description == "key2" && t.value == "value2"));
     /// ```
-    pub fn add_txxx<K: Into<String>, V: Into<String>>(&mut self, description: K, value: V) {
+    pub fn add_extended_text<K: Into<String>, V: Into<String>>(&mut self, description: K, value: V) {
         let frame = Frame::with_content("TXXX", Content::ExtendedText(ExtendedText {
             description: description.into(),
             value: value.into(),
         }));
         self.add_frame(frame);
+    }
+
+    /// Adds a user defined text frame (TXXX).
+    #[deprecated(note = "Use add_extended_text()")]
+    pub fn add_txxx<K: Into<String>, V: Into<String>>(&mut self, description: K, value: V) {
+        self.add_extended_text(description, value)
     }
 
     /// Removes the user defined text frame (TXXX) with the specified key and value.
@@ -427,52 +409,55 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     ///
-    /// tag.add_txxx("key1", "value1");
-    /// tag.add_txxx("key2", "value2");
-    /// tag.add_txxx("key3", "value2");
-    /// tag.add_txxx("key4", "value3");
-    /// tag.add_txxx("key5", "value4");
-    /// assert_eq!(tag.txxx().len(), 5);
+    /// tag.add_extended_text("key1", "value1");
+    /// tag.add_extended_text("key2", "value2");
+    /// tag.add_extended_text("key3", "value2");
+    /// tag.add_extended_text("key4", "value3");
+    /// tag.add_extended_text("key5", "value4");
+    /// assert_eq!(tag.extended_texts().count(), 5);
     ///
-    /// tag.remove_txxx(Some("key1"), None);
-    /// assert_eq!(tag.txxx().len(), 4);
+    /// tag.remove_extended_text(Some("key1"), None);
+    /// assert_eq!(tag.extended_texts().count(), 4);
     ///
-    /// tag.remove_txxx(None, Some("value2"));
-    /// assert_eq!(tag.txxx().len(), 2);
+    /// tag.remove_extended_text(None, Some("value2"));
+    /// assert_eq!(tag.extended_texts().count(), 2);
     ///
-    /// tag.remove_txxx(Some("key4"), Some("value3"));
-    /// assert_eq!(tag.txxx().len(), 1);
+    /// tag.remove_extended_text(Some("key4"), Some("value3"));
+    /// assert_eq!(tag.extended_texts().count(), 1);
     ///
-    /// tag.remove_txxx(None, None);
-    /// assert_eq!(tag.txxx().len(), 0);
+    /// tag.remove_extended_text(None, None);
+    /// assert_eq!(tag.extended_texts().count(), 0);
     /// ```
-    pub fn remove_txxx(&mut self, description: Option<&str>, value: Option<&str>) {
+    pub fn remove_extended_text(&mut self, description: Option<&str>, value: Option<&str>) {
         self.frames.retain(|frame| {
-            let mut description_match = false;
-            let mut value_match = false;
-
             if frame.id() == "TXXX" {
                 match *frame.content() {
                     Content::ExtendedText(ref ext) => {
-                        match description {
-                            Some(s) => description_match = s == &ext.description[..],
-                            None => description_match = true
-                        }
-
-                        match value {
-                            Some(s) => value_match = s == &ext.value[..],
-                            None => value_match = true
-                        }
+                        let descr_match = description.map(|v| v == ext.description)
+                            .unwrap_or(true);
+                        let value_match = value.map(|v| v == ext.value)
+                            .unwrap_or(true);
+                        // True if we want to keep the frame.
+                        !(descr_match && value_match)
                     },
-                    _ => { // remove frames that we can't parse
-                        description_match = true;
-                        value_match = true;
-                    }
+                    _ => {
+                        // A TXXX frame must always have content of the ExtendedText type. Remove
+                        // frames that do not fit this requirement.
+                        false
+                    },
                 }
+            } else {
+                true
             }
-
-            !(description_match && value_match) // true if we want to keep the item
         });
+    }
+
+    /// Removes the user defined text frame (TXXX) with the specified key and value.
+    ///
+    /// A key or value may be `None` to specify a wildcard value.
+    #[deprecated(note = "Use remove_extended_text()")]
+    pub fn remove_txxx(&mut self, description: Option<&str>, value: Option<&str>) {
+        self.remove_extended_text(description, value);
     }
 
     /// Adds a picture frame (APIC).
