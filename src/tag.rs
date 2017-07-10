@@ -1408,6 +1408,21 @@ impl<'a> Tag {
         w.flush()?;
         Ok(())
     }
+
+    /// Removes an ID3v2 tag from the specified file.
+    ///
+    /// Returns true if the file initially contained a tag.
+    pub fn remove_from(mut file: &mut fs::File) -> ::Result<bool> {
+        let location = match locate_id3v2(&mut file)? {
+            Some(l) => l,
+            None    => return Ok(false),
+        };
+        // Open the ID3 region for writing with write nothing. With the padding set to zero, this
+        // removes the region in its entirety.
+        let mut storage = PlainStorage::with_padding(file, location, 0, Some(0));
+        storage.writer()?.flush()?;
+        Ok(true)
+    }
     //}}}
 }
 
@@ -1475,6 +1490,7 @@ fn locate_id3v2<R>(mut reader: R) -> ::Result<Option<ops::Range<u64>>>
 
 #[cfg(test)]
 mod tests {
+    extern crate tempdir;
     use super::*;
     use std::fs;
 
@@ -1483,5 +1499,25 @@ mod tests {
         let file = fs::File::open("testdata/id3v24.id3").unwrap();
         let location = locate_id3v2(file).unwrap();
         assert!(location.is_some());
+    }
+
+    #[test]
+    fn remove_id3v2() {
+        let tmp = tempdir::TempDir::new("id3_v2").unwrap();
+        let tmp_name = tmp.path().join("remove_id3v2_tag");
+        {
+            let mut tag_file = fs::File::create(&tmp_name).unwrap();
+            let mut original = fs::File::open("testdata/id3v24.id3").unwrap();
+            io::copy(&mut original, &mut tag_file).unwrap();
+        }
+        let mut tag_file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&tmp_name)
+            .unwrap();
+        tag_file.seek(io::SeekFrom::Start(0)).unwrap();
+        assert!(Tag::remove_from(&mut tag_file).unwrap());
+        tag_file.seek(io::SeekFrom::Start(0)).unwrap();
+        assert!(!Tag::remove_from(&mut tag_file).unwrap());
     }
 }

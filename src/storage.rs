@@ -58,6 +58,13 @@ pub trait StorageFile: io::Read + io::Write + io::Seek {
     fn set_len(&mut self, new_len: u64) -> io::Result<()>;
 }
 
+impl<'a, T> StorageFile for &'a mut T
+    where T: StorageFile {
+    fn set_len(&mut self, new_len: u64) -> io::Result<()> {
+        (*self).set_len(new_len)
+    }
+}
+
 impl StorageFile for fs::File {
     fn set_len(&mut self, new_len: u64) -> io::Result<()> {
         fs::File::set_len(self, new_len)
