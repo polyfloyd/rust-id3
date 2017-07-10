@@ -591,29 +591,25 @@ impl<'a> Tag {
     /// ```
     pub fn remove_comment(&mut self, description: Option<&str>, text: Option<&str>) {
         self.frames.retain(|frame| {
-            let mut description_match = false;
-            let mut text_match = false;
-
             if frame.id() == "COMM" {
                 match *frame.content() {
-                    Content::Comment(ref comment) =>  {
-                        match description {
-                            Some(s) => description_match = s == &comment.description[..],
-                            None => description_match = true
-                        }
-
-                        match text {
-                            Some(s) => text_match = s == &comment.text[..],
-                            None => text_match = true
-                        }
+                    Content::Comment(ref com) => {
+                        let descr_match = description.map(|v| v == com.description)
+                            .unwrap_or(true);
+                        let text_match = text.map(|v| v == com.text)
+                            .unwrap_or(true);
+                        // True if we want to keep the frame.
+                        !(descr_match && text_match)
                     },
-                    _ => { // remove frames that we can't parse
-                        description_match = true;
-                        text_match = true;
-                    }
+                    _ => {
+                        // A COMM frame must always have content of the Comment type. Remove frames
+                        // that do not fit this requirement.
+                        false
+                    },
                 }
+            } else {
+                true
             }
-            !(description_match && text_match) // true if we want to keep the item
         });
     }
 
