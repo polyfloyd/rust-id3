@@ -17,15 +17,17 @@ id3 = "0.1.12"
 ```
 
 ```rust
-use id3::Tag;
+extern crate id3;
 
-let tag = Tag::read_from_path("music.mp3").unwrap();
+fn main() {
+  let tag = id3::Tag::read_from_path("testdata/id3v24.id3").unwrap();
 
-// print the artist the hard way
-println!("{}", tag.get("TALB").unwrap().content.text());
+  // print the artist the hard way
+  println!("{}", tag.get("TPE1").unwrap().content().text().unwrap());
 
-// or print it the easy way
-println!("{}", tag.artist().unwrap());
+  // or print it the easy way
+  println!("{}", tag.artist().unwrap());
+}
 ```
 
 ## Supported ID3 Versions
