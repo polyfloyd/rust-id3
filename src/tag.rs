@@ -101,12 +101,12 @@ impl<'a> Tag {
     ///
     /// # Example
     /// ```
-    /// use id3::{Tag, Frame};
+    /// use id3::{Tag, Frame, Content};
     ///
     /// let mut tag = Tag::new();
     ///
-    /// tag.add_frame(Frame::new("TPE1"));
-    /// tag.add_frame(Frame::new("APIC"));
+    /// tag.add_frame(Frame::with_content("TPE1", Content::Text("".to_string())));
+    /// tag.add_frame(Frame::with_content("APIC", Content::Text("".to_string())));
     ///
     /// assert_eq!(tag.frames().count(), 2);
     /// ```
@@ -196,11 +196,11 @@ impl<'a> Tag {
     ///
     /// # Example
     /// ```
-    /// use id3::{Tag, Frame};
+    /// use id3::{Tag, Frame, Content};
     ///
     /// let mut tag = Tag::new();
     ///
-    /// tag.add_frame(Frame::new("TIT2"));
+    /// tag.add_frame(Frame::with_content("TIT2", Content::Text("".to_string())));
     ///
     /// assert!(tag.get("TIT2").is_some());
     /// assert!(tag.get("TCON").is_none());
@@ -214,14 +214,14 @@ impl<'a> Tag {
     ///
     /// # Example
     /// ```
-    /// use id3::{Tag, Frame};
+    /// use id3::{Tag, Frame, Content};
     ///
     /// let mut tag = Tag::new();
     ///
-    /// tag.push(Frame::new("TXXX"));
-    /// tag.push(Frame::new("TALB"));
+    /// tag.add_frame(Frame::with_content("TPE1", Content::Text("".to_string())));
+    /// tag.add_frame(Frame::with_content("TALB", Content::Text("".to_string())));
     ///
-    /// assert_eq!(tag.get_all("TXXX").len(), 1);
+    /// assert_eq!(tag.get_all("TPE1").len(), 1);
     /// assert_eq!(tag.get_all("TALB").len(), 1);
     /// ```
     #[deprecated(note = "Combine frames() with Iterator::filter")]
@@ -244,10 +244,10 @@ impl<'a> Tag {
     ///
     /// # Example
     /// ```
-    /// use id3::{Tag, Frame};
+    /// use id3::{Tag, Frame, Content};
     ///
     /// let mut tag = Tag::new();
-    /// tag.push(Frame::new("TALB"));
+    /// tag.push(Frame::with_content("TALB", Content::Text("".to_string())));
     /// assert_eq!(tag.frames().nth(0).unwrap().id(), "TALB");
     /// ```
     #[deprecated(note = "Use add_frame")]
@@ -260,11 +260,11 @@ impl<'a> Tag {
     ///
     /// # Example
     /// ```
-    /// use id3::{Tag, Frame};
+    /// use id3::{Tag, Frame, Content};
     ///
     /// let mut tag = Tag::new();
-    /// tag.add_frame(Frame::new("TALB"));
-    /// tag.add_frame(Frame::new("TALB"));
+    /// tag.add_frame(Frame::with_content("TALB", Content::Text("".to_string())));
+    /// tag.add_frame(Frame::with_content("TALB", Content::Text("".to_string())));
     /// assert_eq!(tag.frames().nth(0).unwrap().id(), "TALB");
     /// ```
     pub fn add_frame(&mut self, new_frame: Frame) -> Option<Frame> {
@@ -308,19 +308,19 @@ impl<'a> Tag {
     ///
     /// # Example
     /// ```
-    /// use id3::{Tag, Frame};
+    /// use id3::{Tag, Frame, Content};
     ///
     /// let mut tag = Tag::new();
     ///
-    /// tag.push(Frame::new("TXXX"));
-    /// tag.push(Frame::new("USLT"));
+    /// tag.add_frame(Frame::with_content("TALB", Content::Text("".to_string())));
+    /// tag.add_frame(Frame::with_content("TPE1", Content::Text("".to_string())));
     ///
     /// assert_eq!(tag.frames().count(), 2);
     ///
-    /// tag.remove("TXXX");
+    /// tag.remove("TALB");
     /// assert_eq!(tag.frames().count(), 1);
     ///
-    /// tag.remove("USLT");
+    /// tag.remove("TPE1");
     /// assert_eq!(tag.frames().count(), 0);
     /// ```
     pub fn remove(&mut self, id: &str) {

@@ -10,7 +10,7 @@
 //! let mut tag = Tag::read_from_path("music.mp3").unwrap();
 //!
 //! // print the artist the hard way
-//! println!("{}", tag.get("TALB").unwrap().content().text().unwrap());
+//! println!("{}", tag.get("TPE1").unwrap().content().text().unwrap());
 //!
 //! // or print it the easy way
 //! println!("{}", tag.artist().unwrap());
@@ -28,7 +28,7 @@
 //!
 //! // set the album the hard way
 //! let frame = Frame::with_content("TALB", Content::Text("album".to_string()));
-//! tag.push(frame);
+//! tag.add_frame(frame);
 //!
 //! // or set it the easy way
 //! tag.set_album("album");
@@ -51,8 +51,8 @@ extern crate flate2;
 extern crate lazy_static;
 extern crate regex;
 
-pub use error::{Result, Error, ErrorKind};
-pub use frame::{Frame, Content, Timestamp};
+pub use error::{Error, ErrorKind, Result};
+pub use frame::{Content, Frame, Timestamp};
 pub use stream::tag::{Encoder, EncoderBuilder};
 pub use tag::{Tag, Version};
 
