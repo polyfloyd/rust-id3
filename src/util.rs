@@ -190,85 +190,15 @@ lazy_static! {
         m.insert("WXX", "WXXX");
         m
     };
+
+    static ref ID_3_TO_2: HashMap<&'static str, &'static str> = ID_2_TO_3.iter()
+        .map(|(k, v)| (*v, *k))
+        .collect();
 }
 
 /// Returns the coresponding ID3v2.3/ID3v2.4 ID given the ID3v2.2 ID.
 pub fn convert_id_2_to_3(id: &str) -> Option<&'static str> {
     ID_2_TO_3.get(id).map(|t| *t)
-}
-
-lazy_static! {
-    static ref ID_3_TO_2: HashMap<&'static str, &'static str> = {
-        let mut m = HashMap::new();
-        m.insert("RBUF", "BUF");
-
-        m.insert("PCNT", "CNT");
-        m.insert("COMM", "COM");
-        m.insert("AENC", "CRA");
-
-        m.insert("ETCO", "ETC");
-
-        m.insert("GEOB", "GEO");
-
-        m.insert("IPLS", "IPL");
-
-        m.insert("LINK", "LNK");
-
-        m.insert("MCDI", "MCI");
-        m.insert("MLLT", "MLL");
-
-        m.insert("APIC", "PIC");
-        m.insert("POPM", "POP");
-
-        m.insert("RVRB", "REV");
-
-        m.insert("SYLT", "SLT");
-        m.insert("SYTC", "STC");
-
-        m.insert("TALB", "TAL");
-        m.insert("TBPM", "TBP");
-        m.insert("TCOM", "TCM");
-        m.insert("TCON", "TCO");
-        m.insert("TCOP", "TCR");
-        m.insert("TDLY", "TDY");
-        m.insert("TENC", "TEN");
-        m.insert("TFLT", "TFT");
-        m.insert("TKEY", "TKE");
-        m.insert("TLAN", "TLA");
-        m.insert("TLEN", "TLE");
-        m.insert("TMED", "TMT");
-        m.insert("TOPE", "TOA");
-        m.insert("TOFN", "TOF");
-        m.insert("TOLY", "TOL");
-        m.insert("TOAL", "TOT");
-        m.insert("TPE1", "TP1");
-        m.insert("TPE2", "TP2");
-        m.insert("TPE3", "TP3");
-        m.insert("TPE4", "TP4");
-        m.insert("TPOS", "TPA");
-        m.insert("TPUB", "TPB");
-        m.insert("TSRC", "TRC");
-        m.insert("TRCK", "TRK");
-        m.insert("TSSE", "TSS");
-        m.insert("TIT1", "TT1");
-        m.insert("TIT2", "TT2");
-        m.insert("TIT3", "TT3");
-        m.insert("TEXT", "TXT");
-        m.insert("TXXX", "TXX");
-        m.insert("TYER", "TYE");
-
-        m.insert("UFID", "UFI");
-        m.insert("USLT", "ULT");
-
-        m.insert("WOAF", "WAF");
-        m.insert("WOAR", "WAR");
-        m.insert("WOAS", "WAS");
-        m.insert("WCOM", "WCM");
-        m.insert("WCOP", "WCP");
-        m.insert("WPUB", "WPB");
-        m.insert("WXXX", "WXX");
-        m
-    };
 }
 
 /// Returns the coresponding ID3v2.2 ID given the ID3v2.3/ID3v2.3 ID.
