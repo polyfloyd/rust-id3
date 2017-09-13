@@ -126,8 +126,10 @@ lazy_static! {
         m.insert("CNT", "PCNT");
         m.insert("COM", "COMM");
         m.insert("CRA", "AENC");
+        // "CRM" does not exist in ID3v2.3
 
         m.insert("ETC", "ETCO");
+        m.insert("EQU", "EQUA");
 
         m.insert("GEO", "GEOB");
 
@@ -142,6 +144,7 @@ lazy_static! {
         m.insert("POP", "POPM");
 
         m.insert("REV", "RVRB");
+        m.insert("RVA", "RVA2");
 
         m.insert("SLT", "SYLT");
         m.insert("STC", "SYTC");
@@ -151,9 +154,11 @@ lazy_static! {
         m.insert("TCM", "TCOM");
         m.insert("TCO", "TCON");
         m.insert("TCR", "TCOP");
+        m.insert("TDA", "TDAT");
         m.insert("TDY", "TDLY");
         m.insert("TEN", "TENC");
         m.insert("TFT", "TFLT");
+        m.insert("TIM", "TIME");
         m.insert("TKE", "TKEY");
         m.insert("TLA", "TLAN");
         m.insert("TLE", "TLEN");
@@ -162,6 +167,7 @@ lazy_static! {
         m.insert("TOF", "TOFN");
         m.insert("TOL", "TOLY");
         m.insert("TOT", "TOAL");
+        m.insert("TOR", "TORY");
         m.insert("TP1", "TPE1");
         m.insert("TP2", "TPE2");
         m.insert("TP3", "TPE3");
@@ -169,7 +175,9 @@ lazy_static! {
         m.insert("TPA", "TPOS");
         m.insert("TPB", "TPUB");
         m.insert("TRC", "TSRC");
+        m.insert("TRD", "TRDA");
         m.insert("TRK", "TRCK");
+        m.insert("TSI", "TSIZ");
         m.insert("TSS", "TSSE");
         m.insert("TT1", "TIT1");
         m.insert("TT2", "TIT2");
