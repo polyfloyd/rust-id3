@@ -10,6 +10,14 @@ pub use self::timestamp::Timestamp;
 mod content;
 mod timestamp;
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+enum ID {
+    /// A valid 4-byte frame ID.
+    Valid(String),
+    /// If an ID3v2.2 ID could not be mapped to its ID3v2.4 counterpart, it is stored as is. This
+    /// allows invalid ID3v2.2 frames to be retained.
+    Invalid(String),
+}
 
 /// A structure representing an ID3 frame.
 ///
@@ -18,7 +26,7 @@ mod timestamp;
 /// are not because their uniqueness is also defined by their content.
 #[derive(Clone, Debug, Eq)]
 pub struct Frame {
-    id: [u8; 4],
+    id: ID,
     content: Content,
     tag_alter_preservation: bool,
     file_alter_preservation: bool,
@@ -60,30 +68,25 @@ impl Frame {
     /// Creates a frame with the specified ID and content.
     ///
     /// Both ID3v2.2 and >ID3v2.3 IDs are accepted, although they will be converted to ID3v2.3
-    /// format.
+    /// format. If an ID3v2.2 ID is supplied but could not be remapped, it is stored as-is.
     ///
     /// # Panics
-    /// If the id's length is not 3 or 4 bytes long or not known.
+    /// If the id's length is not 3 or 4 bytes long.
     pub fn with_content(id: &str, content: Content) -> Frame {
         assert!({
             let l = id.bytes().count();
             l == 3 || l == 4
         });
         Frame {
-            id: {
-                let idv3 = if id.len() == 3 {
-                    // ID3v2.3 supports all ID3v2.2 frames, unwrapping should be safe.
-                    ::util::convert_id_2_to_3(id).unwrap()
-                } else {
-                    id
-                };
-                let mut b = idv3.bytes();
-                [
-                    b.next().unwrap(),
-                    b.next().unwrap(),
-                    b.next().unwrap(),
-                    b.next().unwrap(),
-                ]
+            id: if id.len() == 3 {
+                match ::util::convert_id_2_to_3(id) {
+                    Some(translated) => {
+                        ID::Valid(translated.to_string())
+                    },
+                    None => ID::Invalid(id.to_string()),
+                }
+            } else {
+                ID::Valid(id.to_string())
             },
             content: content,
             tag_alter_preservation: false,
@@ -91,17 +94,26 @@ impl Frame {
         }
     }
 
-    /// Returns the 4-byte ID of this frame.
+    /// Returns the ID of this frame.
+    ///
+    /// The string returned us usually 4 bytes long except when the frame was read from an ID3v2.2
+    /// tag and the ID could not be mapped to an ID3v2.3 ID.
     pub fn id(&self) -> &str {
-        str::from_utf8(&self.id).unwrap()
+        match self.id {
+            ID::Valid(ref id) => &id,
+            ID::Invalid(ref id) => &id,
+        }
     }
 
     /// Returns the ID that is compatible with specified version or None if no ID is available in
     /// that version.
     pub fn id_for_version(&self, version: Version) -> Option<&str> {
-        match version {
-            Version::Id3v22 => ::util::convert_id_3_to_2(self.id()),
-            Version::Id3v23|Version::Id3v24 => Some(str::from_utf8(&self.id).unwrap()),
+        match (version, &self.id) {
+            (Version::Id3v22, &ID::Valid(ref id)) => ::util::convert_id_3_to_2(id),
+            (Version::Id3v23, &ID::Valid(ref id)) => Some(id),
+            (Version::Id3v24, &ID::Valid(ref id)) => Some(id),
+            (Version::Id3v22, &ID::Invalid(ref id)) => Some(id),
+            (_, &ID::Invalid(_)) => None,
         }
     }
 

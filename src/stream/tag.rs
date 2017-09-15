@@ -161,7 +161,7 @@ mod tests {
     use super::*;
     use std::fs;
     use std::io;
-    use ::frame::PictureType;
+    use ::frame::{Frame, Content, PictureType};
 
     fn make_tag() -> Tag {
         let mut tag = Tag::new();
@@ -211,6 +211,22 @@ mod tests {
         let mut buffer = Vec::new();
         EncoderBuilder::default()
             .unsynchronisation(true)
+            .version(Version::Id3v22)
+            .build()
+            .unwrap()
+            .encode(&tag, &mut buffer).unwrap();
+        let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
+        assert_eq!(tag, tag_read);
+    }
+
+    #[test]
+    fn write_id3v22_invalid_id() {
+        let mut tag = make_tag();
+        tag.add_frame(Frame::with_content("XXX", Content::Unknown(vec![1, 2, 3])));
+        tag.add_frame(Frame::with_content("YYY", Content::Unknown(vec![4, 5, 6])));
+        tag.add_frame(Frame::with_content("ZZZ", Content::Unknown(vec![7, 8, 9])));
+        let mut buffer = Vec::new();
+        EncoderBuilder::default()
             .version(Version::Id3v22)
             .build()
             .unwrap()
