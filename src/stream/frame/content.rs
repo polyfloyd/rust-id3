@@ -1,4 +1,5 @@
 use std::io;
+use std::iter;
 use ::frame::{Picture, PictureType, Content, ExtendedLink};
 use ::stream::encoding::Encoding;
 use ::tag;
@@ -134,13 +135,15 @@ fn extended_weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
 
 fn lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let content = request.content.lyrics().unwrap();
-    return encode!(encoding(request.encoding), bytes(content.lang[..3].as_bytes()),
+    return encode!(encoding(request.encoding),
+                   bytes(content.lang.bytes().chain(iter::repeat(b' ')).take(3).collect::<Vec<u8>>()),
                    string(content.description), delim(0), string(content.text));
 }
 
 fn comment_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let content = request.content.comment().unwrap();
-    return encode!(encoding(request.encoding), bytes(content.lang[..3].as_bytes()),
+    return encode!(encoding(request.encoding),
+                   bytes(content.lang.bytes().chain(iter::repeat(b' ')).take(3).collect::<Vec<u8>>()),
                    string(content.description), delim(0), string(content.text));
 }
 
