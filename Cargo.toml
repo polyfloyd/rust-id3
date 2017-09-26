@@ -1,6 +1,6 @@
 [package]
 name = "id3"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["James Hurst <jh.jameshurst@gmail.com>"]
 license = "MIT"
 readme = "README.md"
