@@ -1379,7 +1379,10 @@ impl<'a> Tag {
     /// the same path which the tag was read from, then the tag will be written to the padding if
     /// possible.
     pub fn write_to_path<P: AsRef<Path>>(&self, path: P, version: Version) -> ::Result<()> {
-        let mut file = fs::File::open(path)?;
+        let mut file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(path)?;
         let location = locate_id3v2(&mut file)?
             .unwrap_or(0..0); // Create a new tag if none could be located.
 
