@@ -34,25 +34,25 @@ pub fn decode<R>(reader: &mut R, unsynchronisation: bool) -> ::Result<Option<(us
     let content_size = BigEndian::read_u32(&frame_header[4..8]) as usize;
     let flags = Flags::from_bits(BigEndian::read_u16(&frame_header[8..10]))
         .ok_or(::Error::new(::ErrorKind::Parsing, "unknown frame header flags are set"))?;
-    if flags.contains(ENCRYPTION) {
+    if flags.contains(Flags::ENCRYPTION) {
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "encryption is not supported"));
-    } else if flags.contains(GROUPING_IDENTITY) {
+    } else if flags.contains(Flags::GROUPING_IDENTITY) {
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "grouping identity is not supported"));
     }
 
-    let read_size = if flags.contains(COMPRESSION) {
+    let read_size = if flags.contains(Flags::COMPRESSION) {
         let _decompressed_size = reader.read_u32::<BigEndian>()?;
         content_size - 4
     } else {
         content_size
     };
-    let content = super::decode_content(reader.take(read_size as u64), id, flags.contains(COMPRESSION), unsynchronisation)?;
+    let content = super::decode_content(reader.take(read_size as u64), id, flags.contains(Flags::COMPRESSION), unsynchronisation)?;
     let frame = Frame::with_content(id, content);
     Ok(Some((10 + content_size, frame)))
 }
 
 pub fn encode(writer: &mut Write, frame: &Frame, flags: Flags, unsynchronization: bool) -> ::Result<usize> {
-    let (mut content_buf, comp_hint_delta, decompressed_size) = if flags.contains(COMPRESSION) {
+    let (mut content_buf, comp_hint_delta, decompressed_size) = if flags.contains(Flags::COMPRESSION) {
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::Default);
         let content_size = frame::content::encode(&mut encoder, frame.content(), tag::Id3v23, Encoding::UTF16)?;
         let content_buf = encoder.finish()?;

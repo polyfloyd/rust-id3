@@ -35,30 +35,30 @@ pub fn decode<R>(reader: &mut R) -> ::Result<Option<(usize, Frame)>>
     let content_size = BigEndian::read_u32(&frame_header[4..8]) as usize;
     let flags = Flags::from_bits(BigEndian::read_u16(&frame_header[8..10]))
         .ok_or(::Error::new(::ErrorKind::Parsing, "unknown frame header flags are set"))?;
-    if flags.contains(ENCRYPTION) {
+    if flags.contains(Flags::ENCRYPTION) {
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "encryption is not supported"));
-    } else if flags.contains(GROUPING_IDENTITY) {
+    } else if flags.contains(Flags::GROUPING_IDENTITY) {
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "grouping identity is not supported"));
     }
 
-    let read_size = if flags.contains(DATA_LENGTH_INDICATOR) {
+    let read_size = if flags.contains(Flags::DATA_LENGTH_INDICATOR) {
         let _decompressed_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?);
         content_size - 4
     } else {
         content_size
     };
 
-    let content = super::decode_content(reader.take(read_size as u64), id, flags.contains(COMPRESSION), flags.contains(UNSYNCHRONISATION))?;
+    let content = super::decode_content(reader.take(read_size as u64), id, flags.contains(Flags::COMPRESSION), flags.contains(Flags::UNSYNCHRONISATION))?;
     let frame = Frame::with_content(id, content);
     Ok(Some((10 + content_size, frame)))
 }
 
 pub fn encode(writer: &mut Write, frame: &Frame, flags: Flags) -> ::Result<usize> {
-    let (mut content_buf, comp_hint_delta, decompressed_size) = if flags.contains(COMPRESSION) {
+    let (mut content_buf, comp_hint_delta, decompressed_size) = if flags.contains(Flags::COMPRESSION) {
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::Default);
         let content_size = frame::content::encode(&mut encoder, frame.content(), tag::Id3v24, Encoding::UTF8)?;
         let content_buf = encoder.finish()?;
-        let cd = if flags.contains(DATA_LENGTH_INDICATOR) {
+        let cd = if flags.contains(Flags::DATA_LENGTH_INDICATOR) {
             4
         } else {
             0
@@ -74,11 +74,11 @@ pub fn encode(writer: &mut Write, frame: &Frame, flags: Flags) -> ::Result<usize
     writer.write_u32::<BigEndian>(unsynch::encode_u32((content_buf.len() + comp_hint_delta) as u32))?;
     writer.write_u16::<BigEndian>(flags.bits())?;
     if let Some(s) = decompressed_size {
-        if flags.contains(DATA_LENGTH_INDICATOR) {
+        if flags.contains(Flags::DATA_LENGTH_INDICATOR) {
             writer.write_u32::<BigEndian>(unsynch::encode_u32(s as u32))?;
         }
     }
-    if flags.contains(UNSYNCHRONISATION) {
+    if flags.contains(Flags::UNSYNCHRONISATION) {
         unsynch::encode_vec(&mut content_buf);
     }
     writer.write_all(&content_buf)?;

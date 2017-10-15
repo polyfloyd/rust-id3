@@ -52,28 +52,28 @@ pub fn decode<R>(mut reader: R) -> ::Result<Tag>
         .ok_or(::Error::new(::ErrorKind::Parsing, "unknown tag header flags are set"))?;
     let tag_size = unsynch::decode_u32(BigEndian::read_u32(&tag_header[6..10])) as usize;
 
-    if flags.contains(COMPRESSION) {
+    if flags.contains(Flags::COMPRESSION) {
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "id3v2.2 compression is not supported"));
     }
 
     let mut offset = tag_header.len();
 
     // TODO: actually use the extended header data.
-    if flags.contains(EXTENDED_HEADER) {
+    if flags.contains(Flags::EXTENDED_HEADER) {
         let ext_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?) as usize;
         offset += 4 + ext_size;
         let mut ext_header = Vec::with_capacity(cmp::min(ext_size, 0xffff));
         reader.by_ref()
             .take(ext_size as u64)
             .read_to_end(&mut ext_header)?;
-        if flags.contains(UNSYNCHRONISATION) {
+        if flags.contains(Flags::UNSYNCHRONISATION) {
             unsynch::decode_vec(&mut ext_header);
         }
     }
 
     let mut tag = Tag::new();
     while offset < tag_size + tag_header.len() {
-        let (bytes_read, frame) = match frame::decode(&mut reader, version, flags.contains(UNSYNCHRONISATION))? {
+        let (bytes_read, frame) = match frame::decode(&mut reader, version, flags.contains(Flags::UNSYNCHRONISATION))? {
             Some(frame) => frame,
             None => break, // Padding.
         };
@@ -86,12 +86,16 @@ pub fn decode<R>(mut reader: R) -> ::Result<Tag>
 
 /// The Encoder may be used to encode tags.
 #[derive(Debug, Builder)]
-#[builder(setter(into))]
+#[builder(pattern = "owned")]
 pub struct Encoder {
+    /// The tag version to encode to.
     #[builder(default="Version::Id3v24")]
     version: Version,
+    /// Enable the unsynchronisatin scheme. This avoids patterns that resemble MP3-frame headers
+    /// from being encoded. If you are encoding to MP3 files, you probably want this enabled.
     #[builder(default="true")]
     unsynchronisation: bool,
+    /// Enable compression.
     #[builder(default="false")]
     compression: bool,
 }
@@ -109,9 +113,9 @@ impl Encoder {
             });
 
         let mut flags = Flags::empty();
-        flags.set(UNSYNCHRONISATION, self.unsynchronisation);
+        flags.set(Flags::UNSYNCHRONISATION, self.unsynchronisation);
         if self.version == Version::Id3v22 {
-            flags.set(COMPRESSION, self.compression);
+            flags.set(Flags::COMPRESSION, self.compression);
         }
 
         let mut frame_data = Vec::new();

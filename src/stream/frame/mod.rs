@@ -45,15 +45,15 @@ pub fn encode<W>(writer: &mut W, frame: &Frame, version: tag::Version, unsynchro
         tag::Id3v22 => v2::encode(writer, frame, unsynchronization),
         tag::Id3v23 => {
             let mut flags = v3::Flags::empty();
-            flags.set(v3::TAG_ALTER_PRESERVATION, frame.tag_alter_preservation());
-            flags.set(v3::FILE_ALTER_PRESERVATION, frame.file_alter_preservation());
+            flags.set(v3::Flags::TAG_ALTER_PRESERVATION, frame.tag_alter_preservation());
+            flags.set(v3::Flags::FILE_ALTER_PRESERVATION, frame.file_alter_preservation());
             v3::encode(writer, frame, v3::Flags::empty(), unsynchronization)
         },
         tag::Id3v24 => {
             let mut flags = v4::Flags::empty();
-            flags.set(v4::UNSYNCHRONISATION, unsynchronization);
-            flags.set(v4::TAG_ALTER_PRESERVATION, frame.tag_alter_preservation());
-            flags.set(v4::FILE_ALTER_PRESERVATION, frame.file_alter_preservation());
+            flags.set(v4::Flags::UNSYNCHRONISATION, unsynchronization);
+            flags.set(v4::Flags::TAG_ALTER_PRESERVATION, frame.tag_alter_preservation());
+            flags.set(v4::Flags::FILE_ALTER_PRESERVATION, frame.file_alter_preservation());
             v4::encode(writer, frame, flags)
         },
     }
