@@ -27,8 +27,8 @@ pub trait Storage<'a> {
 }
 
 
-/// PlainStorage keeps track of a writeable region in a file and prevents accidental overwrites of
-/// unrelated data.
+/// `PlainStorage` keeps track of a writeable region in a file and prevents accidental overwrites
+/// of unrelated data.
 ///
 /// If the writeable region becomes too small when writing, the data following the region is moved.
 /// When the write has been completed and data was moved, a zero padding is inserted to optimize
@@ -257,7 +257,7 @@ impl<'a, F> io::Write for PlainWriter<'a, F>
         self.storage.file.write_all(&self.buffer.get_ref()[..])?;
         // Write padding to erase any old data.
         for _ in 0..range_len(&self.storage.region) - buf_len {
-            self.storage.file.write(&[0x00])?;
+            self.storage.file.write_all(&[0x00])?;
         }
         self.storage.file.flush()?;
         self.buffer_changed = false;
@@ -366,8 +366,8 @@ mod tests {
         }
         assert_eq!(2_000..43_000, store.region);
         assert_eq!(61_000, store.file.get_ref().len());
-        assert!(&buf_reference[..2_000] == &store.file.get_ref()[..store.region.start as usize]);
-        assert!(&buf_reference[22_000..] == &store.file.get_ref()[store.region.end as usize..]);
+        assert!(buf_reference[..2_000] == store.file.get_ref()[..store.region.start as usize]);
+        assert!(buf_reference[22_000..] == store.file.get_ref()[store.region.end as usize..]);
         assert_eq!(41_000, store.reader().unwrap().bytes().count());
         assert!(store.reader().unwrap().bytes().take(40_000).all(|b| b.unwrap() == 0xff));
         assert!(store.reader().unwrap().bytes().skip(40_000).all(|b| b.unwrap() == 0x00));
@@ -400,7 +400,7 @@ mod tests {
         }
         assert_eq!(2_000..12_000, store.region);
         assert_eq!(30_000, store.file.get_ref().len());
-        assert!(&buf_reference[22_000..] == &store.file.get_ref()[store.region.end as usize..]);
+        assert!(buf_reference[22_000..] == store.file.get_ref()[store.region.end as usize..]);
         assert_eq!(10_000, store.reader().unwrap().bytes().count());
         assert!(store.reader().unwrap().bytes().take(9_000).all(|b| b.unwrap() == 0xff));
         assert!(store.reader().unwrap().bytes().skip(9_000).all(|b| b.unwrap() == 0x00));

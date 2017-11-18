@@ -203,7 +203,7 @@ impl Tag {
     /// Returns `genre_str`, falling back to translating `genre_id` to a string.
     pub fn genre(&self) -> Option<&str> {
         if let Some(ref g) = self.genre_str {
-            if g.len() > 0 {
+            if !g.is_empty() {
                 return Some(g.as_str())
             }
         }

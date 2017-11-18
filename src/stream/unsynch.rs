@@ -9,9 +9,9 @@ use std::mem;
 
 /// Returns the synchsafe variant of a `u32` value.
 pub fn encode_u32(n: u32) -> u32 {
-    let mut x: u32 = n & 0x7F | (n & 0xFFFFFF80) << 1;
-    x = x & 0x7FFF | (x & 0xFFFF8000) << 1;
-    x = x & 0x7FFFFF | (x & 0xFF800000) << 1;
+    let mut x: u32 = n & 0x7F | (n & 0xFFFF_FF80) << 1;
+    x = x & 0x7FFF | (x & 0xFFFF_8000) << 1;
+    x = x & 0x7F_FFFF | (x & 0xFF80_0000) << 1;
     x
 }
 
@@ -19,8 +19,8 @@ pub fn encode_u32(n: u32) -> u32 {
 pub fn decode_u32(n: u32) -> u32 {
     n & 0xFF
         | (n & 0xFF00) >> 1
-        | (n & 0xFF0000) >> 2
-        | (n & 0xFF000000) >> 3
+        | (n & 0xFF_0000) >> 2
+        | (n & 0xFF00_0000) >> 3
 }
 
 /// Decoder for an unsynchronized stream of bytes.
@@ -110,8 +110,8 @@ mod tests {
 
     #[test]
     fn test_synchsafe() {
-        assert_eq!(681570, encode_u32(176994));
-        assert_eq!(176994, decode_u32(681570));
+        assert_eq!(681_570, encode_u32(176_994));
+        assert_eq!(176_994, decode_u32(681_570));
     }
 
     #[test]

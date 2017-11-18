@@ -19,6 +19,7 @@ impl DecoderResult {
     }
 }
 
+#[derive(Copy, Clone)]
 struct EncoderRequest<'a> {
     version: tag::Version,
     encoding: Encoding,
@@ -59,8 +60,8 @@ pub fn decode<R>(id: &str, mut reader: R) -> ::Result<DecoderResult>
         "WXXX" | "WXX" => parse_wxxx(data.as_slice()),
         "COMM" | "COM" => parse_comm(data.as_slice()),
         "USLT" | "ULT" => parse_uslt(data.as_slice()),
-        id if id.starts_with("T") => parse_text(data.as_slice()),
-        id if id.starts_with("W") => parse_weblink(data.as_slice()),
+        id if id.starts_with('T') => parse_text(data.as_slice()),
+        id if id.starts_with('W') => parse_weblink(data.as_slice()),
         _ => Ok(DecoderResult::new(Encoding::UTF16, Content::Unknown(data))),
     }
 }
@@ -325,11 +326,10 @@ macro_rules! decode_part {
                 20 => Some(PictureType::PublisherLogo),
                 _ => None,
             };
-            let picture_type = match picture_type {
+            match picture_type {
                 Some(t) => t,
                 None => return Err(::Error::new(::ErrorKind::Parsing, "invalid picture type"))
-            };
-            picture_type
+            }
         }
     };
     ($bytes:ident, $params:ident, $i:ident, bytes()) => {
@@ -375,8 +375,8 @@ fn parse_apic_v2(data: &[u8]) -> ::Result<DecoderResult> {
     let mut i = 1;
     let format = decode_part!(data, params, i, fixed_string(3));
     let mime_type = match &format[..] {
-        "PNG" => "image/png".to_owned(),
-        "JPG" => "image/jpeg".to_owned(),
+        "PNG" => "image/png".to_string(),
+        "JPG" => "image/jpeg".to_string(),
         _ => {
             return Err(::Error::new(::ErrorKind::UnsupportedFeature,
                                      "can't determine MIME type for image format"))
@@ -493,30 +493,30 @@ mod tests {
         format_map.insert("image/jpeg", "JPG");
         format_map.insert("image/png", "PNG");
 
-        for (mime_type, format) in format_map.into_iter() {
-            for description in ["", "description"].into_iter() {
+        for (mime_type, format) in format_map {
+            for description in &["", "description"] {
                 let picture_type = PictureType::CoverFront;
                 let picture_data = vec!(0xF9, 0x90, 0x3A, 0x02, 0xBD);
                 let picture = Picture {
-                    mime_type: mime_type.to_owned(),
+                    mime_type: mime_type.to_string(),
                     picture_type,
                     description: description.to_string(),
                     data: picture_data.clone(),
                 };
 
-                for encoding in vec!(Encoding::Latin1, Encoding::UTF16).into_iter() {
+                for encoding in &[Encoding::Latin1, Encoding::UTF16] {
                     println!("`{}`, `{}`, `{:?}`", mime_type, description, encoding);
                     let mut data = Vec::new();
-                    data.push(encoding as u8);
+                    data.push(*encoding as u8);
                     data.extend(format.bytes());
                     data.push(picture_type as u8);
-                    data.extend(bytes_for_encoding(description, encoding).into_iter());
-                    data.extend(delim_for_encoding(encoding).into_iter());
+                    data.extend(bytes_for_encoding(description, *encoding).into_iter());
+                    data.extend(delim_for_encoding(*encoding).into_iter());
                     data.extend(picture_data.iter().cloned());
 
                     assert_eq!(*decode("PIC", &data[..]).unwrap().content.picture().unwrap(), picture);
                     let mut data_out = Vec::new();
-                    encode(&mut data_out, &Content::Picture(picture.clone()), tag::Id3v22, encoding).unwrap();
+                    encode(&mut data_out, &Content::Picture(picture.clone()), tag::Id3v22, *encoding).unwrap();
                     assert_eq!(data, data_out);
                 }
             }
@@ -527,31 +527,31 @@ mod tests {
     fn test_apic_v3() {
         assert!(decode("APIC", &[][..]).is_err());
 
-        for mime_type in vec!("", "image/jpeg").into_iter() {
-            for description in vec!("", "description").into_iter() {
+        for mime_type in &["", "image/jpeg"] {
+            for description in &["", "description"] {
                 let picture_type = PictureType::CoverFront;
                 let picture_data = vec!(0xF9, 0x90, 0x3A, 0x02, 0xBD);
                 let picture = Picture {
-                    mime_type: mime_type.to_owned(),
+                    mime_type: mime_type.to_string(),
                     picture_type: picture_type,
-                    description: description.to_owned(),
+                    description: description.to_string(),
                     data: picture_data.clone(),
                 };
 
-                for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
+                for encoding in &[Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE] {
                     println!("`{}`, `{}`, `{:?}`", mime_type, description, encoding);
                     let mut data = Vec::new();
-                    data.push(encoding as u8);
+                    data.push(*encoding as u8);
                     data.extend(mime_type.bytes());
                     data.push(0x0);
                     data.push(picture_type as u8);
-                    data.extend(bytes_for_encoding(description, encoding).into_iter());
-                    data.extend(delim_for_encoding(encoding).into_iter());
+                    data.extend(bytes_for_encoding(description, *encoding).into_iter());
+                    data.extend(delim_for_encoding(*encoding).into_iter());
                     data.extend(picture_data.iter().cloned());
 
                     assert_eq!(*decode("APIC", &data[..]).unwrap().content.picture().unwrap(), picture);
                     let mut data_out = Vec::new();
-                    encode(&mut data_out, &Content::Picture(picture.clone()), tag::Id3v23, encoding).unwrap();
+                    encode(&mut data_out, &Content::Picture(picture.clone()), tag::Id3v23, *encoding).unwrap();
                     assert_eq!(data, data_out);
                 }
             }
@@ -563,25 +563,25 @@ mod tests {
         assert!(decode("COMM", &[][..]).is_err());
 
         println!("valid");
-        for description in vec!("", "description").into_iter() {
-            for comment in vec!("", "comment").into_iter() {
-                for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
+        for description in &["", "description"] {
+            for comment in &["", "comment"] {
+                for encoding in &[Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE] {
                     println!("`{}`, `{}`, `{:?}`", description, comment, encoding);
                     let mut data = Vec::new();
-                    data.push(encoding as u8);
+                    data.push(*encoding as u8);
                     data.extend(b"eng".iter().cloned());
-                    data.extend(bytes_for_encoding(description, encoding).into_iter());
-                    data.extend(delim_for_encoding(encoding).into_iter());
-                    data.extend(bytes_for_encoding(comment, encoding).into_iter());
+                    data.extend(bytes_for_encoding(description, *encoding).into_iter());
+                    data.extend(delim_for_encoding(*encoding).into_iter());
+                    data.extend(bytes_for_encoding(comment, *encoding).into_iter());
 
                     let content = frame::Comment {
-                        lang: "eng".to_owned(),
-                        description: description.to_owned(),
-                        text: comment.to_owned()
+                        lang: "eng".to_string(),
+                        description: description.to_string(),
+                        text: comment.to_string()
                     };
                     assert_eq!(*decode("COMM", &data[..]).unwrap().content.comment().unwrap(), content);
                     let mut data_out = Vec::new();
-                    encode(&mut data_out, &Content::Comment(content), tag::Id3v23, encoding).unwrap();
+                    encode(&mut data_out, &Content::Comment(content), tag::Id3v23, *encoding).unwrap();
                     assert_eq!(data, data_out);
                 }
             }
@@ -590,28 +590,28 @@ mod tests {
         println!("invalid");
         let description = "description";
         let comment = "comment";
-        for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
+        for encoding in &[Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE] {
             println!("`{:?}`", encoding);
             let mut data = Vec::new();
-            data.push(encoding as u8);
+            data.push(*encoding as u8);
             data.extend(b"eng".iter().cloned());
-            data.extend(bytes_for_encoding(description, encoding).into_iter());
-            data.extend(bytes_for_encoding(comment, encoding).into_iter());
+            data.extend(bytes_for_encoding(description, *encoding).into_iter());
+            data.extend(bytes_for_encoding(comment, *encoding).into_iter());
             assert!(decode("COMM", &data[..]).is_err());
         }
         println!("Empty description");
         let comment = "comment";
-        for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
+        for encoding in &[Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE] {
             println!("`{:?}`", encoding);
             let mut data = Vec::new();
-            data.push(encoding as u8);
+            data.push(*encoding as u8);
             data.extend(b"eng".iter().cloned());
-            data.extend(delim_for_encoding(encoding));
-            data.extend(bytes_for_encoding(comment, encoding).into_iter());
+            data.extend(delim_for_encoding(*encoding));
+            data.extend(bytes_for_encoding(comment, *encoding).into_iter());
             let content = frame::Comment {
-                lang: "eng".to_owned(),
-                description: "".to_owned(),
-                text: comment.to_owned()
+                lang: "eng".to_string(),
+                description: "".to_string(),
+                text: comment.to_string()
             };
             println!("data == {:?}", data);
             println!("content == {:?}", content);
@@ -623,16 +623,16 @@ mod tests {
     fn test_text() {
         assert!(decode("TALB", &[][..]).is_err());
 
-        for text in vec!("", "text").into_iter() {
-            for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
-                println!("`{}`, `{:?}`", text, encoding);
+        for text in &["", "text"] {
+            for encoding in &[Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE] {
+                println!("`{}`, `{:?}`", text, *encoding);
                 let mut data = Vec::new();
-                data.push(encoding as u8);
-                data.extend(bytes_for_encoding(text, encoding).into_iter());
+                data.push(*encoding as u8);
+                data.extend(bytes_for_encoding(text, *encoding).into_iter());
 
-                assert_eq!(decode("TALB", &data[..]).unwrap().content.text().unwrap(), text);
+                assert_eq!(decode("TALB", &data[..]).unwrap().content.text().unwrap(), *text);
                 let mut data_out = Vec::new();
-                encode(&mut data_out, &Content::Text(text.to_owned()), tag::Id3v23, encoding).unwrap();
+                encode(&mut data_out, &Content::Text(text.to_string()), tag::Id3v23, *encoding).unwrap();
                 assert_eq!(data, data_out);
             }
         }
@@ -642,15 +642,15 @@ mod tests {
     fn test_null_terminated_text() {
         assert!(decode("TRCK", &[][..]).is_err());
         let text = "text\u{0}\u{0}";
-        for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
+        for encoding in &[Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE] {
             println!("`{}`, `{:?}`", text, encoding);
             let mut data = Vec::new();
-            data.push(encoding as u8);
-            data.extend(bytes_for_encoding(text, encoding).into_iter());
+            data.push(*encoding as u8);
+            data.extend(bytes_for_encoding(text, *encoding).into_iter());
 
             assert_eq!(decode("TALB", &data[..]).unwrap().content.text().unwrap(), "text");
             let mut data_out = Vec::new();
-            encode(&mut data_out, &Content::Text(text.to_owned()), tag::Id3v23, encoding).unwrap();
+            encode(&mut data_out, &Content::Text(text.to_string()), tag::Id3v23, *encoding).unwrap();
             assert_eq!(data, data_out);
         }
     }
@@ -660,23 +660,23 @@ mod tests {
         assert!(decode("TXXX", &[][..]).is_err());
 
         println!("valid");
-        for key in vec!("", "key").into_iter() {
-            for value in vec!("", "value").into_iter() {
-                for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
+        for key in &["", "key"] {
+            for value in &["", "value"] {
+                for encoding in &[Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE] {
                     println!("{:?}", encoding);
                     let mut data = Vec::new();
-                    data.push(encoding as u8);
-                    data.extend(bytes_for_encoding(key, encoding).into_iter());
-                    data.extend(delim_for_encoding(encoding).into_iter());
-                    data.extend(bytes_for_encoding(value, encoding).into_iter());
+                    data.push(*encoding as u8);
+                    data.extend(bytes_for_encoding(key, *encoding).into_iter());
+                    data.extend(delim_for_encoding(*encoding).into_iter());
+                    data.extend(bytes_for_encoding(value, *encoding).into_iter());
 
                     let content = frame::ExtendedText {
-                        description: key.to_owned(),
-                        value: value.to_owned()
+                        description: key.to_string(),
+                        value: value.to_string()
                     };
                     assert_eq!(*decode("TXXX", &data[..]).unwrap().content.extended_text().unwrap(), content);
                     let mut data_out = Vec::new();
-                    encode(&mut data_out, &Content::ExtendedText(content), tag::Id3v23, encoding).unwrap();
+                    encode(&mut data_out, &Content::ExtendedText(content), tag::Id3v23, *encoding).unwrap();
                     assert_eq!(data, data_out);
                 }
             }
@@ -685,25 +685,25 @@ mod tests {
         println!("invalid");
         let key = "key";
         let value = "value";
-        for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
+        for encoding in &[Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE] {
             println!("`{:?}`", encoding);
             let mut data = Vec::new();
-            data.push(encoding as u8);
-            data.extend(bytes_for_encoding(key, encoding).into_iter());
-            data.extend(bytes_for_encoding(value, encoding).into_iter());
+            data.push(*encoding as u8);
+            data.extend(bytes_for_encoding(key, *encoding).into_iter());
+            data.extend(bytes_for_encoding(value, *encoding).into_iter());
             assert!(decode("TXXX", &data[..]).is_err());
         }
     }
 
     #[test]
     fn test_weblink() {
-        for link in vec!("", "http://www.rust-lang.org/").into_iter() {
+        for link in &["", "http://www.rust-lang.org/"] {
             println!("`{:?}`", link);
             let data = link.as_bytes().to_vec();
 
-            assert_eq!(decode("WOAF", &data[..]).unwrap().content.link().unwrap(), link);
+            assert_eq!(decode("WOAF", &data[..]).unwrap().content.link().unwrap(), *link);
             let mut data_out = Vec::new();
-            encode(&mut data_out, &Content::Link(link.to_owned()), tag::Id3v23, Encoding::Latin1).unwrap();
+            encode(&mut data_out, &Content::Link(link.to_string()), tag::Id3v23, Encoding::Latin1).unwrap();
             assert_eq!(data, data_out);
         }
     }
@@ -713,23 +713,23 @@ mod tests {
         assert!(decode("WXXX", &[][..]).is_err());
 
         println!("valid");
-        for description in vec!("", "rust").into_iter() {
-            for link in vec!("", "http://www.rust-lang.org/").into_iter() {
-                for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
+        for description in &["", "rust"] {
+            for link in &["", "http://www.rust-lang.org/"] {
+                for encoding in &[Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE] {
                     println!("`{}`, `{}`, `{:?}`", description, link, encoding);
                     let mut data = Vec::new();
-                    data.push(encoding as u8);
-                    data.extend(bytes_for_encoding(description, encoding).into_iter());
-                    data.extend(delim_for_encoding(encoding).into_iter());
+                    data.push(*encoding as u8);
+                    data.extend(bytes_for_encoding(description, *encoding).into_iter());
+                    data.extend(delim_for_encoding(*encoding).into_iter());
                     data.extend(bytes_for_encoding(link, Encoding::Latin1).into_iter());
 
                     let content = frame::ExtendedLink {
-                        description: description.to_owned(),
-                        link: link.to_owned()
+                        description: description.to_string(),
+                        link: link.to_string()
                     };
                     assert_eq!(*decode("WXXX", &data[..]).unwrap().content.extended_link().unwrap(), content);
                     let mut data_out = Vec::new();
-                    encode(&mut data_out, &Content::ExtendedLink(content), tag::Id3v23, encoding).unwrap();
+                    encode(&mut data_out, &Content::ExtendedLink(content), tag::Id3v23, *encoding).unwrap();
                     assert_eq!(data, data_out);
                 }
             }
@@ -738,11 +738,11 @@ mod tests {
         println!("invalid");
         let description = "rust";
         let link = "http://www.rust-lang.org/";
-        for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
+        for encoding in &[Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE] {
             println!("`{:?}`", encoding);
             let mut data = Vec::new();
-            data.push(encoding as u8);
-            data.extend(bytes_for_encoding(description, encoding).into_iter());
+            data.push(*encoding as u8);
+            data.extend(bytes_for_encoding(description, *encoding).into_iter());
             data.extend(bytes_for_encoding(link, Encoding::Latin1).into_iter());
             assert!(decode("WXXX", &data[..]).is_err());
         }
@@ -753,25 +753,25 @@ mod tests {
         assert!(decode("USLT", &[][..]).is_err());
 
         println!("valid");
-        for description in vec!("", "description").into_iter() {
-            for text in vec!("", "lyrics").into_iter() {
-                for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
+        for description in &["", "description"] {
+            for text in &["", "lyrics"] {
+                for encoding in &[Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE] {
                     println!("`{}`, `{}, `{:?}`", description, text, encoding);
                     let mut data = Vec::new();
-                    data.push(encoding as u8);
+                    data.push(*encoding as u8);
                     data.extend(b"eng".iter().cloned());
-                    data.extend(bytes_for_encoding(description, encoding).into_iter());
-                    data.extend(delim_for_encoding(encoding).into_iter());
-                    data.extend(bytes_for_encoding(text, encoding).into_iter());
+                    data.extend(bytes_for_encoding(description, *encoding).into_iter());
+                    data.extend(delim_for_encoding(*encoding).into_iter());
+                    data.extend(bytes_for_encoding(text, *encoding).into_iter());
 
                     let content = frame::Lyrics {
-                        lang: "eng".to_owned(),
-                        description: description.to_owned(),
-                        text: text.to_owned()
+                        lang: "eng".to_string(),
+                        description: description.to_string(),
+                        text: text.to_string(),
                     };
                     assert_eq!(*decode("USLT", &data[..]).unwrap().content.lyrics().unwrap(), content);
                     let mut data_out = Vec::new();
-                    encode(&mut data_out, &Content::Lyrics(content), tag::Id3v23, encoding).unwrap();
+                    encode(&mut data_out, &Content::Lyrics(content), tag::Id3v23, *encoding).unwrap();
                     assert_eq!(data, data_out);
                 }
             }
@@ -780,13 +780,13 @@ mod tests {
         println!("invalid");
         let description = "description";
         let lyrics = "lyrics";
-        for encoding in vec!(Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE).into_iter() {
+        for encoding in &[Encoding::Latin1, Encoding::UTF8, Encoding::UTF16, Encoding::UTF16BE] {
             println!("`{:?}`", encoding);
             let mut data = Vec::new();
-            data.push(encoding as u8);
+            data.push(*encoding as u8);
             data.extend(b"eng".iter().cloned());
-            data.extend(bytes_for_encoding(description, encoding).into_iter());
-            data.extend(bytes_for_encoding(lyrics, encoding).into_iter());
+            data.extend(bytes_for_encoding(description, *encoding).into_iter());
+            data.extend(bytes_for_encoding(lyrics, *encoding).into_iter());
             assert!(decode("USLT", &data[..]).is_err());
         }
     }

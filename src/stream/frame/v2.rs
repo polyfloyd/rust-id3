@@ -28,7 +28,7 @@ pub fn encode(writer: &mut Write, frame: &Frame, unsynchronisation: bool) -> ::R
     frame::content::encode(&mut content_buf, frame.content(), tag::Id3v22, Encoding::UTF16)?;
     assert_ne!(0, content_buf.len());
     let id = frame.id_for_version(Version::Id3v22)
-        .ok_or(::Error::new(::ErrorKind::InvalidInput, "Unable to downgrade frame ID to ID3v2.2"))?;
+        .ok_or_else(|| ::Error::new(::ErrorKind::InvalidInput, "Unable to downgrade frame ID to ID3v2.2"))?;
     assert_eq!(3, id.len());
     writer.write_all(id.as_bytes())?;
     let mut size_buf = [0; 4];

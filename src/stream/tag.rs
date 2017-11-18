@@ -49,7 +49,7 @@ pub fn decode<R>(mut reader: R) -> ::Result<Tag>
         },
     };
     let flags = Flags::from_bits(tag_header[5])
-        .ok_or(::Error::new(::ErrorKind::Parsing, "unknown tag header flags are set"))?;
+        .ok_or_else(|| ::Error::new(::ErrorKind::Parsing, "unknown tag header flags are set"))?;
     let tag_size = unsynch::decode_u32(BigEndian::read_u32(&tag_header[6..10])) as usize;
 
     if flags.contains(Flags::COMPRESSION) {
@@ -109,7 +109,7 @@ impl Encoder {
             .filter(|frame| {
                 !(frame.tag_alter_preservation()
                   || (frame.file_alter_preservation()
-                      || DEFAULT_FILE_DISCARD.contains(&&frame.id())))
+                      || DEFAULT_FILE_DISCARD.contains(&frame.id())))
             });
 
         let mut flags = Flags::empty();

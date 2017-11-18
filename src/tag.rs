@@ -42,7 +42,7 @@ impl Version {
 
 
 /// An ID3 tag containing metadata frames.
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug, Default, Eq)]
 pub struct Tag {
     /// A vector of frames included in the tag.
     frames: Vec<Frame>,
@@ -52,7 +52,7 @@ pub struct Tag {
 impl<'a> Tag {
     /// Creates a new ID3v2.4 tag with no frames.
     pub fn new() -> Tag {
-        Tag { frames: Vec::new() }
+        Tag::default()
     }
 
     /// Creates a new ID3 tag with the specified version.
@@ -227,7 +227,7 @@ impl<'a> Tag {
     #[deprecated(note = "Combine frames() with Iterator::filter")]
     pub fn get_all(&'a self, id: &str) -> Vec<&'a Frame> {
         let mut matches = Vec::new();
-        for frame in self.frames.iter() {
+        for frame in &self.frames {
             if frame.id() == id {
                 matches.push(frame);
             }
@@ -351,7 +351,7 @@ impl<'a> Tag {
             .and_then(|frame| frame.content().text())
             .and_then(|text| {
                 let mut split = text.splitn(2, '/');
-                if let Some(num) = split.next().unwrap().parse().ok() {
+                if let Ok(num) = split.next().unwrap().parse() {
                     Some((num, split.next().and_then(|s| s.parse().ok())))
                 } else {
                     None
@@ -637,7 +637,7 @@ impl<'a> Tag {
     pub fn year(&self) -> Option<i32> {
         self.get("TYER")
             .and_then(|frame| frame.content().text())
-            .and_then(|text| text.trim_left_matches("0").parse().ok())
+            .and_then(|text| text.trim_left_matches('0').parse().ok())
     }
 
     /// Sets the year (TYER).
@@ -1318,7 +1318,7 @@ impl<'a> Tag {
         }
 
         let mut ident = [0u8; 3];
-        try_io!(reader, reader.read(&mut ident));
+        try_io!(reader, reader.read_exact(&mut ident));
         if &ident[..] == b"ID3" {
             try_io!(reader, reader.seek(SeekFrom::Current(3)));
             let offset = 10 + unsynch::decode_u32(try_io!(reader, reader.read_u32::<BigEndian>()));
@@ -1424,19 +1424,19 @@ impl From<::v1::Tag> for Tag {
         if let Some(genre) = tag_v1.genre() {
             tag.set_genre(genre.to_string());
         }
-        if tag_v1.title.len() > 0 {
+        if !tag_v1.title.is_empty() {
             tag.set_title(tag_v1.title);
         }
-        if tag_v1.artist.len() > 0 {
+        if !tag_v1.artist.is_empty() {
             tag.set_artist(tag_v1.artist);
         }
-        if tag_v1.album.len() > 0 {
+        if !tag_v1.album.is_empty() {
             tag.set_album(tag_v1.album);
         }
-        if tag_v1.year.len() > 0 {
+        if !tag_v1.year.is_empty() {
             tag.set_text("TYER", tag_v1.year);
         }
-        if tag_v1.comment.len() > 0 {
+        if !tag_v1.comment.is_empty() {
             tag.add_comment(Comment {
                 lang: "eng".to_string(),
                 description: "".to_string(),

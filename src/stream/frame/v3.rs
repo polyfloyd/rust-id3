@@ -33,7 +33,7 @@ pub fn decode<R>(reader: &mut R, unsynchronisation: bool) -> ::Result<Option<(us
 
     let content_size = BigEndian::read_u32(&frame_header[4..8]) as usize;
     let flags = Flags::from_bits(BigEndian::read_u16(&frame_header[8..10]))
-        .ok_or(::Error::new(::ErrorKind::Parsing, "unknown frame header flags are set"))?;
+        .ok_or_else(|| ::Error::new(::ErrorKind::Parsing, "unknown frame header flags are set"))?;
     if flags.contains(Flags::ENCRYPTION) {
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "encryption is not supported"));
     } else if flags.contains(Flags::GROUPING_IDENTITY) {

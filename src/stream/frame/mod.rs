@@ -28,12 +28,10 @@ pub fn decode_content<R>(reader: R, id: &str, compression: bool, unsynchronisati
         } else {
             content::decode(id, reader_unsynch)
         }
+    } else if compression {
+        content::decode(id, ZlibDecoder::new(reader))
     } else {
-        if compression {
-            content::decode(id, ZlibDecoder::new(reader))
-        } else {
-            content::decode(id, reader)
-        }
+        content::decode(id, reader)
     };
     Ok(result?.content)
 }
@@ -68,8 +66,8 @@ mod tests {
     use ::stream::unsynch;
 
     fn u32_to_bytes(n: u32) -> Vec<u8> {
-        vec!(((n & 0xFF000000) >> 24) as u8,
-             ((n & 0xFF0000) >> 16) as u8,
+        vec!(((n & 0xFF00_0000) >> 24) as u8,
+             ((n & 0xFF_0000) >> 16) as u8,
              ((n & 0xFF00) >> 8) as u8,
              (n & 0xFF) as u8
             )

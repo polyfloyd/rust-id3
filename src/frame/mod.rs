@@ -100,8 +100,8 @@ impl Frame {
     /// tag and the ID could not be mapped to an ID3v2.3 ID.
     pub fn id(&self) -> &str {
         match self.id {
-            ID::Valid(ref id) => &id,
-            ID::Invalid(ref id) => &id,
+              ID::Valid(ref id)
+            | ID::Invalid(ref id) => id,
         }
     }
 
@@ -110,9 +110,9 @@ impl Frame {
     pub fn id_for_version(&self, version: Version) -> Option<&str> {
         match (version, &self.id) {
             (Version::Id3v22, &ID::Valid(ref id)) => ::util::convert_id_3_to_2(id),
-            (Version::Id3v23, &ID::Valid(ref id)) => Some(id),
-            (Version::Id3v24, &ID::Valid(ref id)) => Some(id),
-            (Version::Id3v22, &ID::Invalid(ref id)) => Some(id),
+            (Version::Id3v23, &ID::Valid(ref id))
+            | (Version::Id3v24, &ID::Valid(ref id))
+            | (Version::Id3v22, &ID::Invalid(ref id)) => Some(id),
             (_, &ID::Invalid(_)) => None,
         }
     }
@@ -168,8 +168,8 @@ impl Frame {
 impl fmt::Display for Frame {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self.content {
-            Content::Text(ref content) => write!(f, "{}", content),
-            Content::Link(ref content) => write!(f, "{}", content),
+              Content::Text(ref content)
+            | Content::Link(ref content) => write!(f, "{}", content),
             Content::Lyrics(ref content) => write!(f, "{}", content.text),
             Content::ExtendedText(ref content) => write!(f, "{}: {}", content.description, content.value),
             Content::ExtendedLink(ref content) => write!(f, "{}: {}", content.description, content.link),
