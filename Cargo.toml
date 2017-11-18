@@ -14,11 +14,13 @@ keywords = ["id3", "audio", "parser", "metadata"]
 include = ["src/*", "Cargo.toml", "LICENSE", "README.md"]
 
 [features]
+default = []
 unstable = []
 
 [dependencies]
 bitflags = "~1.0.0"
 byteorder = "~1.1.0"
+clippy = { version = "0.0.*", optional = true }
 derive_builder = "~0.5.0"
 encoding = "~0.2.33"
 flate2 = "~0.2.20"
