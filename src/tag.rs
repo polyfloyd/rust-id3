@@ -1,12 +1,11 @@
 use std::fs::{self, File};
 use std::io::{self, Read, Write, Seek, SeekFrom, BufReader};
 use std::iter;
-use std::ops;
 use std::path::Path;
-use byteorder::{ByteOrder, BigEndian, ReadBytesExt};
+use byteorder::{BigEndian, ReadBytesExt};
 use ::frame::Content;
 use ::frame::{Frame, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType, Timestamp};
-use ::storage::{PlainStorage, Storage};
+use ::storage::{self, PlainStorage, Storage};
 use ::stream::{self, unsynch};
 
 
@@ -1336,7 +1335,7 @@ impl<'a> Tag {
     /// reset back to the previous position before returning.
     pub fn is_candidate<R: Read + Seek>(mut reader: R) -> ::Result<bool> {
         let initial_position = reader.seek(io::SeekFrom::Current(0))?;
-        let rs = locate_id3v2(&mut reader);
+        let rs = storage::locate_id3v2(&mut reader);
         reader.seek(io::SeekFrom::Start(initial_position))?;
         Ok(rs?.is_some())
     }
@@ -1345,7 +1344,7 @@ impl<'a> Tag {
     /// it if found. Returns true if a tag was found.
     pub fn skip<R: Read + Seek>(mut reader: &mut R) -> ::Result<bool> {
         let initial_position = reader.seek(io::SeekFrom::Current(0))?;
-        let range = locate_id3v2(&mut reader)?;
+        let range = storage::locate_id3v2(&mut reader)?;
         let end = range.as_ref()
             .map(|r| r.end)
             .unwrap_or(0);
@@ -1383,7 +1382,7 @@ impl<'a> Tag {
             .read(true)
             .write(true)
             .open(path)?;
-        let location = locate_id3v2(&mut file)?
+        let location = storage::locate_id3v2(&mut file)?
             .unwrap_or(0..0); // Create a new tag if none could be located.
 
         let mut storage = PlainStorage::new(file, location);
@@ -1397,7 +1396,7 @@ impl<'a> Tag {
     ///
     /// Returns true if the file initially contained a tag.
     pub fn remove_from(mut file: &mut fs::File) -> ::Result<bool> {
-        let location = match locate_id3v2(&mut file)? {
+        let location = match storage::locate_id3v2(&mut file)? {
             Some(l) => l,
             None    => return Ok(false),
         };
@@ -1451,39 +1450,11 @@ impl From<::v1::Tag> for Tag {
 }
 
 
-fn locate_id3v2<R>(mut reader: R) -> ::Result<Option<ops::Range<u64>>>
-    where R: io::Read + io::Seek {
-    let mut header = [0u8; 10];
-    let nread = reader.read(&mut header)?;
-    if nread < header.len() || &header[..3] != b"ID3" {
-        return Ok(None);
-    }
-    match header[3] {
-        2|3|4 => (),
-        _ => return Err(::Error::new(::ErrorKind::UnsupportedVersion(header[4], header[3]) , "unsupported id3 tag version")),
-    };
-
-    let size = unsynch::decode_u32(BigEndian::read_u32(&header[6..10]));
-    reader.seek(io::SeekFrom::Start(size as u64))?;
-    let num_padding = reader.bytes()
-        .take_while(|rs| rs.as_ref().map(|b| *b == 0x00).unwrap_or(false))
-        .count();
-    Ok(Some(0..size as u64 + num_padding as u64))
-}
-
-
 #[cfg(test)]
 mod tests {
     extern crate tempdir;
     use super::*;
     use std::fs;
-
-    #[test]
-    fn test_locate_id3v2() {
-        let file = fs::File::open("testdata/id3v24.id3").unwrap();
-        let location = locate_id3v2(file).unwrap();
-        assert!(location.is_some());
-    }
 
     #[test]
     fn remove_id3v2() {

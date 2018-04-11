@@ -9,6 +9,8 @@ use std::cmp;
 use std::fs;
 use std::io::{self, Write};
 use std::ops;
+use byteorder::{ByteOrder, BigEndian};
+use ::stream::unsynch;
 
 
 /// Refer to the module documentation.
@@ -279,12 +281,31 @@ impl<'a, F> Drop for PlainWriter<'a, F>
     }
 }
 
+pub fn locate_id3v2<R>(mut reader: R) -> ::Result<Option<ops::Range<u64>>>
+    where R: io::Read + io::Seek {
+    let mut header = [0u8; 10];
+    let nread = reader.read(&mut header)?;
+    if nread < header.len() || &header[..3] != b"ID3" {
+        return Ok(None);
+    }
+    match header[3] {
+        2|3|4 => (),
+        _ => return Err(::Error::new(::ErrorKind::UnsupportedVersion(header[4], header[3]) , "unsupported id3 tag version")),
+    };
+
+    let size = unsynch::decode_u32(BigEndian::read_u32(&header[6..10]));
+    reader.seek(io::SeekFrom::Start(size as u64))?;
+    let num_padding = reader.bytes()
+        .take_while(|rs| rs.as_ref().map(|b| *b == 0x00).unwrap_or(false))
+        .count();
+    Ok(Some(0..size as u64 + num_padding as u64))
+}
+
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::iter;
-    use std::io::{Read, Seek};
+    use std::iter; use std::io::{Read, Seek};
 
     #[test]
     fn plain_reader_range() {
@@ -404,5 +425,12 @@ mod tests {
         assert_eq!(10_000, store.reader().unwrap().bytes().count());
         assert!(store.reader().unwrap().bytes().take(9_000).all(|b| b.unwrap() == 0xff));
         assert!(store.reader().unwrap().bytes().skip(9_000).all(|b| b.unwrap() == 0x00));
+    }
+
+    #[test]
+    fn test_locate_id3v2() {
+        let file = fs::File::open("testdata/id3v24.id3").unwrap();
+        let location = locate_id3v2(file).unwrap();
+        assert!(location.is_some());
     }
 }
