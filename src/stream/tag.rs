@@ -1,6 +1,9 @@
 use std::cmp;
-use std::io::{self, Read};
+use std::fs;
+use std::path::Path;
+use std::io::{self, Read, Write};
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
+use ::storage::{self, PlainStorage, Storage};
 use ::stream::frame;
 use ::stream::unsynch;
 use ::tag::{Tag, Version};
@@ -101,7 +104,10 @@ pub struct Encoder {
 }
 
 impl Encoder {
-    /// Encodes the specified tag using the settings set in the endoder.
+    /// Encodes the specified tag using the settings set in the encoder.
+    ///
+    /// Note that the plain tag is written, regardless of the original contents. To safely encode a
+    /// tag to an MP3 file, use `Encoder::encode_to_path`.
     pub fn encode<W>(&self, tag: &Tag, mut writer: W) -> ::Result<()>
         where W: io::Write {
         // remove frames which have the flags indicating they should be removed
@@ -127,6 +133,22 @@ impl Encoder {
         writer.write_u8(flags.bits())?;
         writer.write_u32::<BigEndian>(unsynch::encode_u32(frame_data.len() as u32))?;
         writer.write_all(&frame_data[..])?;
+        Ok(())
+    }
+
+    /// Encodes a tag and replaces any existing tag in the file pointed to by the specified path.
+    pub fn encode_to_path<P: AsRef<Path>>(&self, tag: &Tag, path: P) -> ::Result<()> {
+        let mut file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(path)?;
+        let location = storage::locate_id3v2(&mut file)?
+            .unwrap_or(0..0); // Create a new tag if none could be located.
+
+        let mut storage = PlainStorage::new(file, location);
+        let mut w = storage.writer()?;
+        self.encode(tag, &mut w)?;
+        w.flush()?;
         Ok(())
     }
 }
@@ -165,13 +187,19 @@ mod tests {
     use super::*;
     use std::fs;
     use std::io;
-    use ::frame::{Frame, Content, PictureType};
+    use ::frame::{Frame, Content, Picture, PictureType};
 
     fn make_tag() -> Tag {
         let mut tag = Tag::new();
         tag.set_title("Title");
         tag.set_artist("Artist");
         tag.set_genre("Genre");
+        tag.add_picture(Picture {
+            mime_type: "image/png".to_string(),
+            picture_type: PictureType::CoverFront,
+            description: "an image".to_string(),
+            data: (0..255).cycle().take(8192).collect(),
+        });
         tag
     }
 
