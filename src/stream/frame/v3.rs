@@ -53,7 +53,7 @@ pub fn decode<R>(reader: &mut R, unsynchronisation: bool) -> ::Result<Option<(us
 
 pub fn encode(writer: &mut Write, frame: &Frame, flags: Flags, unsynchronization: bool) -> ::Result<usize> {
     let (mut content_buf, comp_hint_delta, decompressed_size) = if flags.contains(Flags::COMPRESSION) {
-        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::Default);
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
         let content_size = frame::content::encode(&mut encoder, frame.content(), tag::Id3v23, Encoding::UTF16)?;
         let content_buf = encoder.finish()?;
         (content_buf, 4, Some(content_size))
