@@ -101,6 +101,14 @@ pub struct Encoder {
     /// Enable compression.
     #[builder(default="false")]
     compression: bool,
+    /// Informs the encoder that the file this tag belongs to has been changed.
+    ///
+    /// This subsequently discards any tags that have their File Alter Preservation bits set and
+    /// that have a relation to the file contents:
+    ///
+    ///   AENC, ETCO, EQUA, MLLT, POSS, SYLT, SYTC, RVAD, TENC, TLEN, TSIZ
+    #[builder(default="false")]
+    file_altered: bool,
 }
 
 impl Encoder {
@@ -112,11 +120,15 @@ impl Encoder {
         where W: io::Write {
         // remove frames which have the flags indicating they should be removed
         let saved_frames = tag.frames()
-            .filter(|frame| {
-                !(frame.tag_alter_preservation()
-                  || (frame.file_alter_preservation()
-                      || DEFAULT_FILE_DISCARD.contains(&frame.id())))
-            });
+            // Assert that by encoding, we are changing the tag. If the Tag Alter Preservation bit
+            // is set, discard the frame.
+            .filter(|frame| !frame.tag_alter_preservation())
+            // If the file this tag belongs to is updated, check for the File Alter Preservation
+            // bit.
+            .filter(|frame| !self.file_altered || !frame.file_alter_preservation())
+            // Check whether this frame is part of the set of frames that should always be
+            // discarded when the file is changed.
+            .filter(|frame| !self.file_altered || !DEFAULT_FILE_DISCARD.contains(&frame.id()));
 
         let mut flags = Flags::empty();
         flags.set(Flags::UNSYNCHRONISATION, self.unsynchronisation);
@@ -194,6 +206,7 @@ mod tests {
         tag.set_title("Title");
         tag.set_artist("Artist");
         tag.set_genre("Genre");
+        tag.set_duration(1337);
         tag.add_picture(Picture {
             mime_type: "image/png".to_string(),
             picture_type: PictureType::CoverFront,
@@ -347,5 +360,22 @@ mod tests {
             .encode(&tag, &mut buffer).unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
+    }
+
+    #[test]
+    fn write_id3v24_alter_file() {
+        let mut tag = Tag::new();
+        tag.set_duration(1337);
+
+        let mut buffer = Vec::new();
+        EncoderBuilder::default()
+            .version(Version::Id3v24)
+            .file_altered(true)
+            .build()
+            .unwrap()
+            .encode(&tag, &mut buffer).unwrap();
+
+        let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
+        assert!(tag_read.get("TLEN").is_none());
     }
 }
