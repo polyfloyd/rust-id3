@@ -88,7 +88,7 @@ impl Frame {
             } else {
                 ID::Valid(id.to_string())
             },
-            content: content,
+            content,
             tag_alter_preservation: false,
             file_alter_preservation: false,
         }

@@ -17,8 +17,8 @@ pub fn decode<R>(reader: &mut R, unsynchronisation: bool) -> ::Result<Option<(us
     let id = str::from_utf8(&frame_header[0..3])?;
 
     let sizebytes = &frame_header[3..6];
-    let read_size = ((sizebytes[0] as u32) << 16) | ((sizebytes[1] as u32) << 8) | sizebytes[2] as u32;
-    let content = super::decode_content(reader.take(read_size as u64), id, false, unsynchronisation)?;
+    let read_size = (u32::from(sizebytes[0]) << 16) | (u32::from(sizebytes[1]) << 8) | u32::from(sizebytes[2]);
+    let content = super::decode_content(reader.take(u64::from(read_size)), id, false, unsynchronisation)?;
     let frame = Frame::with_content(id, content);
     Ok(Some((6 + read_size as usize, frame)))
 }

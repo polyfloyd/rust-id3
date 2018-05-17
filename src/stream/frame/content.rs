@@ -15,7 +15,7 @@ pub struct DecoderResult {
 impl DecoderResult {
     /// Creates a new `DecoderResult` with the provided encoding and content.
     pub fn new(encoding: Encoding, content: Content) -> DecoderResult {
-        DecoderResult { encoding: encoding, content: content }
+        DecoderResult { encoding, content }
     }
 }
 
@@ -446,9 +446,9 @@ fn parse_wxxx(data: &[u8]) -> ::Result<DecoderResult> {
     let description = decode_part!(data, params, i, string(true));
 
     let uparams = DecodingParams::for_encoding(Encoding::Latin1);
-    let url = decode_part!(data, uparams, i, string(false));
+    let link = decode_part!(data, uparams, i, string(false));
 
-    let elink = ExtendedLink {description: description, link: url};
+    let elink = ExtendedLink {description, link};
     Ok(DecoderResult::new(encoding, Content::ExtendedLink(elink)))
 }
 

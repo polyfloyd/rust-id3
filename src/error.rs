@@ -39,7 +39,7 @@ pub struct Error {
 impl Error {
     /// Creates a new `Error` using the error kind and description.
     pub fn new(kind: ErrorKind, description: &'static str) -> Error {
-        Error { kind: kind, description: description }
+        Error { kind, description }
     }
 }
 
