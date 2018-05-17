@@ -1321,7 +1321,7 @@ impl<'a> Tag {
         if &ident[..] == b"ID3" {
             try_io!(reader, reader.seek(SeekFrom::Current(3)));
             let offset = 10 + unsynch::decode_u32(try_io!(reader, reader.read_u32::<BigEndian>()));
-            try_io!(reader, reader.seek(SeekFrom::Start(offset as u64)));
+            try_io!(reader, reader.seek(SeekFrom::Start(u64::from(offset))));
         } else {
             try_io!(reader, reader.seek(SeekFrom::Start(0)));
         }
@@ -1443,7 +1443,7 @@ impl From<::v1::Tag> for Tag {
             });
         }
         if let Some(track) = tag_v1.track {
-            tag.set_track(track as u32);
+            tag.set_track(u32::from(track));
         }
         tag
     }

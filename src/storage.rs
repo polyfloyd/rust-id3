@@ -186,7 +186,7 @@ impl<'a, F> io::Write for PlainWriter<'a, F>
         fn range_len(r: &ops::Range<u64>) -> u64 {
             r.end - r.start
         }
-        let pref_pad = self.storage.preferred_padding as u64;
+        let pref_pad = u64::from(self.storage.preferred_padding);
 
         if buf_len > range_len(&self.storage.region) {
             // The region is not able to store the contents of the buffer. Grow it by moving the
@@ -221,7 +221,7 @@ impl<'a, F> io::Write for PlainWriter<'a, F>
             self.storage.region.end = new_region_end;
 
         } else if let Some(max) = self.storage.max_padding {
-            if (range_len(&self.storage.region) - buf_len) + pref_pad > max as u64 {
+            if (range_len(&self.storage.region) - buf_len) + pref_pad > u64::from(max) {
                 // There is more padding than allowed by max_padding, shrink the file by moving the
                 // following data closer to the start.
                 let old_file_end = self.storage.file.seek(io::SeekFrom::End(0))?;
@@ -294,11 +294,11 @@ pub fn locate_id3v2<R>(mut reader: R) -> ::Result<Option<ops::Range<u64>>>
     };
 
     let size = unsynch::decode_u32(BigEndian::read_u32(&header[6..10]));
-    reader.seek(io::SeekFrom::Start(size as u64))?;
+    reader.seek(io::SeekFrom::Start(u64::from(size)))?;
     let num_padding = reader.bytes()
         .take_while(|rs| rs.as_ref().map(|b| *b == 0x00).unwrap_or(false))
         .count();
-    Ok(Some(0..size as u64 + num_padding as u64))
+    Ok(Some(0..u64::from(size) + num_padding as u64))
 }
 
 
