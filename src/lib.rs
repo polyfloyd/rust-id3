@@ -1,6 +1,4 @@
 #![cfg_attr(all(test, feature = "unstable"), feature(test))]
-#![cfg_attr(feature="clippy", feature(plugin))]
-#![cfg_attr(feature="clippy", plugin(clippy))]
 
 //! A library to read and write ID3v2 tags. ID3 versions v2.2, v2.3, and v2.4 are supported.
 //!
