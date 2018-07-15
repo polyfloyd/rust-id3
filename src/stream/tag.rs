@@ -141,7 +141,7 @@ impl Encoder {
             frame::encode(&mut frame_data, frame, self.version, self.unsynchronisation)?;
         }
         writer.write_all(b"ID3")?;
-        writer.write_all(&[self.version.minor() as u8, 2])?;
+        writer.write_all(&[self.version.minor() as u8, 0])?;
         writer.write_u8(flags.bits())?;
         writer.write_u32::<BigEndian>(unsynch::encode_u32(frame_data.len() as u32))?;
         writer.write_all(&frame_data[..])?;
