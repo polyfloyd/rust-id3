@@ -8,14 +8,6 @@ A library for reading and writing ID3 metadata.
 [Documentation](http://jameshurst.github.io/rust-id3/)
 
 ## Usage
-
-Add the dependency to your `Cargo.toml`:
-
-```toml
-[dependencies]
-id3 = "0.2.2"
-```
-
 ```rust
 extern crate id3;
 
