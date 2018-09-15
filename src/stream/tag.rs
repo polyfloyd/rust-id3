@@ -238,6 +238,17 @@ mod tests {
     }
 
     #[test]
+    fn read_id3v24_extended() {
+        let mut file = fs::File::open("testdata/id3v24_ext.id3").unwrap();
+        let tag = decode(&mut file).unwrap();
+        assert_eq!("Title", tag.title().unwrap());
+        assert_eq!("Genre", tag.genre().unwrap());
+        assert_eq!("Artist", tag.artist().unwrap());
+        assert_eq!("Album", tag.album().unwrap());
+        assert_eq!(2, tag.track().unwrap());
+    }
+
+    #[test]
     fn write_id3v22() {
         let tag = make_tag();
         let mut buffer = Vec::new();
