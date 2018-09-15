@@ -55,7 +55,8 @@ pub fn decode<R>(mut reader: R) -> ::Result<Tag>
         .ok_or_else(|| ::Error::new(::ErrorKind::Parsing, "unknown tag header flags are set"))?;
     let tag_size = unsynch::decode_u32(BigEndian::read_u32(&tag_header[6..10])) as usize;
 
-    if flags.contains(Flags::COMPRESSION) {
+    // compression only exists on 2.2 and conflicts with 2.3+'s extended header
+    if version == Version::Id3v22 && flags.contains(Flags::COMPRESSION) {
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "id3v2.2 compression is not supported"));
     }
 
