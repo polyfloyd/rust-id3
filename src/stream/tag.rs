@@ -65,10 +65,15 @@ pub fn decode<R>(mut reader: R) -> ::Result<Tag>
     // TODO: actually use the extended header data.
     if flags.contains(Flags::EXTENDED_HEADER) {
         let ext_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?) as usize;
-        offset += 4 + ext_size;
-        let mut ext_header = Vec::with_capacity(cmp::min(ext_size, 0xffff));
+        // the extended header size includes itself
+        if ext_size < 6 {
+            return Err(::Error::new(::ErrorKind::Parsing, "Extended header has a minimum size of 6"));
+        }
+        offset += ext_size;
+        let ext_remaining_size = ext_size - 4;
+        let mut ext_header = Vec::with_capacity(cmp::min(ext_remaining_size, 0xffff));
         reader.by_ref()
-            .take(ext_size as u64)
+            .take(ext_remaining_size as u64)
             .read_to_end(&mut ext_header)?;
         if flags.contains(Flags::UNSYNCHRONISATION) {
             unsynch::decode_vec(&mut ext_header);
