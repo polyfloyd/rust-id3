@@ -55,7 +55,8 @@ pub fn decode<R>(mut reader: R) -> ::Result<Tag>
         .ok_or_else(|| ::Error::new(::ErrorKind::Parsing, "unknown tag header flags are set"))?;
     let tag_size = unsynch::decode_u32(BigEndian::read_u32(&tag_header[6..10])) as usize;
 
-    if flags.contains(Flags::COMPRESSION) {
+    // compression only exists on 2.2 and conflicts with 2.3+'s extended header
+    if version == Version::Id3v22 && flags.contains(Flags::COMPRESSION) {
         return Err(::Error::new(::ErrorKind::UnsupportedFeature, "id3v2.2 compression is not supported"));
     }
 
@@ -64,10 +65,15 @@ pub fn decode<R>(mut reader: R) -> ::Result<Tag>
     // TODO: actually use the extended header data.
     if flags.contains(Flags::EXTENDED_HEADER) {
         let ext_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?) as usize;
-        offset += 4 + ext_size;
-        let mut ext_header = Vec::with_capacity(cmp::min(ext_size, 0xffff));
+        // the extended header size includes itself
+        if ext_size < 6 {
+            return Err(::Error::new(::ErrorKind::Parsing, "Extended header has a minimum size of 6"));
+        }
+        offset += ext_size;
+        let ext_remaining_size = ext_size - 4;
+        let mut ext_header = Vec::with_capacity(cmp::min(ext_remaining_size, 0xffff));
         reader.by_ref()
-            .take(ext_size as u64)
+            .take(ext_remaining_size as u64)
             .read_to_end(&mut ext_header)?;
         if flags.contains(Flags::UNSYNCHRONISATION) {
             unsynch::decode_vec(&mut ext_header);
@@ -235,6 +241,17 @@ mod tests {
         assert_eq!(1, tag.disc().unwrap());
         assert_eq!(1, tag.total_discs().unwrap());
         assert_eq!(PictureType::CoverFront, tag.pictures().nth(0).unwrap().picture_type);
+    }
+
+    #[test]
+    fn read_id3v24_extended() {
+        let mut file = fs::File::open("testdata/id3v24_ext.id3").unwrap();
+        let tag = decode(&mut file).unwrap();
+        assert_eq!("Title", tag.title().unwrap());
+        assert_eq!("Genre", tag.genre().unwrap());
+        assert_eq!("Artist", tag.artist().unwrap());
+        assert_eq!("Album", tag.album().unwrap());
+        assert_eq!(2, tag.track().unwrap());
     }
 
     #[test]
