@@ -249,7 +249,7 @@ macro_rules! decode_part {
         {
             let start = $i;
             let (end, with_delim) = find_delim!($bytes, $params.encoding, $i, $terminated);
-            $i = with_delim; Some(&$i);
+            $i = with_delim;
 
             if start == end {
                 "".to_string()
@@ -265,7 +265,7 @@ macro_rules! decode_part {
                 Some(i) => (i, i + ::util::delim_len($params.encoding)),
                 None => ($bytes.len(), $bytes.len()),
             };
-            $i = with_delim; Some(&$i);
+            $i = with_delim;
 
             if start == end {
                 "".to_string()
@@ -289,7 +289,7 @@ macro_rules! decode_part {
         {
             let start = $i;
             let (end, with_delim) = find_delim!($bytes, Encoding::Latin1, $i, $terminated);
-            $i = with_delim; Some(&$i);
+            $i = with_delim;
             String::from_utf8($bytes[start..end].to_vec())?
         }
     };
