@@ -33,7 +33,7 @@ pub fn decode_content<R>(reader: R, id: &str, compression: bool, unsynchronisati
     } else {
         content::decode(id, reader)
     };
-    Ok(result?.content)
+    Ok(result?)
 }
 
 
