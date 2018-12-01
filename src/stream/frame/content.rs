@@ -34,15 +34,15 @@ pub fn encode<W>(mut writer: W, content: &Content, version: tag::Version, encodi
         encoding,
         content,
     };
-    let bytes = match *content {
+    let bytes = match content {
         Content::Text(_) => text_to_bytes(request),
         Content::ExtendedText(_) => extended_text_to_bytes(request),
         Content::Link(_) => weblink_to_bytes(request),
         Content::ExtendedLink(_) => extended_weblink_to_bytes(request),
         Content::Lyrics(_) => lyrics_to_bytes(request),
         Content::Comment(_) => comment_to_bytes(request),
-        Content::Picture(_) => picture_to_bytes(request),
-        Content::Unknown(ref data) => data.clone()
+        Content::Picture(_) => picture_to_bytes(request)?,
+        Content::Unknown(data) => data.clone()
     };
     writer.write_all(&bytes)?;
     Ok(bytes.len())
@@ -66,7 +66,6 @@ pub fn decode<R>(id: &str, mut reader: R) -> ::Result<DecoderResult>
     }
 }
 
-// Encoders {{{
 struct EncodingParams<'a> {
     delim_len: u8,
     string_func: Box<Fn(&mut Vec<u8>, &str) + 'a>
@@ -116,12 +115,12 @@ macro_rules! encode {
 
 fn text_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let content = request.content.text().unwrap();
-    return encode!(encoding(request.encoding), string(content));
+    encode!(encoding(request.encoding), string(content))
 }
 
 fn extended_text_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let content = request.content.extended_text().unwrap();
-    return encode!(encoding(request.encoding), string(content.description), delim(0), string(content.value));
+    encode!(encoding(request.encoding), string(content.description), delim(0), string(content.value))
 }
 
 fn weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
@@ -130,52 +129,48 @@ fn weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
 
 fn extended_weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let content = request.content.extended_link().unwrap();
-    return encode!(encoding(request.encoding), string(content.description), delim(0),
-                   bytes(content.link.as_bytes()));
+    encode!(encoding(request.encoding), string(content.description), delim(0),
+                   bytes(content.link.as_bytes()))
 }
 
 fn lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let content = request.content.lyrics().unwrap();
-    return encode!(encoding(request.encoding),
+    encode!(encoding(request.encoding),
                    bytes(content.lang.bytes().chain(iter::repeat(b' ')).take(3).collect::<Vec<u8>>()),
-                   string(content.description), delim(0), string(content.text));
+                   string(content.description), delim(0), string(content.text))
 }
 
 fn comment_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let content = request.content.comment().unwrap();
-    return encode!(encoding(request.encoding),
+    encode!(encoding(request.encoding),
                    bytes(content.lang.bytes().chain(iter::repeat(b' ')).take(3).collect::<Vec<u8>>()),
-                   string(content.description), delim(0), string(content.text));
+                   string(content.description), delim(0), string(content.text))
 }
 
 fn picture_to_bytes_v3(request: EncoderRequest) -> Vec<u8> {
     let content = request.content.picture().unwrap();
-    return encode!(encoding(request.encoding), bytes(content.mime_type.as_bytes()), byte(0),
-            byte(content.picture_type), string(content.description), delim(0), bytes(content.data));
+    encode!(encoding(request.encoding), bytes(content.mime_type.as_bytes()), byte(0),
+            byte(content.picture_type), string(content.description), delim(0), bytes(content.data))
 }
 
-fn picture_to_bytes_v2(request: EncoderRequest) -> Vec<u8> {
+fn picture_to_bytes_v2(request: EncoderRequest) -> ::Result<Vec<u8>> {
     let picture = request.content.picture().unwrap();
-
     let format = match &picture.mime_type[..] {
         "image/jpeg" => "JPG",
         "image/png" => "PNG",
-        _ => panic!("unknown MIME type") // TODO handle this better. Return None?
+        _ => return Err(::Error::new(::ErrorKind::Parsing, "unsupported MIME type")),
     };
-
-    return encode!(encoding(request.encoding), bytes(format.as_bytes()), byte(picture.picture_type),
-            string(picture.description), delim(0), bytes(picture.data));
+    Ok(encode!(encoding(request.encoding), bytes(format.as_bytes()), byte(picture.picture_type),
+            string(picture.description), delim(0), bytes(picture.data)))
 }
 
-fn picture_to_bytes(request: EncoderRequest) -> Vec<u8> {
+fn picture_to_bytes(request: EncoderRequest) -> ::Result<Vec<u8>> {
     match request.version {
         tag::Id3v22 => picture_to_bytes_v2(request),
-        tag::Id3v23|tag::Id3v24 => picture_to_bytes_v3(request),
+        tag::Id3v23|tag::Id3v24 => Ok(picture_to_bytes_v3(request)),
     }
 }
-// }}}
 
-// Decoders {{{
 struct DecodingParams<'a> {
     encoding: Encoding,
     string_func: Box<Fn(&[u8]) -> ::Result<String> + 'a>
@@ -297,33 +292,29 @@ macro_rules! decode_part {
             let start = $i;
             $i += 1;
 
-            let picture_type = match $bytes[start] {
-                0 => Some(PictureType::Other),
-                1 => Some(PictureType::Icon),
-                2 => Some(PictureType::OtherIcon),
-                3 => Some(PictureType::CoverFront),
-                4 => Some(PictureType::CoverBack),
-                5 => Some(PictureType::Leaflet),
-                6 => Some(PictureType::Media),
-                7 => Some(PictureType::LeadArtist),
-                8 => Some(PictureType::Artist),
-                9 => Some(PictureType::Conductor),
-                10 => Some(PictureType::Band),
-                11 => Some(PictureType::Composer),
-                12 => Some(PictureType::Lyricist),
-                13 => Some(PictureType::RecordingLocation),
-                14 => Some(PictureType::DuringRecording),
-                15 => Some(PictureType::DuringPerformance),
-                16 => Some(PictureType::ScreenCapture),
-                17 => Some(PictureType::BrightFish),
-                18 => Some(PictureType::Illustration),
-                19 => Some(PictureType::BandLogo),
-                20 => Some(PictureType::PublisherLogo),
-                _ => None,
-            };
-            match picture_type {
-                Some(t) => t,
-                None => return Err(::Error::new(::ErrorKind::Parsing, "invalid picture type"))
+            match $bytes[start] {
+                0 => PictureType::Other,
+                1 => PictureType::Icon,
+                2 => PictureType::OtherIcon,
+                3 => PictureType::CoverFront,
+                4 => PictureType::CoverBack,
+                5 => PictureType::Leaflet,
+                6 => PictureType::Media,
+                7 => PictureType::LeadArtist,
+                8 => PictureType::Artist,
+                9 => PictureType::Conductor,
+                10 => PictureType::Band,
+                11 => PictureType::Composer,
+                12 => PictureType::Lyricist,
+                13 => PictureType::RecordingLocation,
+                14 => PictureType::DuringRecording,
+                15 => PictureType::DuringPerformance,
+                16 => PictureType::ScreenCapture,
+                17 => PictureType::BrightFish,
+                18 => PictureType::Illustration,
+                19 => PictureType::BandLogo,
+                20 => PictureType::PublisherLogo,
+                _ => return Err(::Error::new(::ErrorKind::Parsing, "invalid picture type")),
             }
         }
     };
@@ -453,9 +444,7 @@ fn parse_uslt(data: &[u8]) -> ::Result<DecoderResult> {
     return decode!(data, Lyrics, lang: fixed_string(3), description: string(true),
                    text: string(false));
 }
-// }}}
 
-// Tests {{{
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -528,7 +517,7 @@ mod tests {
                 let picture_data = vec!(0xF9, 0x90, 0x3A, 0x02, 0xBD);
                 let picture = Picture {
                     mime_type: mime_type.to_string(),
-                    picture_type: picture_type,
+                    picture_type,
                     description: description.to_string(),
                     data: picture_data.clone(),
                 };
@@ -786,4 +775,3 @@ mod tests {
         }
     }
 }
-// }}}
