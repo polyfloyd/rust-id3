@@ -230,25 +230,20 @@ macro_rules! assert_data {
     }
 }
 
-
-macro_rules! find_delim {
-    ($bytes:ident, $encoding:expr, $i:ident, $terminated:expr) => {
-        if !$terminated {
-            ($bytes.len(), $bytes.len())
-        } else {
-            match ::util::find_delim($encoding, $bytes, $i) {
-                Some(i) => (i, i + ::util::delim_len($encoding)),
-                None => return Err(::Error::new(::ErrorKind::Parsing, "delimiter not found"))
-            }
-        }
-    };
+fn find_delim(bytes: &[u8], encoding: Encoding, i: usize, terminated: bool) -> Result<(usize, usize), ::Error> {
+    if !terminated {
+        return Ok((bytes.len(), bytes.len()));
+    }
+    let delim = ::util::find_delim(encoding, bytes, i)
+        .ok_or_else(|| ::Error::new(::ErrorKind::Parsing, "delimiter not found"))?;
+    Ok((delim, delim + ::util::delim_len(encoding)))
 }
 
 macro_rules! decode_part {
     ($bytes:ident, $params:ident, $i:ident, string($terminated:expr)) => {
         {
             let start = $i;
-            let (end, with_delim) = find_delim!($bytes, $params.encoding, $i, $terminated);
+            let (end, with_delim) = find_delim($bytes, $params.encoding, $i, $terminated)?;
             $i = with_delim;
 
             if start == end {
@@ -288,7 +283,7 @@ macro_rules! decode_part {
     ($bytes:ident, $params:ident, $i:ident, latin1($terminated:expr)) => {
         {
             let start = $i;
-            let (end, with_delim) = find_delim!($bytes, Encoding::Latin1, $i, $terminated);
+            let (end, with_delim) = find_delim($bytes, Encoding::Latin1, $i, $terminated)?;
             $i = with_delim;
             String::from_utf8($bytes[start..end].to_vec())?
         }
