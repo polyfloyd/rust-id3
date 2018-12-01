@@ -4,21 +4,6 @@ use ::frame::{Picture, PictureType, Content, ExtendedLink};
 use ::stream::encoding::Encoding;
 use ::tag;
 
-/// The result of a successfully parsed frame.
-pub struct DecoderResult {
-    /// The text encoding used in the frame.
-    pub encoding: Encoding,
-    /// The parsed content of the frame.
-    pub content: Content
-}
-
-impl DecoderResult {
-    /// Creates a new `DecoderResult` with the provided encoding and content.
-    pub fn new(encoding: Encoding, content: Content) -> DecoderResult {
-        DecoderResult { encoding, content }
-    }
-}
-
 #[derive(Copy, Clone)]
 struct EncoderRequest<'a> {
     version: tag::Version,
@@ -49,7 +34,7 @@ pub fn encode<W>(mut writer: W, content: &Content, version: tag::Version, encodi
 }
 
 /// Attempts to decode the request.
-pub fn decode<R>(id: &str, mut reader: R) -> ::Result<DecoderResult>
+pub fn decode<R>(id: &str, mut reader: R) -> ::Result<Content>
     where R: io::Read {
     let mut data = Vec::new();
     reader.read_to_end(&mut data)?;
@@ -62,7 +47,7 @@ pub fn decode<R>(id: &str, mut reader: R) -> ::Result<DecoderResult>
         "USLT" | "ULT" => parse_uslt(data.as_slice()),
         id if id.starts_with('T') => parse_text(data.as_slice()),
         id if id.starts_with('W') => parse_weblink(data.as_slice()),
-        _ => Ok(DecoderResult::new(Encoding::UTF16, Content::Unknown(data))),
+        _ => Ok(Content::Unknown(data)),
     }
 }
 
@@ -339,19 +324,16 @@ macro_rules! decode {
             let params = DecodingParams::for_encoding(encoding);
 
             let mut i = 1;
-            Ok(DecoderResult {
-                encoding: encoding,
-                content: Content::$result_type( $result_type {
-                    $($field: decode_part!($bytes, params, i, $part ( $($params)* ) ),)+
-                })
-            })
+            Ok(Content::$result_type( $result_type {
+                $($field: decode_part!($bytes, params, i, $part ( $($params)* ) ),)+
+            }))
         }
     };
 }
 
 /// Attempts to parse the data as an ID3v2.2 picture frame.
 /// Returns a `Content::Picture`.
-fn parse_apic_v2(data: &[u8]) -> ::Result<DecoderResult> {
+fn parse_apic_v2(data: &[u8]) -> ::Result<Content> {
     assert_data!(data);
 
     let encoding = encoding_from_byte(data[0])?;
@@ -379,50 +361,50 @@ fn parse_apic_v2(data: &[u8]) -> ::Result<DecoderResult> {
         description,
         data: picture_data,
     };
-    Ok(DecoderResult::new(encoding, Content::Picture(picture)))
+    Ok(Content::Picture(picture))
 }
 
 
 /// Attempts to parse the data as an ID3v2.3/ID3v2.4 picture frame.
 /// Returns a `Content::Picture`.
-fn parse_apic_v3(data: &[u8]) -> ::Result<DecoderResult> {
+fn parse_apic_v3(data: &[u8]) -> ::Result<Content> {
     return decode!(data, Picture, mime_type: latin1(true), picture_type : picture_type(),
                    description: string(true), data: bytes());
 }
 
 /// Attempts to parse the data as a comment frame.
 /// Returns a `Content::Comment`.
-fn parse_comm(data: &[u8]) -> ::Result<DecoderResult> {
+fn parse_comm(data: &[u8]) -> ::Result<Content> {
     return decode!(data, Comment, lang: fixed_string(3), description: string(true),
                    text: string(false));
 }
 
 /// Attempts to parse the data as a text frame.
 /// Returns a `Content::Text`.
-fn parse_text(data: &[u8]) -> ::Result<DecoderResult> {
+fn parse_text(data: &[u8]) -> ::Result<Content> {
     assert_data!(data);
     let encoding = encoding_from_byte(data[0])?;
 
     let params = DecodingParams::for_encoding(encoding);
     let mut i = 1;
-    Ok(DecoderResult::new(encoding, Content::Text(decode_part!(data, params, i, text()))))
+    Ok(Content::Text(decode_part!(data, params, i, text())))
 }
 
 /// Attempts to parse the data as a user defined text frame.
 /// Returns an `Content::ExtendedText`.
-fn parse_txxx(data: &[u8]) -> ::Result<DecoderResult> {
+fn parse_txxx(data: &[u8]) -> ::Result<Content> {
     return decode!(data, ExtendedText, description: string(true), value: string(false));
 }
 
 /// Attempts to parse the data as a web link frame.
 /// Returns a `Content::Link`.
-fn parse_weblink(data: &[u8]) -> ::Result<DecoderResult> {
-    Ok(DecoderResult::new(Encoding::Latin1, Content::Link(String::from_utf8(data.to_vec())?)))
+fn parse_weblink(data: &[u8]) -> ::Result<Content> {
+    Ok(Content::Link(String::from_utf8(data.to_vec())?))
 }
 
 /// Attempts to parse the data as a user defined web link frame.
 /// Returns an `Content::ExtendedLink`.
-fn parse_wxxx(data: &[u8]) -> ::Result<DecoderResult> {
+fn parse_wxxx(data: &[u8]) -> ::Result<Content> {
     assert_data!(data);
 
     let encoding = encoding_from_byte(data[0])?;
@@ -435,12 +417,12 @@ fn parse_wxxx(data: &[u8]) -> ::Result<DecoderResult> {
     let link = decode_part!(data, uparams, i, string(false));
 
     let elink = ExtendedLink {description, link};
-    Ok(DecoderResult::new(encoding, Content::ExtendedLink(elink)))
+    Ok(Content::ExtendedLink(elink))
 }
 
 /// Attempts to parse the data as an unsynchronized lyrics text frame.
 /// Returns a `Content::Lyrics`.
-fn parse_uslt(data: &[u8]) -> ::Result<DecoderResult> {
+fn parse_uslt(data: &[u8]) -> ::Result<Content> {
     return decode!(data, Lyrics, lang: fixed_string(3), description: string(true),
                    text: string(false));
 }
@@ -498,7 +480,7 @@ mod tests {
                     data.extend(delim_for_encoding(*encoding).into_iter());
                     data.extend(picture_data.iter().cloned());
 
-                    assert_eq!(*decode("PIC", &data[..]).unwrap().content.picture().unwrap(), picture);
+                    assert_eq!(*decode("PIC", &data[..]).unwrap().picture().unwrap(), picture);
                     let mut data_out = Vec::new();
                     encode(&mut data_out, &Content::Picture(picture.clone()), tag::Id3v22, *encoding).unwrap();
                     assert_eq!(data, data_out);
@@ -533,7 +515,7 @@ mod tests {
                     data.extend(delim_for_encoding(*encoding).into_iter());
                     data.extend(picture_data.iter().cloned());
 
-                    assert_eq!(*decode("APIC", &data[..]).unwrap().content.picture().unwrap(), picture);
+                    assert_eq!(*decode("APIC", &data[..]).unwrap().picture().unwrap(), picture);
                     let mut data_out = Vec::new();
                     encode(&mut data_out, &Content::Picture(picture.clone()), tag::Id3v23, *encoding).unwrap();
                     assert_eq!(data, data_out);
@@ -563,7 +545,7 @@ mod tests {
                         description: description.to_string(),
                         text: comment.to_string()
                     };
-                    assert_eq!(*decode("COMM", &data[..]).unwrap().content.comment().unwrap(), content);
+                    assert_eq!(*decode("COMM", &data[..]).unwrap().comment().unwrap(), content);
                     let mut data_out = Vec::new();
                     encode(&mut data_out, &Content::Comment(content), tag::Id3v23, *encoding).unwrap();
                     assert_eq!(data, data_out);
@@ -599,7 +581,7 @@ mod tests {
             };
             println!("data == {:?}", data);
             println!("content == {:?}", content);
-            assert_eq!(*decode("COMM", &data[..]).unwrap().content.comment().unwrap(), content);
+            assert_eq!(*decode("COMM", &data[..]).unwrap().comment().unwrap(), content);
         }
     }
 
@@ -614,7 +596,7 @@ mod tests {
                 data.push(*encoding as u8);
                 data.extend(bytes_for_encoding(text, *encoding).into_iter());
 
-                assert_eq!(decode("TALB", &data[..]).unwrap().content.text().unwrap(), *text);
+                assert_eq!(decode("TALB", &data[..]).unwrap().text().unwrap(), *text);
                 let mut data_out = Vec::new();
                 encode(&mut data_out, &Content::Text(text.to_string()), tag::Id3v23, *encoding).unwrap();
                 assert_eq!(data, data_out);
@@ -632,7 +614,7 @@ mod tests {
             data.push(*encoding as u8);
             data.extend(bytes_for_encoding(text, *encoding).into_iter());
 
-            assert_eq!(decode("TALB", &data[..]).unwrap().content.text().unwrap(), "text");
+            assert_eq!(decode("TALB", &data[..]).unwrap().text().unwrap(), "text");
             let mut data_out = Vec::new();
             encode(&mut data_out, &Content::Text(text.to_string()), tag::Id3v23, *encoding).unwrap();
             assert_eq!(data, data_out);
@@ -658,7 +640,7 @@ mod tests {
                         description: key.to_string(),
                         value: value.to_string()
                     };
-                    assert_eq!(*decode("TXXX", &data[..]).unwrap().content.extended_text().unwrap(), content);
+                    assert_eq!(*decode("TXXX", &data[..]).unwrap().extended_text().unwrap(), content);
                     let mut data_out = Vec::new();
                     encode(&mut data_out, &Content::ExtendedText(content), tag::Id3v23, *encoding).unwrap();
                     assert_eq!(data, data_out);
@@ -685,7 +667,7 @@ mod tests {
             println!("`{:?}`", link);
             let data = link.as_bytes().to_vec();
 
-            assert_eq!(decode("WOAF", &data[..]).unwrap().content.link().unwrap(), *link);
+            assert_eq!(decode("WOAF", &data[..]).unwrap().link().unwrap(), *link);
             let mut data_out = Vec::new();
             encode(&mut data_out, &Content::Link(link.to_string()), tag::Id3v23, Encoding::Latin1).unwrap();
             assert_eq!(data, data_out);
@@ -711,7 +693,7 @@ mod tests {
                         description: description.to_string(),
                         link: link.to_string()
                     };
-                    assert_eq!(*decode("WXXX", &data[..]).unwrap().content.extended_link().unwrap(), content);
+                    assert_eq!(*decode("WXXX", &data[..]).unwrap().extended_link().unwrap(), content);
                     let mut data_out = Vec::new();
                     encode(&mut data_out, &Content::ExtendedLink(content), tag::Id3v23, *encoding).unwrap();
                     assert_eq!(data, data_out);
@@ -753,7 +735,7 @@ mod tests {
                         description: description.to_string(),
                         text: text.to_string(),
                     };
-                    assert_eq!(*decode("USLT", &data[..]).unwrap().content.lyrics().unwrap(), content);
+                    assert_eq!(*decode("USLT", &data[..]).unwrap().lyrics().unwrap(), content);
                     let mut data_out = Vec::new();
                     encode(&mut data_out, &Content::Lyrics(content), tag::Id3v23, *encoding).unwrap();
                     assert_eq!(data, data_out);
