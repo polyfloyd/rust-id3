@@ -193,7 +193,7 @@ impl<'a> DecodingParams<'a> {
             Encoding::UTF8 => DecodingParams {
                 encoding: Encoding::UTF8,
                 string_func: Box::new(|bytes: &[u8]| -> ::Result<String> {
-                    Ok(try!(String::from_utf8(bytes.to_vec())))
+                    Ok(String::from_utf8(bytes.to_vec())?)
                 })
             },
             Encoding::UTF16 => DecodingParams {
@@ -254,7 +254,7 @@ macro_rules! decode_part {
             if start == end {
                 "".to_string()
             } else {
-                try!(($params.string_func)(&$bytes[start..end]))
+                ($params.string_func)(&$bytes[start..end])?
             }
         }
     };
@@ -270,7 +270,7 @@ macro_rules! decode_part {
             if start == end {
                 "".to_string()
             } else {
-                try!(($params.string_func)(&$bytes[start..end]))
+                ($params.string_func)(&$bytes[start..end])?
             }
         }
     };
@@ -282,7 +282,7 @@ macro_rules! decode_part {
 
             let start = $i;
             $i += $len;
-            try!(::util::string_from_latin1(&$bytes[start..$i]))
+            ::util::string_from_latin1(&$bytes[start..$i])?
         }
     };
     ($bytes:ident, $params:ident, $i:ident, latin1($terminated:expr)) => {
@@ -290,7 +290,7 @@ macro_rules! decode_part {
             let start = $i;
             let (end, with_delim) = find_delim!($bytes, Encoding::Latin1, $i, $terminated);
             $i = with_delim; Some(&$i);
-            try!(String::from_utf8($bytes[start..end].to_vec()))
+            String::from_utf8($bytes[start..end].to_vec())?
         }
     };
     ($bytes:ident, $params:ident, $i:ident, picture_type()) => {
@@ -431,7 +431,7 @@ fn parse_txxx(data: &[u8]) -> ::Result<DecoderResult> {
 /// Attempts to parse the data as a web link frame.
 /// Returns a `Content::Link`.
 fn parse_weblink(data: &[u8]) -> ::Result<DecoderResult> {
-    Ok(DecoderResult::new(Encoding::Latin1, Content::Link(try!(String::from_utf8(data.to_vec())))))
+    Ok(DecoderResult::new(Encoding::Latin1, Content::Link(String::from_utf8(data.to_vec())?)))
 }
 
 /// Attempts to parse the data as a user defined web link frame.
