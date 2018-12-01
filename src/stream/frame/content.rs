@@ -385,13 +385,13 @@ fn parse_apic_v2(data: &[u8]) -> ::Result<DecoderResult> {
 
     let picture_type = decode_part!(data, params, i, picture_type());
     let description = decode_part!(data, params, i, string(true));
-    let data = decode_part!(data, params, i, bytes());
+    let picture_data = decode_part!(data, params, i, bytes());
 
     let picture = Picture {
         mime_type,
         picture_type,
         description,
-        data,
+        data: picture_data,
     };
     Ok(DecoderResult::new(encoding, Content::Picture(picture)))
 }
