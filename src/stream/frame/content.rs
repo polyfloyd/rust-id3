@@ -220,64 +220,49 @@ fn find_delim(bytes: &[u8], encoding: Encoding, i: usize, terminated: bool) -> R
 }
 
 macro_rules! decode_part {
-    ($bytes:ident, $params:ident, $i:ident, string($terminated:expr)) => {
+    ($bytes:expr, $params:ident, string($terminated:expr)) => {
         {
-            let start = $i;
-            let (end, with_delim) = find_delim($bytes, $params.encoding, $i, $terminated)?;
-            $i = with_delim;
-
-            if start == end {
-                "".to_string()
+            let (end, with_delim) = find_delim($bytes, $params.encoding, 0, $terminated)?;
+            if end == 0 {
+                ("".to_string(), &$bytes[with_delim..])
             } else {
-                ($params.string_func)(&$bytes[start..end])?
+                (($params.string_func)(&$bytes[..end])?, &$bytes[with_delim..])
             }
         }
     };
-    ($bytes: ident, $params:ident, $i:ident, text()) => {
+    ($bytes:expr, $params:ident, text()) => {
         {
-            let start = $i;
-            let (end, with_delim) = match ::util::find_delim($params.encoding, $bytes, $i) {
+            let (end, with_delim) = match ::util::find_delim($params.encoding, $bytes, 0) {
                 Some(i) => (i, i + ::util::delim_len($params.encoding)),
                 None => ($bytes.len(), $bytes.len()),
             };
-            $i = with_delim;
-
-            if start == end {
-                "".to_string()
+            if end == 0 {
+                ("".to_string(), &$bytes[with_delim..])
             } else {
-                ($params.string_func)(&$bytes[start..end])?
+                (($params.string_func)(&$bytes[..end])?, &$bytes[with_delim..])
             }
         }
     };
-    ($bytes:ident, $params:ident, $i:ident, fixed_string($len:expr)) => {
+    ($bytes:expr, $params:ident, fixed_string($len:expr)) => {
         {
-            if $i + $len >= $bytes.len() {
-                return Err(::Error::new(::ErrorKind::Parsing, "insufficient data"));
+            if $len >= $bytes.len() {
+                return Err(::Error::new(::ErrorKind::Parsing, "insufficient data to decode fixed string"));
             }
-
-            let start = $i;
-            $i += $len;
-            ::util::string_from_latin1(&$bytes[start..$i])?
+            (::util::string_from_latin1(&$bytes[..$len])?, &$bytes[$len..])
         }
     };
-    ($bytes:ident, $params:ident, $i:ident, latin1($terminated:expr)) => {
+    ($bytes:expr, $params:ident, latin1($terminated:expr)) => {
         {
-            let start = $i;
-            let (end, with_delim) = find_delim($bytes, Encoding::Latin1, $i, $terminated)?;
-            $i = with_delim;
-            String::from_utf8($bytes[start..end].to_vec())?
+            let (end, with_delim) = find_delim($bytes, Encoding::Latin1, 0, $terminated)?;
+            (String::from_utf8($bytes[..end].to_vec())?, &$bytes[with_delim..])
         }
     };
-    ($bytes:ident, $params:ident, $i:ident, picture_type()) => {
+    ($bytes:expr, $params:ident, picture_type()) => {
         {
-            if $i + 1 >= $bytes.len() {
-                return Err(::Error::new(::ErrorKind::Parsing, "insufficient data"));
+            if 1 >= $bytes.len() {
+                return Err(::Error::new(::ErrorKind::Parsing, "insufficient data to decode picture type"));
             }
-
-            let start = $i;
-            $i += 1;
-
-            match $bytes[start] {
+            let ty = match $bytes[0] {
                 0 => PictureType::Other,
                 1 => PictureType::Icon,
                 2 => PictureType::OtherIcon,
@@ -300,14 +285,13 @@ macro_rules! decode_part {
                 19 => PictureType::BandLogo,
                 20 => PictureType::PublisherLogo,
                 _ => return Err(::Error::new(::ErrorKind::Parsing, "invalid picture type")),
-            }
+            };
+            (ty, &$bytes[1..])
         }
     };
-    ($bytes:ident, $params:ident, $i:ident, bytes()) => {
+    ($bytes:expr, $params:ident, bytes()) => {
         {
-            let start = $i;
-            $i = $bytes.len(); Some(&$i);
-            $bytes[start..].to_vec()
+            ($bytes.to_vec(), &$bytes[0..0])
         }
     };
 }
@@ -320,12 +304,16 @@ macro_rules! decode {
             assert_data!($bytes);
 
             let encoding = encoding_from_byte($bytes[0])?;
-
             let params = DecodingParams::for_encoding(encoding);
 
-            let mut i = 1;
+            let next = &$bytes[1..];
+            $(
+                let ($field, next) = decode_part!(next, params, $part ( $($params)* ));
+            )+
+            let _ = next;
+
             Ok(Content::$result_type( $result_type {
-                $($field: decode_part!($bytes, params, i, $part ( $($params)* ) ),)+
+                $($field,)+
             }))
         }
     };
@@ -337,11 +325,9 @@ fn parse_apic_v2(data: &[u8]) -> ::Result<Content> {
     assert_data!(data);
 
     let encoding = encoding_from_byte(data[0])?;
-
     let params = DecodingParams::for_encoding(encoding);
 
-    let mut i = 1;
-    let format = decode_part!(data, params, i, fixed_string(3));
+    let (format, next) = decode_part!(&data[1..], params, fixed_string(3));
     let mime_type = match &format[..] {
         "PNG" => "image/png".to_string(),
         "JPG" => "image/jpeg".to_string(),
@@ -350,10 +336,9 @@ fn parse_apic_v2(data: &[u8]) -> ::Result<Content> {
                                      "can't determine MIME type for image format"))
         }
     };
-
-    let picture_type = decode_part!(data, params, i, picture_type());
-    let description = decode_part!(data, params, i, string(true));
-    let picture_data = decode_part!(data, params, i, bytes());
+    let (picture_type, next) = decode_part!(next, params, picture_type());
+    let (description, next) = decode_part!(next, params, string(true));
+    let (picture_data, _) = decode_part!(next, params, bytes());
 
     let picture = Picture {
         mime_type,
@@ -386,8 +371,7 @@ fn parse_text(data: &[u8]) -> ::Result<Content> {
     let encoding = encoding_from_byte(data[0])?;
 
     let params = DecodingParams::for_encoding(encoding);
-    let mut i = 1;
-    Ok(Content::Text(decode_part!(data, params, i, text())))
+    Ok(Content::Text(decode_part!(&data[1..], params, text()).0))
 }
 
 /// Attempts to parse the data as a user defined text frame.
@@ -410,11 +394,10 @@ fn parse_wxxx(data: &[u8]) -> ::Result<Content> {
     let encoding = encoding_from_byte(data[0])?;
 
     let params = DecodingParams::for_encoding(encoding);
-    let mut i = 1;
-    let description = decode_part!(data, params, i, string(true));
+    let (description, next) = decode_part!(&data[1..], params, string(true));
 
     let uparams = DecodingParams::for_encoding(Encoding::Latin1);
-    let link = decode_part!(data, uparams, i, string(false));
+    let (link, _) = decode_part!(next, uparams, string(false));
 
     let elink = ExtendedLink {description, link};
     Ok(Content::ExtendedLink(elink))
