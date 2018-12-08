@@ -432,6 +432,7 @@ fn parse_apic_v2(data: &[u8]) -> ::Result<Content> {
 
 /// Attempts to parse the data as an ID3v2.3/ID3v2.4 picture frame.
 /// Returns a `Content::Picture`.
+#[allow(clippy::cyclomatic_complexity)]
 fn parse_apic_v3(data: &[u8]) -> ::Result<Content> {
     return decode!(data, Picture, mime_type: latin1(true), picture_type : picture_type(),
                    description: string(true), data: bytes());
