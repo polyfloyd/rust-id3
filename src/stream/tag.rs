@@ -1,28 +1,16 @@
+use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
 use std::cmp;
 use std::fs;
-use std::path::Path;
 use std::io::{self, Read, Write};
-use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
-use ::storage::{self, PlainStorage, Storage};
-use ::stream::frame;
-use ::stream::unsynch;
-use ::tag::{Tag, Version};
-
+use std::path::Path;
+use storage::{self, PlainStorage, Storage};
+use stream::frame;
+use stream::unsynch;
+use tag::{Tag, Version};
 
 static DEFAULT_FILE_DISCARD: &[&str] = &[
-    "AENC",
-    "ETCO",
-    "EQUA",
-    "MLLT",
-    "POSS",
-    "SYLT",
-    "SYTC",
-    "RVAD",
-    "TENC",
-    "TLEN",
-    "TSIZ",
+    "AENC", "ETCO", "EQUA", "MLLT", "POSS", "SYLT", "SYTC", "RVAD", "TENC", "TLEN", "TSIZ",
 ];
-
 
 bitflags! {
     struct Flags: u8 {
@@ -34,13 +22,17 @@ bitflags! {
     }
 }
 
-
 pub fn decode<R>(mut reader: R) -> ::Result<Tag>
-    where R: io::Read {
+where
+    R: io::Read,
+{
     let mut tag_header = [0; 10];
     let nread = reader.read(&mut tag_header)?;
     if nread < tag_header.len() || &tag_header[0..3] != b"ID3" {
-        return Err(::Error::new(::ErrorKind::NoTag, "reader does not contain an id3 tag"));
+        return Err(::Error::new(
+            ::ErrorKind::NoTag,
+            "reader does not contain an id3 tag",
+        ));
     }
     let (ver_major, ver_minor) = (tag_header[4], tag_header[3]);
     let version = match (ver_major, ver_minor) {
@@ -48,8 +40,11 @@ pub fn decode<R>(mut reader: R) -> ::Result<Tag>
         (_, 3) => Version::Id3v23,
         (_, 4) => Version::Id3v24,
         (_, _) => {
-            return Err(::Error::new(::ErrorKind::UnsupportedVersion(ver_major, ver_minor), "unsupported id3 tag version"));
-        },
+            return Err(::Error::new(
+                ::ErrorKind::UnsupportedVersion(ver_major, ver_minor),
+                "unsupported id3 tag version",
+            ));
+        }
     };
     let flags = Flags::from_bits(tag_header[5])
         .ok_or_else(|| ::Error::new(::ErrorKind::Parsing, "unknown tag header flags are set"))?;
@@ -57,7 +52,10 @@ pub fn decode<R>(mut reader: R) -> ::Result<Tag>
 
     // compression only exists on 2.2 and conflicts with 2.3+'s extended header
     if version == Version::Id3v22 && flags.contains(Flags::COMPRESSION) {
-        return Err(::Error::new(::ErrorKind::UnsupportedFeature, "id3v2.2 compression is not supported"));
+        return Err(::Error::new(
+            ::ErrorKind::UnsupportedFeature,
+            "id3v2.2 compression is not supported",
+        ));
     }
 
     let mut offset = tag_header.len();
@@ -67,12 +65,16 @@ pub fn decode<R>(mut reader: R) -> ::Result<Tag>
         let ext_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?) as usize;
         // the extended header size includes itself
         if ext_size < 6 {
-            return Err(::Error::new(::ErrorKind::Parsing, "Extended header has a minimum size of 6"));
+            return Err(::Error::new(
+                ::ErrorKind::Parsing,
+                "Extended header has a minimum size of 6",
+            ));
         }
         offset += ext_size;
         let ext_remaining_size = ext_size - 4;
         let mut ext_header = Vec::with_capacity(cmp::min(ext_remaining_size, 0xffff));
-        reader.by_ref()
+        reader
+            .by_ref()
             .take(ext_remaining_size as u64)
             .read_to_end(&mut ext_header)?;
         if flags.contains(Flags::UNSYNCHRONISATION) {
@@ -82,7 +84,11 @@ pub fn decode<R>(mut reader: R) -> ::Result<Tag>
 
     let mut tag = Tag::new();
     while offset < tag_size + tag_header.len() {
-        let (bytes_read, frame) = match frame::decode(&mut reader, version, flags.contains(Flags::UNSYNCHRONISATION))? {
+        let (bytes_read, frame) = match frame::decode(
+            &mut reader,
+            version,
+            flags.contains(Flags::UNSYNCHRONISATION),
+        )? {
             Some(frame) => frame,
             None => break, // Padding.
         };
@@ -98,14 +104,14 @@ pub fn decode<R>(mut reader: R) -> ::Result<Tag>
 #[builder(pattern = "owned")]
 pub struct Encoder {
     /// The tag version to encode to.
-    #[builder(default="Version::Id3v24")]
+    #[builder(default = "Version::Id3v24")]
     version: Version,
     /// Enable the unsynchronisatin scheme. This avoids patterns that resemble MP3-frame headers
     /// from being encoded. If you are encoding to MP3 files, you probably want this enabled.
-    #[builder(default="true")]
+    #[builder(default = "true")]
     unsynchronisation: bool,
     /// Enable compression.
-    #[builder(default="false")]
+    #[builder(default = "false")]
     compression: bool,
     /// Informs the encoder that the file this tag belongs to has been changed.
     ///
@@ -113,7 +119,7 @@ pub struct Encoder {
     /// that have a relation to the file contents:
     ///
     ///   AENC, ETCO, EQUA, MLLT, POSS, SYLT, SYTC, RVAD, TENC, TLEN, TSIZ
-    #[builder(default="false")]
+    #[builder(default = "false")]
     file_altered: bool,
 }
 
@@ -123,9 +129,12 @@ impl Encoder {
     /// Note that the plain tag is written, regardless of the original contents. To safely encode a
     /// tag to an MP3 file, use `Encoder::encode_to_path`.
     pub fn encode<W>(&self, tag: &Tag, mut writer: W) -> ::Result<()>
-        where W: io::Write {
+    where
+        W: io::Write,
+    {
         // remove frames which have the flags indicating they should be removed
-        let saved_frames = tag.frames()
+        let saved_frames = tag
+            .frames()
             // Assert that by encoding, we are changing the tag. If the Tag Alter Preservation bit
             // is set, discard the frame.
             .filter(|frame| !frame.tag_alter_preservation())
@@ -156,12 +165,8 @@ impl Encoder {
 
     /// Encodes a tag and replaces any existing tag in the file pointed to by the specified path.
     pub fn encode_to_path<P: AsRef<Path>>(&self, tag: &Tag, path: P) -> ::Result<()> {
-        let mut file = fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(path)?;
-        let location = storage::locate_id3v2(&mut file)?
-            .unwrap_or(0..0); // Create a new tag if none could be located.
+        let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
+        let location = storage::locate_id3v2(&mut file)?.unwrap_or(0..0); // Create a new tag if none could be located.
 
         let mut storage = PlainStorage::new(file, location);
         let mut w = storage.writer()?;
@@ -170,7 +175,6 @@ impl Encoder {
         Ok(())
     }
 }
-
 
 #[cfg(all(test, feature = "unstable"))]
 mod benchmarks {
@@ -181,8 +185,10 @@ mod benchmarks {
     #[bench]
     fn read_id3v23(b: &mut test::Bencher) {
         let mut buf = Vec::new();
-        fs::File::open("testdata/id3v23.id3").unwrap()
-            .read_to_end(&mut buf).unwrap();
+        fs::File::open("testdata/id3v23.id3")
+            .unwrap()
+            .read_to_end(&mut buf)
+            .unwrap();
         b.iter(|| {
             decode(&mut io::Cursor::new(buf.as_slice())).unwrap();
         });
@@ -191,21 +197,22 @@ mod benchmarks {
     #[bench]
     fn read_id3v24(b: &mut test::Bencher) {
         let mut buf = Vec::new();
-        fs::File::open("testdata/id3v24.id3").unwrap()
-            .read_to_end(&mut buf).unwrap();
+        fs::File::open("testdata/id3v24.id3")
+            .unwrap()
+            .read_to_end(&mut buf)
+            .unwrap();
         b.iter(|| {
             decode(&mut io::Cursor::new(buf.as_slice())).unwrap();
         });
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use frame::{Content, Frame, Picture, PictureType};
     use std::fs;
     use std::io;
-    use ::frame::{Frame, Content, Picture, PictureType};
 
     fn make_tag() -> Tag {
         let mut tag = Tag::new();
@@ -230,7 +237,10 @@ mod tests {
         assert_eq!("Genre", tag.genre().unwrap());
         assert_eq!(1, tag.disc().unwrap());
         assert_eq!(1, tag.total_discs().unwrap());
-        assert_eq!(PictureType::CoverFront, tag.pictures().nth(0).unwrap().picture_type);
+        assert_eq!(
+            PictureType::CoverFront,
+            tag.pictures().nth(0).unwrap().picture_type
+        );
     }
 
     #[test]
@@ -240,7 +250,10 @@ mod tests {
         assert_eq!("Title", tag.title().unwrap());
         assert_eq!(1, tag.disc().unwrap());
         assert_eq!(1, tag.total_discs().unwrap());
-        assert_eq!(PictureType::CoverFront, tag.pictures().nth(0).unwrap().picture_type);
+        assert_eq!(
+            PictureType::CoverFront,
+            tag.pictures().nth(0).unwrap().picture_type
+        );
     }
 
     #[test]
@@ -262,7 +275,8 @@ mod tests {
             .version(Version::Id3v22)
             .build()
             .unwrap()
-            .encode(&tag, &mut buffer).unwrap();
+            .encode(&tag, &mut buffer)
+            .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
     }
@@ -276,7 +290,8 @@ mod tests {
             .version(Version::Id3v22)
             .build()
             .unwrap()
-            .encode(&tag, &mut buffer).unwrap();
+            .encode(&tag, &mut buffer)
+            .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
     }
@@ -292,7 +307,8 @@ mod tests {
             .version(Version::Id3v22)
             .build()
             .unwrap()
-            .encode(&tag, &mut buffer).unwrap();
+            .encode(&tag, &mut buffer)
+            .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
     }
@@ -305,7 +321,8 @@ mod tests {
             .version(Version::Id3v23)
             .build()
             .unwrap()
-            .encode(&tag, &mut buffer).unwrap();
+            .encode(&tag, &mut buffer)
+            .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
     }
@@ -319,7 +336,8 @@ mod tests {
             .version(Version::Id3v23)
             .build()
             .unwrap()
-            .encode(&tag, &mut buffer).unwrap();
+            .encode(&tag, &mut buffer)
+            .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
     }
@@ -333,7 +351,8 @@ mod tests {
             .version(Version::Id3v23)
             .build()
             .unwrap()
-            .encode(&tag, &mut buffer).unwrap();
+            .encode(&tag, &mut buffer)
+            .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
     }
@@ -346,7 +365,8 @@ mod tests {
             .version(Version::Id3v24)
             .build()
             .unwrap()
-            .encode(&tag, &mut buffer).unwrap();
+            .encode(&tag, &mut buffer)
+            .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
     }
@@ -360,7 +380,8 @@ mod tests {
             .version(Version::Id3v24)
             .build()
             .unwrap()
-            .encode(&tag, &mut buffer).unwrap();
+            .encode(&tag, &mut buffer)
+            .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
     }
@@ -374,7 +395,8 @@ mod tests {
             .version(Version::Id3v24)
             .build()
             .unwrap()
-            .encode(&tag, &mut buffer).unwrap();
+            .encode(&tag, &mut buffer)
+            .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
     }
@@ -390,7 +412,8 @@ mod tests {
             .file_altered(true)
             .build()
             .unwrap()
-            .encode(&tag, &mut buffer).unwrap();
+            .encode(&tag, &mut buffer)
+            .unwrap();
 
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert!(tag_read.get("TLEN").is_none());

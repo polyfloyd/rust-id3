@@ -9,31 +9,155 @@ static TAG_CHUNK: ops::Range<i64> = -128..0;
 static XTAG_CHUNK: ops::Range<i64> = -355..-128;
 
 static GENRE_LIST: &[&str] = &[
-    "Blues", "Classic Rock", "Country", "Dance", "Disco", "Funk", "Grunge", "Hip-Hop",
-    "Jazz", "Metal", "New Age", "Oldies", "Other", "Pop", "R&B", "Rap", "Reggae",
-    "Rock", "Techno", "Industrial", "Alternative", "Ska", "Death Metal", "Pranks",
-    "Soundtrack", "Euro-Techno", "Ambient", "Trip-Hop", "Vocal", "Jazz+Funk", "Fusion",
-    "Trance", "Classical", "Instrumental", "Acid", "House", "Game", "Sound Clip",
-    "Gospel", "Noise", "Alternative Rock", "Bass", "Soul", "Punk", "Space",
-    "Meditative", "Instrumental Pop", "Instrumental Rock", "Ethnic", "Gothic",
-    "Darkwave", "Techno-Industrial", "Electronic", "Pop-Folk", "Eurodance", "Dream",
-    "Southern Rock", "Comedy", "Cult", "Gangsta", "Top 40", "Christian Rap",
-    "Pop/Funk", "Jungle", "Native US", "Cabaret", "New Wave", "Psychadelic", "Rave",
-    "Showtunes", "Trailer", "Lo-Fi", "Tribal", "Acid Punk", "Acid Jazz", "Polka",
-    "Retro", "Musical", "Rock & Roll", "Hard Rock", "Folk", "Folk-Rock",
-    "National Folk", "Swing", "Fast Fusion", "Bebob", "Latin", "Revival", "Celtic",
-    "Bluegrass", "Avantgarde", "Gothic Rock", "Progressive Rock", "Psychedelic Rock",
-    "Symphonic Rock", "Slow Rock", "Big Band", "Chorus", "Easy Listening", "Acoustic",
-    "Humour", "Speech", "Chanson", "Opera", "Chamber Music", "Sonata", "Symphony",
-    "Booty Bass", "Primus", "Porn Groove", "Satire", "Slow Jam", "Club", "Tango",
-    "Samba", "Folklore", "Ballad", "Power Ballad", "Rhytmic Soul", "Freestyle", "Duet",
-    "Punk Rock", "Drum Solo", "Acapella", "Euro-House", "Dance Hall", "Goa",
-    "Drum & Bass", "Club-House", "Hardcore", "Terror", "Indie", "BritPop", "Negerpunk",
-    "Polsk Punk", "Beat", "Christian Gangsta", "Heavy Metal", "Black Metal",
-    "Crossover", "Contemporary C", "Christian Rock", "Merengue", "Salsa",
-    "Thrash Metal", "Anime", "JPop", "SynthPop",
+    "Blues",
+    "Classic Rock",
+    "Country",
+    "Dance",
+    "Disco",
+    "Funk",
+    "Grunge",
+    "Hip-Hop",
+    "Jazz",
+    "Metal",
+    "New Age",
+    "Oldies",
+    "Other",
+    "Pop",
+    "R&B",
+    "Rap",
+    "Reggae",
+    "Rock",
+    "Techno",
+    "Industrial",
+    "Alternative",
+    "Ska",
+    "Death Metal",
+    "Pranks",
+    "Soundtrack",
+    "Euro-Techno",
+    "Ambient",
+    "Trip-Hop",
+    "Vocal",
+    "Jazz+Funk",
+    "Fusion",
+    "Trance",
+    "Classical",
+    "Instrumental",
+    "Acid",
+    "House",
+    "Game",
+    "Sound Clip",
+    "Gospel",
+    "Noise",
+    "Alternative Rock",
+    "Bass",
+    "Soul",
+    "Punk",
+    "Space",
+    "Meditative",
+    "Instrumental Pop",
+    "Instrumental Rock",
+    "Ethnic",
+    "Gothic",
+    "Darkwave",
+    "Techno-Industrial",
+    "Electronic",
+    "Pop-Folk",
+    "Eurodance",
+    "Dream",
+    "Southern Rock",
+    "Comedy",
+    "Cult",
+    "Gangsta",
+    "Top 40",
+    "Christian Rap",
+    "Pop/Funk",
+    "Jungle",
+    "Native US",
+    "Cabaret",
+    "New Wave",
+    "Psychadelic",
+    "Rave",
+    "Showtunes",
+    "Trailer",
+    "Lo-Fi",
+    "Tribal",
+    "Acid Punk",
+    "Acid Jazz",
+    "Polka",
+    "Retro",
+    "Musical",
+    "Rock & Roll",
+    "Hard Rock",
+    "Folk",
+    "Folk-Rock",
+    "National Folk",
+    "Swing",
+    "Fast Fusion",
+    "Bebob",
+    "Latin",
+    "Revival",
+    "Celtic",
+    "Bluegrass",
+    "Avantgarde",
+    "Gothic Rock",
+    "Progressive Rock",
+    "Psychedelic Rock",
+    "Symphonic Rock",
+    "Slow Rock",
+    "Big Band",
+    "Chorus",
+    "Easy Listening",
+    "Acoustic",
+    "Humour",
+    "Speech",
+    "Chanson",
+    "Opera",
+    "Chamber Music",
+    "Sonata",
+    "Symphony",
+    "Booty Bass",
+    "Primus",
+    "Porn Groove",
+    "Satire",
+    "Slow Jam",
+    "Club",
+    "Tango",
+    "Samba",
+    "Folklore",
+    "Ballad",
+    "Power Ballad",
+    "Rhytmic Soul",
+    "Freestyle",
+    "Duet",
+    "Punk Rock",
+    "Drum Solo",
+    "Acapella",
+    "Euro-House",
+    "Dance Hall",
+    "Goa",
+    "Drum & Bass",
+    "Club-House",
+    "Hardcore",
+    "Terror",
+    "Indie",
+    "BritPop",
+    "Negerpunk",
+    "Polsk Punk",
+    "Beat",
+    "Christian Gangsta",
+    "Heavy Metal",
+    "Black Metal",
+    "Crossover",
+    "Contemporary C",
+    "Christian Rock",
+    "Merengue",
+    "Salsa",
+    "Thrash Metal",
+    "Anime",
+    "JPop",
+    "SynthPop",
 ];
-
 
 /// A structure containing ID3v1 metadata.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
@@ -77,7 +201,9 @@ impl Tag {
     ///
     /// The reader position will be reset back to the previous position before returning.
     pub fn is_candidate<R>(mut reader: R) -> ::Result<bool>
-        where R: io::Read + io::Seek {
+    where
+        R: io::Read + io::Seek,
+    {
         let initial_position = reader.seek(io::SeekFrom::Current(0))?;
         reader.seek(io::SeekFrom::End(TAG_CHUNK.start))?;
         let mut buf = [0; 3];
@@ -88,7 +214,9 @@ impl Tag {
 
     /// Seeks to and reads a ID3v1 tag from the reader.
     pub fn read_from<R>(mut reader: R) -> ::Result<Tag>
-        where R: io::Read + io::Seek {
+    where
+        R: io::Read + io::Seek,
+    {
         let mut tag_buf = [0; 355];
         let file_len = reader.seek(io::SeekFrom::End(0))?;
         if file_len >= XTAG_CHUNK.start.abs() as u64 {
@@ -99,7 +227,10 @@ impl Tag {
             reader.seek(io::SeekFrom::End(TAG_CHUNK.start))?;
             reader.read_exact(&mut tag_buf[(l + TAG_CHUNK.start) as usize..])?;
         } else {
-            return Err(::Error::new(::ErrorKind::NoTag, "the file is too small to contain an ID3v1 tag"));
+            return Err(::Error::new(
+                ::ErrorKind::NoTag,
+                "the file is too small to contain an ID3v1 tag",
+            ));
         }
 
         let (tag, xtag) = {
@@ -107,7 +238,14 @@ impl Tag {
             if &tag[0..3] != b"TAG" {
                 return Err(::Error::new(::ErrorKind::NoTag, "no ID3v1 tag was found"));
             }
-            (tag, if &xtag[0..4] == b"TAG+" { Some(xtag) } else { None })
+            (
+                tag,
+                if &xtag[0..4] == b"TAG+" {
+                    Some(xtag)
+                } else {
+                    None
+                },
+            )
         };
 
         // Decodes a string consisting out of a base and possible extension to a String.
@@ -193,7 +331,10 @@ impl Tag {
         } else {
             None
         };
-        file.seek(io::SeekFrom::Start(cmp::min(truncate_to.unwrap_or(cur_pos), cur_pos)))?;
+        file.seek(io::SeekFrom::Start(cmp::min(
+            truncate_to.unwrap_or(cur_pos),
+            cur_pos,
+        )))?;
         if let Some(l) = truncate_to {
             file.set_len(l)?;
         }
@@ -204,14 +345,12 @@ impl Tag {
     pub fn genre(&self) -> Option<&str> {
         if let Some(ref g) = self.genre_str {
             if !g.is_empty() {
-                return Some(g.as_str())
+                return Some(g.as_str());
             }
         }
-        GENRE_LIST.get(self.genre_id as usize)
-            .map(|s| *s)
+        GENRE_LIST.get(self.genre_id as usize).map(|s| *s)
     }
 }
-
 
 #[cfg(all(test, feature = "unstable"))]
 mod benchmarks {
@@ -223,14 +362,15 @@ mod benchmarks {
     #[bench]
     fn read_id3v1(b: &mut test::Bencher) {
         let mut buf = Vec::new();
-        fs::File::open("testdata/id3v1.id3").unwrap()
-            .read_to_end(&mut buf).unwrap();
+        fs::File::open("testdata/id3v1.id3")
+            .unwrap()
+            .read_to_end(&mut buf)
+            .unwrap();
         b.iter(|| {
             Tag::read_from(io::Cursor::new(buf.as_slice())).unwrap();
         });
     }
 }
-
 
 #[cfg(test)]
 mod tests {

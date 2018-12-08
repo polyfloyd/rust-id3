@@ -5,13 +5,12 @@
 //! metadata. For example, MP3 uses a header for ID3v2, a trailer for ID3v1 while WAV has a special
 //! "RIFF-chunk" which stores an ID3 tag.
 
+use byteorder::{BigEndian, ByteOrder};
 use std::cmp;
 use std::fs;
 use std::io::{self, Write};
 use std::ops;
-use byteorder::{ByteOrder, BigEndian};
-use ::stream::unsynch;
-
+use stream::unsynch;
 
 /// Refer to the module documentation.
 pub trait Storage<'a> {
@@ -28,7 +27,6 @@ pub trait Storage<'a> {
     fn writer(&'a mut self) -> io::Result<Self::Writer>;
 }
 
-
 /// `PlainStorage` keeps track of a writeable region in a file and prevents accidental overwrites
 /// of unrelated data.
 ///
@@ -39,7 +37,9 @@ pub trait Storage<'a> {
 /// Padding is included from the reader.
 #[derive(Debug)]
 pub struct PlainStorage<F>
-    where F: StorageFile {
+where
+    F: StorageFile,
+{
     /// The backing storage.
     file: F,
     /// The region that may be writen to including any padding.
@@ -55,13 +55,14 @@ pub struct PlainStorage<F>
     max_padding: Option<u32>,
 }
 
-
 pub trait StorageFile: io::Read + io::Write + io::Seek {
     fn set_len(&mut self, new_len: u64) -> io::Result<()>;
 }
 
 impl<'a, T> StorageFile for &'a mut T
-    where T: StorageFile {
+where
+    T: StorageFile,
+{
     fn set_len(&mut self, new_len: u64) -> io::Result<()> {
         (*self).set_len(new_len)
     }
@@ -81,7 +82,9 @@ impl StorageFile for io::Cursor<Vec<u8>> {
 }
 
 impl<F> PlainStorage<F>
-    where F: StorageFile {
+where
+    F: StorageFile,
+{
     /// Creates a new storage with a default padding of 2048 bytes and no shrinkage.
     pub fn new(file: F, region: ops::Range<u64>) -> PlainStorage<F> {
         PlainStorage::with_padding(file, region, 2048, None)
@@ -91,7 +94,12 @@ impl<F> PlainStorage<F>
     ///
     /// # Panics
     /// If `max_padding` is set and smaller than `preferred_padding`.
-    pub fn with_padding(file: F, region: ops::Range<u64>, preferred_padding: u32, max_padding: Option<u32>) -> PlainStorage<F> {
+    pub fn with_padding(
+        file: F,
+        region: ops::Range<u64>,
+        preferred_padding: u32,
+        max_padding: Option<u32>,
+    ) -> PlainStorage<F> {
         if let Some(max) = max_padding {
             assert!(preferred_padding <= max);
         }
@@ -105,7 +113,9 @@ impl<F> PlainStorage<F>
 }
 
 impl<'a, F> Storage<'a> for PlainStorage<F>
-    where F: StorageFile + 'a {
+where
+    F: StorageFile + 'a,
+{
     type Reader = PlainReader<'a, F>;
     type Writer = PlainWriter<'a, F>;
 
@@ -125,25 +135,34 @@ impl<'a, F> Storage<'a> for PlainStorage<F>
 }
 
 pub struct PlainReader<'a, F>
-    where F: StorageFile + 'a {
+where
+    F: StorageFile + 'a,
+{
     storage: &'a mut PlainStorage<F>,
 }
 
 impl<'a, F> io::Read for PlainReader<'a, F>
-    where F: StorageFile {
+where
+    F: StorageFile,
+{
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let cur_pos = self.storage.file.seek(io::SeekFrom::Current(0))?;
         assert!(self.storage.region.start <= cur_pos);
         if self.storage.region.end <= cur_pos {
             return Ok(0);
         }
-        let buf_upper_bound = cmp::min(buf.len(), cmp::max(self.storage.region.end - cur_pos, 0) as usize);
-        self.storage.file.read(&mut buf[0.. buf_upper_bound])
+        let buf_upper_bound = cmp::min(
+            buf.len(),
+            cmp::max(self.storage.region.end - cur_pos, 0) as usize,
+        );
+        self.storage.file.read(&mut buf[0..buf_upper_bound])
     }
 }
 
 impl<'a, F> io::Seek for PlainReader<'a, F>
-    where F: StorageFile {
+where
+    F: StorageFile,
+{
     fn seek(&mut self, rel_pos: io::SeekFrom) -> io::Result<u64> {
         let abs_cur_pos = self.storage.file.seek(io::SeekFrom::Current(0))?;
         let abs_pos = match rel_pos {
@@ -152,15 +171,23 @@ impl<'a, F> io::Seek for PlainReader<'a, F>
             io::SeekFrom::Current(i) => abs_cur_pos as i64 + i,
         };
         if abs_pos < self.storage.region.start as i64 {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "attempted to seek to before the start of the region"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "attempted to seek to before the start of the region",
+            ));
         }
-        let new_abs_pos = self.storage.file.seek(io::SeekFrom::Start(abs_pos as u64))?;
+        let new_abs_pos = self
+            .storage
+            .file
+            .seek(io::SeekFrom::Start(abs_pos as u64))?;
         Ok(new_abs_pos - self.storage.region.start)
     }
 }
 
 pub struct PlainWriter<'a, F>
-    where F: StorageFile + 'a {
+where
+    F: StorageFile + 'a,
+{
     storage: &'a mut PlainStorage<F>,
     /// Data is writen to this buffer before it is committed to the underlying storage.
     buffer: io::Cursor<Vec<u8>>,
@@ -169,7 +196,9 @@ pub struct PlainWriter<'a, F>
 }
 
 impl<'a, F> io::Write for PlainWriter<'a, F>
-    where F: StorageFile {
+where
+    F: StorageFile,
+{
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let nwritten = self.buffer.write(buf)?;
         self.buffer_changed = true;
@@ -179,7 +208,7 @@ impl<'a, F> io::Write for PlainWriter<'a, F>
     fn flush(&mut self) -> io::Result<()> {
         // Check whether the buffer and file are out of sync.
         if !self.buffer_changed {
-            return Ok(())
+            return Ok(());
         }
 
         let buf_len = self.buffer.get_ref().len() as u64;
@@ -192,7 +221,8 @@ impl<'a, F> io::Write for PlainWriter<'a, F>
             // The region is not able to store the contents of the buffer. Grow it by moving the
             // following data to the end.
             let old_file_end = self.storage.file.seek(io::SeekFrom::End(0))?;
-            let new_file_end = old_file_end + (buf_len - range_len(&self.storage.region)) + pref_pad;
+            let new_file_end =
+                old_file_end + (buf_len - range_len(&self.storage.region)) + pref_pad;
             let old_region_end = self.storage.region.end;
             let new_region_end = self.storage.region.start + buf_len + pref_pad;
 
@@ -201,7 +231,8 @@ impl<'a, F> io::Write for PlainWriter<'a, F>
             let rwbuf_len = rwbuf.len();
             for i in 1.. {
                 let raw_from = old_file_end as i64 - i as i64 * rwbuf.len() as i64;
-                let raw_to = new_file_end.checked_sub(i * rwbuf.len() as u64)
+                let raw_to = new_file_end
+                    .checked_sub(i * rwbuf.len() as u64)
                     .unwrap_or(0);
                 let from = cmp::max(old_region_end as i64, raw_from) as u64;
                 let to = cmp::max(new_region_end, raw_to);
@@ -219,7 +250,6 @@ impl<'a, F> io::Write for PlainWriter<'a, F>
             }
 
             self.storage.region.end = new_region_end;
-
         } else if let Some(max) = self.storage.max_padding {
             if (range_len(&self.storage.region) - buf_len) + pref_pad > u64::from(max) {
                 // There is more padding than allowed by max_padding, shrink the file by moving the
@@ -236,7 +266,8 @@ impl<'a, F> io::Write for PlainWriter<'a, F>
                     let to = new_region_end + i * rwbuf.len() as u64;
                     assert!(from > to);
 
-                    let part = (to + rwbuf_len as u64).checked_sub(new_file_end)
+                    let part = (to + rwbuf_len as u64)
+                        .checked_sub(new_file_end)
                         .unwrap_or(0);
                     let rwbuf_part = &mut rwbuf[part as usize..];
                     self.storage.file.seek(io::SeekFrom::Start(from))?;
@@ -255,7 +286,9 @@ impl<'a, F> io::Write for PlainWriter<'a, F>
 
         assert!(buf_len <= range_len(&self.storage.region));
         // Okay, it's safe to commit our buffer to disk now.
-        self.storage.file.seek(io::SeekFrom::Start(self.storage.region.start))?;
+        self.storage
+            .file
+            .seek(io::SeekFrom::Start(self.storage.region.start))?;
         self.storage.file.write_all(&self.buffer.get_ref()[..])?;
         // Write padding to erase any old data.
         for _ in 0..range_len(&self.storage.region) - buf_len {
@@ -268,48 +301,61 @@ impl<'a, F> io::Write for PlainWriter<'a, F>
 }
 
 impl<'a, F> io::Seek for PlainWriter<'a, F>
-    where F: StorageFile {
+where
+    F: StorageFile,
+{
     fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
         self.buffer.seek(pos)
     }
 }
 
 impl<'a, F> Drop for PlainWriter<'a, F>
-    where F: StorageFile {
+where
+    F: StorageFile,
+{
     fn drop(&mut self) {
         let _ = self.flush();
     }
 }
 
 pub fn locate_id3v2<R>(mut reader: R) -> ::Result<Option<ops::Range<u64>>>
-    where R: io::Read + io::Seek {
+where
+    R: io::Read + io::Seek,
+{
     let mut header = [0u8; 10];
     let nread = reader.read(&mut header)?;
     if nread < header.len() || &header[..3] != b"ID3" {
         return Ok(None);
     }
     match header[3] {
-        2|3|4 => (),
-        _ => return Err(::Error::new(::ErrorKind::UnsupportedVersion(header[4], header[3]) , "unsupported id3 tag version")),
+        2 | 3 | 4 => (),
+        _ => {
+            return Err(::Error::new(
+                ::ErrorKind::UnsupportedVersion(header[4], header[3]),
+                "unsupported id3 tag version",
+            ))
+        }
     };
 
     let size = unsynch::decode_u32(BigEndian::read_u32(&header[6..10]));
     reader.seek(io::SeekFrom::Start(u64::from(size)))?;
-    let num_padding = reader.bytes()
+    let num_padding = reader
+        .bytes()
         .take_while(|rs| rs.as_ref().map(|b| *b == 0x00).unwrap_or(false))
         .count();
     Ok(Some(0..u64::from(size) + num_padding as u64))
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::iter; use std::io::{Read, Seek};
+    use std::io::{Read, Seek};
+    use std::iter;
 
     #[test]
     fn plain_reader_range() {
-        let buf: Vec<u8> = iter::repeat(0xff).take(128)
+        let buf: Vec<u8> = iter::repeat(0xff)
+            .take(128)
             .chain(iter::repeat(0x00).take(128))
             .chain(iter::repeat(0xff).take(128))
             .collect();
@@ -350,11 +396,27 @@ mod tests {
         }
         assert_eq!(32..64, store.region);
         assert_eq!(128, store.file.get_ref().len());
-        assert_eq!(&buf_reference[0..32], &store.file.get_ref()[..store.region.start as usize]);
-        assert_eq!(&buf_reference[64..128], &store.file.get_ref()[store.region.end as usize..]);
+        assert_eq!(
+            &buf_reference[0..32],
+            &store.file.get_ref()[..store.region.start as usize]
+        );
+        assert_eq!(
+            &buf_reference[64..128],
+            &store.file.get_ref()[store.region.end as usize..]
+        );
         assert_eq!(32, store.reader().unwrap().bytes().count());
-        assert!(store.reader().unwrap().bytes().take(32).all(|b| b.unwrap() == 0xff));
-        assert!(store.reader().unwrap().bytes().skip(32).all(|b| b.unwrap() == 0x00));
+        assert!(store
+            .reader()
+            .unwrap()
+            .bytes()
+            .take(32)
+            .all(|b| b.unwrap() == 0xff));
+        assert!(store
+            .reader()
+            .unwrap()
+            .bytes()
+            .skip(32)
+            .all(|b| b.unwrap() == 0x00));
     }
 
     #[test]
@@ -369,8 +431,14 @@ mod tests {
         }
         assert_eq!(64..128, store.region);
         assert_eq!(192, store.file.get_ref().len());
-        assert_eq!(&buf_reference[0..64], &store.file.get_ref()[..store.region.start as usize]);
-        assert_eq!(&buf_reference[64..128], &store.file.get_ref()[store.region.end as usize..]);
+        assert_eq!(
+            &buf_reference[0..64],
+            &store.file.get_ref()[..store.region.start as usize]
+        );
+        assert_eq!(
+            &buf_reference[64..128],
+            &store.file.get_ref()[store.region.end as usize..]
+        );
         assert_eq!(64, store.reader().unwrap().bytes().count());
         assert!(store.reader().unwrap().bytes().all(|b| b.unwrap() == 0xff));
     }
@@ -390,8 +458,18 @@ mod tests {
         assert!(buf_reference[..2_000] == store.file.get_ref()[..store.region.start as usize]);
         assert!(buf_reference[22_000..] == store.file.get_ref()[store.region.end as usize..]);
         assert_eq!(41_000, store.reader().unwrap().bytes().count());
-        assert!(store.reader().unwrap().bytes().take(40_000).all(|b| b.unwrap() == 0xff));
-        assert!(store.reader().unwrap().bytes().skip(40_000).all(|b| b.unwrap() == 0x00));
+        assert!(store
+            .reader()
+            .unwrap()
+            .bytes()
+            .take(40_000)
+            .all(|b| b.unwrap() == 0xff));
+        assert!(store
+            .reader()
+            .unwrap()
+            .bytes()
+            .skip(40_000)
+            .all(|b| b.unwrap() == 0x00));
     }
 
     #[test]
@@ -413,7 +491,8 @@ mod tests {
     fn plain_writer_shrink_large() {
         let buf: Vec<u8> = (0..40_000).map(|i| (i & 0xff) as u8).collect();
         let buf_reference = buf.clone();
-        let mut store = PlainStorage::with_padding(io::Cursor::new(buf), 2_000..22_000, 1000, Some(1000));
+        let mut store =
+            PlainStorage::with_padding(io::Cursor::new(buf), 2_000..22_000, 1000, Some(1000));
         {
             let mut w = store.writer().unwrap();
             w.write_all(&[0xff; 9_000]).unwrap();
@@ -423,8 +502,18 @@ mod tests {
         assert_eq!(30_000, store.file.get_ref().len());
         assert!(buf_reference[22_000..] == store.file.get_ref()[store.region.end as usize..]);
         assert_eq!(10_000, store.reader().unwrap().bytes().count());
-        assert!(store.reader().unwrap().bytes().take(9_000).all(|b| b.unwrap() == 0xff));
-        assert!(store.reader().unwrap().bytes().skip(9_000).all(|b| b.unwrap() == 0x00));
+        assert!(store
+            .reader()
+            .unwrap()
+            .bytes()
+            .take(9_000)
+            .all(|b| b.unwrap() == 0xff));
+        assert!(store
+            .reader()
+            .unwrap()
+            .bytes()
+            .skip(9_000)
+            .all(|b| b.unwrap() == 0x00));
     }
 
     #[test]

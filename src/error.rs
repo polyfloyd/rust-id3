@@ -25,7 +25,7 @@ pub enum ErrorKind {
     /// An error kind indicating that some input was invalid.
     InvalidInput,
     /// An error kind indicating that a feature is not supported.
-    UnsupportedFeature
+    UnsupportedFeature,
 }
 
 /// A structure able to represent any error that may occur while performing metadata operations.
@@ -48,36 +48,45 @@ impl error::Error for Error {
         if self.cause().is_some() {
             self.cause().unwrap().description()
         } else {
-           match self.kind {
-               ErrorKind::Io(ref err) => error::Error::description(err),
-               _ => self.description
-           }
+            match self.kind {
+                ErrorKind::Io(ref err) => error::Error::description(err),
+                _ => self.description,
+            }
         }
     }
 
     fn cause(&self) -> Option<&error::Error> {
         match self.kind {
             ErrorKind::Io(ref err) => Some(err),
-            _ => None
+            _ => None,
         }
     }
 }
 
 impl From<io::Error> for Error {
     fn from(err: io::Error) -> Error {
-        Error { kind: ErrorKind::Io(err), description: "" }
+        Error {
+            kind: ErrorKind::Io(err),
+            description: "",
+        }
     }
 }
 
 impl From<string::FromUtf8Error> for Error {
     fn from(err: string::FromUtf8Error) -> Error {
-        Error { kind: ErrorKind::StringDecoding(err.into_bytes()), description: "data is not valid utf-8" }
+        Error {
+            kind: ErrorKind::StringDecoding(err.into_bytes()),
+            description: "data is not valid utf-8",
+        }
     }
 }
 
 impl From<str::Utf8Error> for Error {
     fn from(_: str::Utf8Error) -> Error {
-        Error { kind: ErrorKind::StringDecoding(vec![]), description: "data is not valid utf-8" }
+        Error {
+            kind: ErrorKind::StringDecoding(vec![]),
+            description: "data is not valid utf-8",
+        }
     }
 }
 

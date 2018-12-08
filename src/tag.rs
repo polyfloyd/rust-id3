@@ -1,13 +1,12 @@
+use byteorder::{BigEndian, ReadBytesExt};
+use frame::Content;
+use frame::{Comment, ExtendedLink, ExtendedText, Frame, Lyrics, Picture, PictureType, Timestamp};
 use std::fs::{self, File};
-use std::io::{self, Read, Write, Seek, SeekFrom, BufReader};
+use std::io::{self, BufReader, Read, Seek, SeekFrom, Write};
 use std::iter;
 use std::path::Path;
-use byteorder::{BigEndian, ReadBytesExt};
-use ::frame::Content;
-use ::frame::{Frame, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType, Timestamp};
-use ::storage::{self, PlainStorage, Storage};
-use ::stream::{self, unsynch};
-
+use storage::{self, PlainStorage, Storage};
+use stream::{self, unsynch};
 
 /// Denotes the version of a tag.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -39,7 +38,6 @@ impl Version {
     }
 }
 
-
 /// An ID3 tag containing metadata frames.
 #[derive(Clone, Debug, Default, Eq)]
 pub struct Tag {
@@ -64,8 +62,7 @@ impl<'a> Tag {
     /// Returns true if the reader might contain a valid ID3v1 tag.
     #[deprecated(note = "Use v1::Tag::is_candidate")]
     pub fn is_candidate_v1<R: Read + Seek>(reader: &mut R) -> bool {
-        ::v1::Tag::is_candidate(reader)
-            .unwrap_or(false)
+        ::v1::Tag::is_candidate(reader).unwrap_or(false)
     }
 
     /// Attempts to read an ID3v1 tag from the reader. Since the structure of ID3v1 is so different
@@ -94,7 +91,7 @@ impl<'a> Tag {
 
     /// Sets the version of this tag.
     #[deprecated(note = "Tags now use ID3v2.4 for internal storage")]
-    pub fn set_version(&mut self, _: Version) { }
+    pub fn set_version(&mut self, _: Version) {}
 
     /// Returns an iterator over the all frames in the tag.
     ///
@@ -109,20 +106,24 @@ impl<'a> Tag {
     ///
     /// assert_eq!(tag.frames().count(), 2);
     /// ```
-    pub fn frames(&'a self) -> Box<iter::Iterator<Item=&'a Frame> + 'a> {
+    pub fn frames(&'a self) -> Box<iter::Iterator<Item = &'a Frame> + 'a> {
         Box::new(self.frames.iter())
     }
 
     /// Returns an iterator over the extended texts in the tag.
-    pub fn extended_texts(&'a self) -> Box<iter::Iterator<Item=&'a ExtendedText> + 'a> {
-        let iter = self.frames.iter()
+    pub fn extended_texts(&'a self) -> Box<iter::Iterator<Item = &'a ExtendedText> + 'a> {
+        let iter = self
+            .frames
+            .iter()
             .filter_map(|frame| frame.content().extended_text());
         Box::new(iter)
     }
 
     /// Returns an iterator over the extended links in the tag.
-    pub fn extended_links(&'a self) -> Box<iter::Iterator<Item=&'a ExtendedLink> + 'a> {
-        let iter = self.frames.iter()
+    pub fn extended_links(&'a self) -> Box<iter::Iterator<Item = &'a ExtendedLink> + 'a> {
+        let iter = self
+            .frames
+            .iter()
             .filter_map(|frame| frame.content().extended_link());
         Box::new(iter)
     }
@@ -152,15 +153,19 @@ impl<'a> Tag {
     ///
     /// assert_eq!(tag.comments().count(), 2);
     /// ```
-    pub fn comments(&'a self) -> Box<iter::Iterator<Item=&'a Comment> + 'a> {
-        let iter = self.frames.iter()
+    pub fn comments(&'a self) -> Box<iter::Iterator<Item = &'a Comment> + 'a> {
+        let iter = self
+            .frames
+            .iter()
             .filter_map(|frame| frame.content().comment());
         Box::new(iter)
     }
 
     /// Returns an iterator over the extended links in the tag.
-    pub fn lyrics(&'a self) -> Box<iter::Iterator<Item=&'a Lyrics> + 'a> {
-        let iter = self.frames.iter()
+    pub fn lyrics(&'a self) -> Box<iter::Iterator<Item = &'a Lyrics> + 'a> {
+        let iter = self
+            .frames
+            .iter()
             .filter_map(|frame| frame.content().lyrics());
         Box::new(iter)
     }
@@ -185,8 +190,10 @@ impl<'a> Tag {
     ///
     /// assert_eq!(tag.pictures().count(), 1);
     /// ```
-    pub fn pictures(&'a self) -> Box<iter::Iterator<Item=&'a Picture> + 'a> {
-        let iter = self.frames.iter()
+    pub fn pictures(&'a self) -> Box<iter::Iterator<Item = &'a Picture> + 'a> {
+        let iter = self
+            .frames
+            .iter()
             .filter_map(|frame| frame.content().picture());
         Box::new(iter)
     }
@@ -205,8 +212,7 @@ impl<'a> Tag {
     /// assert!(tag.get("TCON").is_none());
     /// ```
     pub fn get(&self, id: &str) -> Option<&Frame> {
-        self.frames.iter()
-            .find(|frame| frame.id() == id)
+        self.frames.iter().find(|frame| frame.id() == id)
     }
 
     /// Returns a vector of references to frames with the specified identifier.
@@ -267,7 +273,9 @@ impl<'a> Tag {
     /// assert_eq!(tag.frames().nth(0).unwrap().id(), "TALB");
     /// ```
     pub fn add_frame(&mut self, new_frame: Frame) -> Option<Frame> {
-        let removed = self.frames.iter()
+        let removed = self
+            .frames
+            .iter()
             .position(|frame| *frame == new_frame)
             .map(|conflict_index| self.frames.remove(conflict_index));
         self.frames.push(new_frame);
@@ -323,17 +331,14 @@ impl<'a> Tag {
     /// assert_eq!(tag.frames().count(), 0);
     /// ```
     pub fn remove(&mut self, id: &str) {
-        self.frames.retain(|frame| {
-            frame.id() != id
-        });
+        self.frames.retain(|frame| frame.id() != id);
     }
 
     /// Returns the `Content::Text` string for the frame with the specified identifier.
     /// Returns `None` if the frame with the specified ID can't be found or if the content is not
     /// `Content::Text`.
     fn text_for_frame_id(&self, id: &str) -> Option<&str> {
-        self.get(id)
-            .and_then(|frame| frame.content().text())
+        self.get(id).and_then(|frame| frame.content().text())
     }
 
     fn read_timestamp_frame(&self, id: &str) -> Option<Timestamp> {
@@ -384,11 +389,18 @@ impl<'a> Tag {
     /// assert!(tag.extended_texts().any(|t| t.description == "key1" && t.value == "value1"));
     /// assert!(tag.extended_texts().any(|t| t.description == "key2" && t.value == "value2"));
     /// ```
-    pub fn add_extended_text<K: Into<String>, V: Into<String>>(&mut self, description: K, value: V) {
-        let frame = Frame::with_content("TXXX", Content::ExtendedText(ExtendedText {
-            description: description.into(),
-            value: value.into(),
-        }));
+    pub fn add_extended_text<K: Into<String>, V: Into<String>>(
+        &mut self,
+        description: K,
+        value: V,
+    ) {
+        let frame = Frame::with_content(
+            "TXXX",
+            Content::ExtendedText(ExtendedText {
+                description: description.into(),
+                value: value.into(),
+            }),
+        );
         self.add_frame(frame);
     }
 
@@ -432,18 +444,16 @@ impl<'a> Tag {
             if frame.id() == "TXXX" {
                 match *frame.content() {
                     Content::ExtendedText(ref ext) => {
-                        let descr_match = description.map(|v| v == ext.description)
-                            .unwrap_or(true);
-                        let value_match = value.map(|v| v == ext.value)
-                            .unwrap_or(true);
+                        let descr_match = description.map(|v| v == ext.description).unwrap_or(true);
+                        let value_match = value.map(|v| v == ext.value).unwrap_or(true);
                         // True if we want to keep the frame.
                         !(descr_match && value_match)
-                    },
+                    }
                     _ => {
                         // A TXXX frame must always have content of the ExtendedText type. Remove
                         // frames that do not fit this requirement.
                         false
-                    },
+                    }
                 }
             } else {
                 true
@@ -519,9 +529,9 @@ impl<'a> Tag {
             if frame.id() == "APIC" {
                 let pic = match *frame.content() {
                     Content::Picture(ref picture) => picture,
-                    _ => return false
+                    _ => return false,
                 };
-                return pic.picture_type != picture_type
+                return pic.picture_type != picture_type;
             }
 
             true
@@ -593,18 +603,16 @@ impl<'a> Tag {
             if frame.id() == "COMM" {
                 match *frame.content() {
                     Content::Comment(ref com) => {
-                        let descr_match = description.map(|v| v == com.description)
-                            .unwrap_or(true);
-                        let text_match = text.map(|v| v == com.text)
-                            .unwrap_or(true);
+                        let descr_match = description.map(|v| v == com.description).unwrap_or(true);
+                        let text_match = text.map(|v| v == com.text).unwrap_or(true);
                         // True if we want to keep the frame.
                         !(descr_match && text_match)
-                    },
+                    }
                     _ => {
                         // A COMM frame must always have content of the Comment type. Remove frames
                         // that do not fit this requirement.
                         false
-                    },
+                    }
                 }
             } else {
                 true
@@ -917,8 +925,7 @@ impl<'a> Tag {
     /// assert_eq!(tag.duration().unwrap(), 350);
     /// ```
     pub fn duration(&self) -> Option<u32> {
-        self.text_for_frame_id("TLEN")
-            .and_then(|t| t.parse().ok())
+        self.text_for_frame_id("TLEN").and_then(|t| t.parse().ok())
     }
 
     /// Sets the duration (TLEN).
@@ -949,7 +956,7 @@ impl<'a> Tag {
     /// assert!(tag.duration().is_none());
     /// ```
     pub fn remove_duration(&mut self) {
-       self.remove("TLEN");
+        self.remove("TLEN");
     }
 
     /// Returns the genre (TCON).
@@ -1025,8 +1032,7 @@ impl<'a> Tag {
     /// assert!(tag.disc().is_none());
     /// ```
     pub fn disc(&self) -> Option<u32> {
-        self.disc_pair()
-            .map(|(disc, _)| disc)
+        self.disc_pair().map(|(disc, _)| disc)
     }
 
     /// Sets the disc (TPOS).
@@ -1040,7 +1046,10 @@ impl<'a> Tag {
     /// assert_eq!(tag.disc().unwrap(), 2);
     /// ```
     pub fn set_disc(&mut self, disc: u32) {
-        let text = match self.text_pair("TPOS").and_then(|(_, total_discs)| total_discs) {
+        let text = match self
+            .text_pair("TPOS")
+            .and_then(|(_, total_discs)| total_discs)
+        {
             Some(n) => format!("{}/{}", disc, n),
             None => format!("{}", disc),
         };
@@ -1102,7 +1111,7 @@ impl<'a> Tag {
     pub fn set_total_discs(&mut self, total_discs: u32) {
         let text = match self.text_pair("TPOS") {
             Some((disc, _)) => format!("{}/{}", disc, total_discs),
-            None => format!("1/{}", total_discs)
+            None => format!("1/{}", total_discs),
         };
         self.set_text("TPOS", text);
     }
@@ -1147,8 +1156,7 @@ impl<'a> Tag {
     /// assert!(tag.track().is_none());
     /// ```
     pub fn track(&self) -> Option<u32> {
-        self.text_pair("TRCK")
-            .map(|(track, _)| track)
+        self.text_pair("TRCK").map(|(track, _)| track)
     }
 
     /// Sets the track (TRCK).
@@ -1162,9 +1170,12 @@ impl<'a> Tag {
     /// assert_eq!(tag.track().unwrap(), 10);
     /// ```
     pub fn set_track(&mut self, track: u32) {
-        let text = match self.text_pair("TRCK").and_then(|(_, total_tracks)| total_tracks) {
+        let text = match self
+            .text_pair("TRCK")
+            .and_then(|(_, total_tracks)| total_tracks)
+        {
             Some(n) => format!("{}/{}", track, n),
-            None => format!("{}", track)
+            None => format!("{}", track),
         };
         self.set_text("TRCK", text);
     }
@@ -1224,7 +1235,7 @@ impl<'a> Tag {
     pub fn set_total_tracks(&mut self, total_tracks: u32) {
         let text = match self.text_pair("TRCK") {
             Some((track, _)) => format!("{}/{}", track, total_tracks),
-            None => format!("1/{}", total_tracks)
+            None => format!("1/{}", total_tracks),
         };
         self.set_text("TRCK", text);
     }
@@ -1300,20 +1311,18 @@ impl<'a> Tag {
             ($reader:ident, $action:expr) => {
                 match $action {
                     Ok(bytes) => bytes,
-                    Err(_) => {
-                        match $reader.seek(SeekFrom::Start(0)) {
-                            Ok(_) => {
-                                let mut bytes = Vec::<u8>::new();
-                                match $reader.read_to_end(&mut bytes) {
-                                    Ok(_) => return bytes,
-                                    Err(_) => return Vec::new()
-                                }
-                            },
-                            Err(_) => return Vec::new()
+                    Err(_) => match $reader.seek(SeekFrom::Start(0)) {
+                        Ok(_) => {
+                            let mut bytes = Vec::<u8>::new();
+                            match $reader.read_to_end(&mut bytes) {
+                                Ok(_) => return bytes,
+                                Err(_) => return Vec::new(),
+                            }
                         }
-                    }
+                        Err(_) => return Vec::new(),
+                    },
                 }
-            }
+            };
         }
 
         let mut ident = [0u8; 3];
@@ -1345,16 +1354,16 @@ impl<'a> Tag {
     pub fn skip<R: Read + Seek>(mut reader: &mut R) -> ::Result<bool> {
         let initial_position = reader.seek(io::SeekFrom::Current(0))?;
         let range = storage::locate_id3v2(&mut reader)?;
-        let end = range.as_ref()
-            .map(|r| r.end)
-            .unwrap_or(0);
+        let end = range.as_ref().map(|r| r.end).unwrap_or(0);
         reader.seek(io::SeekFrom::Start(initial_position + end))?;
         Ok(range.is_some())
     }
 
     /// Attempts to read an ID3 tag from the reader.
     pub fn read_from<R>(reader: R) -> ::Result<Tag>
-        where R: io::Read {
+    where
+        R: io::Read,
+    {
         stream::tag::decode(reader)
     }
 
@@ -1366,7 +1375,9 @@ impl<'a> Tag {
 
     /// Attempts to write the ID3 tag to the writer using the specified version.
     pub fn write_to<W>(&self, writer: W, version: Version) -> ::Result<()>
-        where W: io::Write {
+    where
+        W: io::Write,
+    {
         stream::tag::EncoderBuilder::default()
             .version(version)
             .build()
@@ -1378,12 +1389,8 @@ impl<'a> Tag {
     /// the same path which the tag was read from, then the tag will be written to the padding if
     /// possible.
     pub fn write_to_path<P: AsRef<Path>>(&self, path: P, version: Version) -> ::Result<()> {
-        let mut file = fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(path)?;
-        let location = storage::locate_id3v2(&mut file)?
-            .unwrap_or(0..0); // Create a new tag if none could be located.
+        let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
+        let location = storage::locate_id3v2(&mut file)?.unwrap_or(0..0); // Create a new tag if none could be located.
 
         let mut storage = PlainStorage::new(file, location);
         let mut w = storage.writer()?;
@@ -1398,7 +1405,7 @@ impl<'a> Tag {
     pub fn remove_from(mut file: &mut fs::File) -> ::Result<bool> {
         let location = match storage::locate_id3v2(&mut file)? {
             Some(l) => l,
-            None    => return Ok(false),
+            None => return Ok(false),
         };
         // Open the ID3 region for writing with write nothing. With the padding set to zero, this
         // removes the region in its entirety.
@@ -1412,8 +1419,7 @@ impl<'a> Tag {
 impl PartialEq for Tag {
     fn eq(&self, other: &Tag) -> bool {
         self.frames.len() == other.frames.len()
-            && self.frames.iter()
-                .all(|frame| other.frames.contains(frame))
+            && self.frames.iter().all(|frame| other.frames.contains(frame))
     }
 }
 
@@ -1448,7 +1454,6 @@ impl From<::v1::Tag> for Tag {
         tag
     }
 }
-
 
 #[cfg(test)]
 mod tests {
