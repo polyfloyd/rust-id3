@@ -29,8 +29,8 @@ impl Version {
     ///
     /// assert_eq!(Version::Id3v24.minor(), 4);
     /// ```
-    pub fn minor(&self) -> u8 {
-        match *self {
+    pub fn minor(self) -> u8 {
+        match self {
             Id3v22 => 2,
             Id3v23 => 3,
             Id3v24 => 4,

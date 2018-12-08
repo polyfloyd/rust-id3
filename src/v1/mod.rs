@@ -348,7 +348,7 @@ impl Tag {
                 return Some(g.as_str());
             }
         }
-        GENRE_LIST.get(self.genre_id as usize).map(|s| *s)
+        GENRE_LIST.get(self.genre_id as usize).cloned()
     }
 }
 

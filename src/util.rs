@@ -221,12 +221,12 @@ lazy_static! {
 
 /// Returns the coresponding ID3v2.3/ID3v2.4 ID given the ID3v2.2 ID.
 pub fn convert_id_2_to_3(id: &str) -> Option<&'static str> {
-    ID_2_TO_3.get(id).map(|t| *t)
+    ID_2_TO_3.get(id).cloned()
 }
 
 /// Returns the coresponding ID3v2.2 ID given the ID3v2.3/ID3v2.3 ID.
 pub fn convert_id_3_to_2(id: &str) -> Option<&'static str> {
-    ID_3_TO_2.get(id).map(|t| *t)
+    ID_3_TO_2.get(id).cloned()
 }
 
 // Tests {{{
