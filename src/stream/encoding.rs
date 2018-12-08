@@ -8,5 +8,5 @@ pub enum Encoding {
     /// UTF-16BE text encoding without a byte order mark. This encoding is only used in id3v2.4.
     UTF16BE,
     /// UTF-8 text encoding. This encoding is only used in id3v2.4.
-    UTF8
+    UTF8,
 }

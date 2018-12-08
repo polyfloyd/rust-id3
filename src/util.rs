@@ -1,15 +1,18 @@
-use std::collections::HashMap;
-use encoding::{DecoderTrap, EncoderTrap};
-use encoding::Encoding as StrEncoding;
 use encoding::all::{UTF_16BE, UTF_16LE};
-use ::stream::encoding::Encoding;
-
+use encoding::Encoding as StrEncoding;
+use encoding::{DecoderTrap, EncoderTrap};
+use std::collections::HashMap;
+use stream::encoding::Encoding;
 
 /// Returns a string created from the vector using Latin1 encoding, removing any trailing null
 /// bytes.
 /// Can never return None because all sequences of u8s are valid Latin1 strings.
 pub fn string_from_latin1(data: &[u8]) -> ::Result<String> {
-    let value: String = data.iter().take_while(|c| **c != 0).map(|b| *b as char).collect();
+    let value: String = data
+        .iter()
+        .take_while(|c| **c != 0)
+        .map(|b| *b as char)
+        .collect();
     Ok(value)
 }
 
@@ -17,12 +20,17 @@ pub fn string_from_latin1(data: &[u8]) -> ::Result<String> {
 /// Returns `None` if the vector is not a valid UTF-16 string.
 pub fn string_from_utf16(data: &[u8]) -> ::Result<String> {
     if data.len() < 2 {
-        return Err(::Error::new(::ErrorKind::StringDecoding(data.to_vec()), "data is not valid utf16"))
+        return Err(::Error::new(
+            ::ErrorKind::StringDecoding(data.to_vec()),
+            "data is not valid utf16",
+        ));
     }
 
-    if data[0] == 0xFF && data[1] == 0xFE { // little endian
+    if data[0] == 0xFF && data[1] == 0xFE {
+        // little endian
         string_from_utf16le(&data[2..])
-    } else { // big endian
+    } else {
+        // big endian
         string_from_utf16be(&data[2..])
     }
 }
@@ -32,7 +40,10 @@ pub fn string_from_utf16(data: &[u8]) -> ::Result<String> {
 pub fn string_from_utf16le(data: &[u8]) -> ::Result<String> {
     match UTF_16LE.decode(data, DecoderTrap::Strict) {
         Ok(string) => Ok(string),
-        Err(_) => Err(::Error::new(::ErrorKind::StringDecoding(data.to_vec()), "data is not valid utf16-le"))
+        Err(_) => Err(::Error::new(
+            ::ErrorKind::StringDecoding(data.to_vec()),
+            "data is not valid utf16-le",
+        )),
     }
 }
 
@@ -41,7 +52,10 @@ pub fn string_from_utf16le(data: &[u8]) -> ::Result<String> {
 pub fn string_from_utf16be(data: &[u8]) -> ::Result<String> {
     match UTF_16BE.decode(data, DecoderTrap::Strict) {
         Ok(string) => Ok(string),
-        Err(_) => Err(::Error::new(::ErrorKind::StringDecoding(data.to_vec()), "data is not valid utf16-be"))
+        Err(_) => Err(::Error::new(
+            ::ErrorKind::StringDecoding(data.to_vec()),
+            "data is not valid utf16-be",
+        )),
     }
 }
 
@@ -89,19 +103,20 @@ pub fn find_delim(encoding: Encoding, data: &[u8], index: usize) -> Option<usize
                 i += 1;
             }
 
-            if i == data.len() { // delimiter was not found
+            if i == data.len() {
+                // delimiter was not found
                 return None;
             }
 
             Some(i)
-        },
+        }
         Encoding::UTF16 | Encoding::UTF16BE => {
-            while i + 1 < data.len()
-                && (data[i] != 0 || data[i + 1] != 0) {
-                    i += 2;
-                }
+            while i + 1 < data.len() && (data[i] != 0 || data[i + 1] != 0) {
+                i += 2;
+            }
 
-            if i + 1 >= data.len() { // delimiter was not found
+            if i + 1 >= data.len() {
+                // delimiter was not found
                 return None;
             }
 
@@ -114,7 +129,7 @@ pub fn find_delim(encoding: Encoding, data: &[u8], index: usize) -> Option<usize
 pub fn delim_len(encoding: Encoding) -> usize {
     match encoding {
         Encoding::Latin1 | Encoding::UTF8 => 1,
-        Encoding::UTF16 | Encoding::UTF16BE => 2
+        Encoding::UTF16 | Encoding::UTF16BE => 2,
     }
 }
 
@@ -252,13 +267,42 @@ mod tests {
 
     #[test]
     fn test_find_delim() {
-        assert_eq!(find_delim(Encoding::UTF8, &[0x0, 0xFF, 0xFF, 0xFF, 0x0], 3).unwrap(), 4);
+        assert_eq!(
+            find_delim(Encoding::UTF8, &[0x0, 0xFF, 0xFF, 0xFF, 0x0], 3).unwrap(),
+            4
+        );
         assert!(find_delim(Encoding::UTF8, &[0x0, 0xFF, 0xFF, 0xFF, 0xFF], 3).is_none());
 
-        assert_eq!(find_delim(Encoding::UTF16, &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0x0, 0xFF, 0xFF], 2).unwrap(), 4);
-        assert!(find_delim(Encoding::UTF16, &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0xFF, 0xFF], 2).is_none());
+        assert_eq!(
+            find_delim(
+                Encoding::UTF16,
+                &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0x0, 0xFF, 0xFF],
+                2
+            )
+            .unwrap(),
+            4
+        );
+        assert!(find_delim(
+            Encoding::UTF16,
+            &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0xFF, 0xFF],
+            2
+        )
+        .is_none());
 
-        assert_eq!(find_delim(Encoding::UTF16BE, &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0x0, 0xFF, 0xFF], 2).unwrap(), 4);
-        assert!(find_delim(Encoding::UTF16BE, &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0xFF, 0xFF], 2).is_none());
+        assert_eq!(
+            find_delim(
+                Encoding::UTF16BE,
+                &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0x0, 0xFF, 0xFF],
+                2
+            )
+            .unwrap(),
+            4
+        );
+        assert!(find_delim(
+            Encoding::UTF16BE,
+            &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0xFF, 0xFF],
+            2
+        )
+        .is_none());
     }
 }

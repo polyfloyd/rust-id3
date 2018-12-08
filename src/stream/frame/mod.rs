@@ -1,17 +1,23 @@
-use std::io;
 use flate2::read::ZlibDecoder;
-use ::frame::Content;
-use ::stream::unsynch;
-use ::tag;
-use ::frame::Frame;
+use frame::Content;
+use frame::Frame;
+use std::io;
+use stream::unsynch;
+use tag;
 
+mod content;
 mod v2;
 mod v3;
 mod v4;
-mod content;
 
-pub fn decode<R>(reader: &mut R, version: tag::Version, unsynchronization: bool) -> ::Result<Option<(usize, Frame)>>
-    where R: io::Read {
+pub fn decode<R>(
+    reader: &mut R,
+    version: tag::Version,
+    unsynchronization: bool,
+) -> ::Result<Option<(usize, Frame)>>
+where
+    R: io::Read,
+{
     match version {
         tag::Id3v22 => v2::decode(reader, unsynchronization),
         tag::Id3v23 => v3::decode(reader, unsynchronization),
@@ -19,8 +25,15 @@ pub fn decode<R>(reader: &mut R, version: tag::Version, unsynchronization: bool)
     }
 }
 
-pub fn decode_content<R>(reader: R, id: &str, compression: bool, unsynchronisation: bool) -> ::Result<Content>
-    where R: io::Read {
+pub fn decode_content<R>(
+    reader: R,
+    id: &str,
+    compression: bool,
+    unsynchronisation: bool,
+) -> ::Result<Content>
+where
+    R: io::Read,
+{
     let result = if unsynchronisation {
         let reader_unsynch = unsynch::Reader::new(reader);
         if compression {
@@ -36,41 +49,59 @@ pub fn decode_content<R>(reader: R, id: &str, compression: bool, unsynchronisati
     Ok(result?)
 }
 
-
-pub fn encode<W>(writer: &mut W, frame: &Frame, version: tag::Version, unsynchronization: bool) -> ::Result<usize>
-    where W: io::Write {
+pub fn encode<W>(
+    writer: &mut W,
+    frame: &Frame,
+    version: tag::Version,
+    unsynchronization: bool,
+) -> ::Result<usize>
+where
+    W: io::Write,
+{
     match version {
         tag::Id3v22 => v2::encode(writer, frame, unsynchronization),
         tag::Id3v23 => {
             let mut flags = v3::Flags::empty();
-            flags.set(v3::Flags::TAG_ALTER_PRESERVATION, frame.tag_alter_preservation());
-            flags.set(v3::Flags::FILE_ALTER_PRESERVATION, frame.file_alter_preservation());
+            flags.set(
+                v3::Flags::TAG_ALTER_PRESERVATION,
+                frame.tag_alter_preservation(),
+            );
+            flags.set(
+                v3::Flags::FILE_ALTER_PRESERVATION,
+                frame.file_alter_preservation(),
+            );
             v3::encode(writer, frame, v3::Flags::empty(), unsynchronization)
-        },
+        }
         tag::Id3v24 => {
             let mut flags = v4::Flags::empty();
             flags.set(v4::Flags::UNSYNCHRONISATION, unsynchronization);
-            flags.set(v4::Flags::TAG_ALTER_PRESERVATION, frame.tag_alter_preservation());
-            flags.set(v4::Flags::FILE_ALTER_PRESERVATION, frame.file_alter_preservation());
+            flags.set(
+                v4::Flags::TAG_ALTER_PRESERVATION,
+                frame.tag_alter_preservation(),
+            );
+            flags.set(
+                v4::Flags::FILE_ALTER_PRESERVATION,
+                frame.file_alter_preservation(),
+            );
             v4::encode(writer, frame, flags)
-        },
+        }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use frame::Frame;
-    use ::stream::encoding::Encoding;
-    use ::stream::unsynch;
+    use stream::encoding::Encoding;
+    use stream::unsynch;
 
     fn u32_to_bytes(n: u32) -> Vec<u8> {
-        vec!(((n & 0xFF00_0000) >> 24) as u8,
-             ((n & 0xFF_0000) >> 16) as u8,
-             ((n & 0xFF00) >> 8) as u8,
-             (n & 0xFF) as u8
-            )
+        vec![
+            ((n & 0xFF00_0000) >> 24) as u8,
+            ((n & 0xFF_0000) >> 16) as u8,
+            ((n & 0xFF00) >> 8) as u8,
+            (n & 0xFF) as u8,
+        ]
     }
 
     #[test]

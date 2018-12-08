@@ -2,9 +2,11 @@ use std::borrow::Cow;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::str;
-use ::tag::Version;
+use tag::Version;
 
-pub use self::content::{Content, ExtendedText, ExtendedLink, Comment, Lyrics, Picture, PictureType};
+pub use self::content::{
+    Comment, Content, ExtendedLink, ExtendedText, Lyrics, Picture, PictureType,
+};
 pub use self::timestamp::Timestamp;
 
 mod content;
@@ -36,21 +38,19 @@ impl PartialEq for Frame {
     fn eq(&self, other: &Frame) -> bool {
         match self.content {
             Content::Text(_) => self.id == other.id,
-            _ => {
-                self.id == other.id && self.content == other.content
-            },
+            _ => self.id == other.id && self.content == other.content,
         }
     }
 }
 
 impl Hash for Frame {
-    fn hash<H>(&self, state: &mut H) where H: Hasher {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         match self.content {
             Content::Text(_) => self.id.hash(state),
             _ => {
                 self.id.hash(state);
                 self.content.hash(state);
-            },
+            }
         }
     }
 }
@@ -80,9 +80,7 @@ impl Frame {
         Frame {
             id: if id.len() == 3 {
                 match ::util::convert_id_2_to_3(id) {
-                    Some(translated) => {
-                        ID::Valid(translated.to_string())
-                    },
+                    Some(translated) => ID::Valid(translated.to_string()),
                     None => ID::Invalid(id.to_string()),
                 }
             } else {
@@ -100,8 +98,7 @@ impl Frame {
     /// tag and the ID could not be mapped to an ID3v2.3 ID.
     pub fn id(&self) -> &str {
         match self.id {
-              ID::Valid(ref id)
-            | ID::Invalid(ref id) => id,
+            ID::Valid(ref id) | ID::Invalid(ref id) => id,
         }
     }
 
@@ -168,13 +165,20 @@ impl Frame {
 impl fmt::Display for Frame {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self.content {
-              Content::Text(ref content)
-            | Content::Link(ref content) => write!(f, "{}", content),
+            Content::Text(ref content) | Content::Link(ref content) => write!(f, "{}", content),
             Content::Lyrics(ref content) => write!(f, "{}", content.text),
-            Content::ExtendedText(ref content) => write!(f, "{}: {}", content.description, content.value),
-            Content::ExtendedLink(ref content) => write!(f, "{}: {}", content.description, content.link),
+            Content::ExtendedText(ref content) => {
+                write!(f, "{}: {}", content.description, content.value)
+            }
+            Content::ExtendedLink(ref content) => {
+                write!(f, "{}: {}", content.description, content.link)
+            }
             Content::Comment(ref content) => write!(f, "{}: {}", content.description, content.text),
-            Content::Picture(ref content) => write!(f, "{}: {:?} ({:?})", content.description, content.picture_type, content.mime_type),
+            Content::Picture(ref content) => write!(
+                f,
+                "{}: {:?} ({:?})",
+                content.description, content.picture_type, content.mime_type
+            ),
             Content::Unknown(ref content) => write!(f, "unknown, {} bytes", content.len()),
         }
     }

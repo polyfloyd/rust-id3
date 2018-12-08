@@ -1,6 +1,5 @@
 use std::hash::{Hash, Hasher};
 
-
 /// The decoded contents of a frame.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Content {
@@ -88,7 +87,6 @@ impl Content {
     }
 }
 
-
 /// The parsed contents of an extended text frame.
 #[derive(Clone, Debug, Eq)]
 #[allow(missing_docs)]
@@ -104,11 +102,10 @@ impl PartialEq for ExtendedText {
 }
 
 impl Hash for ExtendedText {
-    fn hash<H>(&self, state: &mut H) where H: Hasher {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.description.hash(state);
     }
 }
-
 
 /// The parsed contents of an extended link frame.
 #[derive(Clone, Debug, Eq)]
@@ -125,11 +122,10 @@ impl PartialEq for ExtendedLink {
 }
 
 impl Hash for ExtendedLink {
-    fn hash<H>(&self, state: &mut H) where H: Hasher {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.description.hash(state);
     }
 }
-
 
 /// The parsed contents of a comment frame.
 #[derive(Clone, Debug, Eq)]
@@ -137,7 +133,7 @@ impl Hash for ExtendedLink {
 pub struct Comment {
     pub lang: String,
     pub description: String,
-    pub text: String
+    pub text: String,
 }
 
 impl PartialEq for Comment {
@@ -147,12 +143,11 @@ impl PartialEq for Comment {
 }
 
 impl Hash for Comment {
-    fn hash<H>(&self, state: &mut H) where H: Hasher {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.lang.hash(state);
         self.description.hash(state);
     }
 }
-
 
 /// The parsed contents of an unsynchronized lyrics frame.
 #[derive(Clone, Debug, Eq)]
@@ -160,7 +155,7 @@ impl Hash for Comment {
 pub struct Lyrics {
     pub lang: String,
     pub description: String,
-    pub text: String
+    pub text: String,
 }
 
 impl PartialEq for Lyrics {
@@ -170,12 +165,11 @@ impl PartialEq for Lyrics {
 }
 
 impl Hash for Lyrics {
-    fn hash<H>(&self, state: &mut H) where H: Hasher {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.lang.hash(state);
         self.description.hash(state);
     }
 }
-
 
 /// Types of pictures used in APIC frames.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -201,9 +195,8 @@ pub enum PictureType {
     BrightFish,
     Illustration,
     BandLogo,
-    PublisherLogo
+    PublisherLogo,
 }
-
 
 /// A structure representing an ID3 picture frame's contents.
 #[derive(Clone, Eq, Debug)]
@@ -215,7 +208,7 @@ pub struct Picture {
     /// A description of the picture's contents.
     pub description: String,
     /// The image data.
-    pub data: Vec<u8>
+    pub data: Vec<u8>,
 }
 
 impl PartialEq for Picture {
@@ -225,7 +218,7 @@ impl PartialEq for Picture {
 }
 
 impl Hash for Picture {
-    fn hash<H>(&self, state: &mut H) where H: Hasher {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.picture_type.hash(state);
     }
 }

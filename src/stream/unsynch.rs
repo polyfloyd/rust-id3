@@ -5,7 +5,6 @@
 use std::io;
 use std::mem;
 
-
 /// Returns the synchsafe variant of a `u32` value.
 pub fn encode_u32(n: u32) -> u32 {
     let mut x: u32 = n & 0x7F | (n & 0xFFFF_FF80) << 1;
@@ -16,17 +15,16 @@ pub fn encode_u32(n: u32) -> u32 {
 
 /// Returns the unsynchsafe varaiant of a `u32` value.
 pub fn decode_u32(n: u32) -> u32 {
-    n & 0xFF
-        | (n & 0xFF00) >> 1
-        | (n & 0xFF_0000) >> 2
-        | (n & 0xFF00_0000) >> 3
+    n & 0xFF | (n & 0xFF00) >> 1 | (n & 0xFF_0000) >> 2 | (n & 0xFF00_0000) >> 3
 }
 
 /// Decoder for an unsynchronized stream of bytes.
 ///
 /// The decoder has an internal buffer.
 pub struct Reader<R>
-    where R: io::Read {
+where
+    R: io::Read,
+{
     reader: R,
     buf: [u8; 8192],
     next: usize,
@@ -35,7 +33,9 @@ pub struct Reader<R>
 }
 
 impl<R> Reader<R>
-    where R: io::Read {
+where
+    R: io::Read,
+{
     pub fn new(reader: R) -> Reader<R> {
         Reader {
             reader,
@@ -48,7 +48,9 @@ impl<R> Reader<R>
 }
 
 impl<R> io::Read for Reader<R>
-    where R: io::Read {
+where
+    R: io::Read,
+{
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let mut i = 0;
 
@@ -104,7 +106,6 @@ pub fn decode_vec(buffer: &mut Vec<u8>) {
     io::copy(&mut reader, buffer).unwrap();
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -126,7 +127,10 @@ mod tests {
 
     #[test]
     fn synchronization_jpeg() {
-        let orig = vec![0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x02, 0x00, 0x76];
+        let orig = vec![
+            0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x02,
+            0x00, 0x76,
+        ];
         let mut recoded = orig.clone();
         encode_vec(&mut recoded);
         decode_vec(&mut recoded);
