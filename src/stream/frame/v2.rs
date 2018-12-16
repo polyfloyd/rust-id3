@@ -1,13 +1,14 @@
+use crate::frame::Frame;
+use crate::stream::encoding::Encoding;
+use crate::stream::frame;
+use crate::stream::unsynch;
+use crate::tag::{self, Version};
+use crate::{Error, ErrorKind};
 use byteorder::{BigEndian, ByteOrder};
-use frame::Frame;
 use std::io::{self, Read, Write};
 use std::str;
-use stream::encoding::Encoding;
-use stream::frame;
-use stream::unsynch;
-use tag::{self, Version};
 
-pub fn decode<R>(reader: &mut R, unsynchronisation: bool) -> ::Result<Option<(usize, Frame)>>
+pub fn decode<R>(reader: &mut R, unsynchronisation: bool) -> crate::Result<Option<(usize, Frame)>>
 where
     R: io::Read,
 {
@@ -31,7 +32,7 @@ where
     Ok(Some((6 + read_size as usize, frame)))
 }
 
-pub fn encode(writer: &mut Write, frame: &Frame, unsynchronisation: bool) -> ::Result<usize> {
+pub fn encode(writer: &mut Write, frame: &Frame, unsynchronisation: bool) -> crate::Result<usize> {
     let mut content_buf = Vec::new();
     frame::content::encode(
         &mut content_buf,
@@ -41,8 +42,8 @@ pub fn encode(writer: &mut Write, frame: &Frame, unsynchronisation: bool) -> ::R
     )?;
     assert_ne!(0, content_buf.len());
     let id = frame.id_for_version(Version::Id3v22).ok_or_else(|| {
-        ::Error::new(
-            ::ErrorKind::InvalidInput,
+        Error::new(
+            ErrorKind::InvalidInput,
             "Unable to downgrade frame ID to ID3v2.2",
         )
     })?;

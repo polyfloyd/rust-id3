@@ -1,3 +1,4 @@
+use crate::{Error, ErrorKind};
 use std::cmp;
 use std::fs;
 use std::io::{self, Read, Seek};
@@ -200,7 +201,7 @@ impl Tag {
     /// Checks whether the reader contains an ID3v1 tag.
     ///
     /// The reader position will be reset back to the previous position before returning.
-    pub fn is_candidate<R>(mut reader: R) -> ::Result<bool>
+    pub fn is_candidate<R>(mut reader: R) -> crate::Result<bool>
     where
         R: io::Read + io::Seek,
     {
@@ -213,7 +214,7 @@ impl Tag {
     }
 
     /// Seeks to and reads a ID3v1 tag from the reader.
-    pub fn read_from<R>(mut reader: R) -> ::Result<Tag>
+    pub fn read_from<R>(mut reader: R) -> crate::Result<Tag>
     where
         R: io::Read + io::Seek,
     {
@@ -227,8 +228,8 @@ impl Tag {
             reader.seek(io::SeekFrom::End(TAG_CHUNK.start))?;
             reader.read_exact(&mut tag_buf[(l + TAG_CHUNK.start) as usize..])?;
         } else {
-            return Err(::Error::new(
-                ::ErrorKind::NoTag,
+            return Err(Error::new(
+                ErrorKind::NoTag,
                 "the file is too small to contain an ID3v1 tag",
             ));
         }
@@ -236,7 +237,7 @@ impl Tag {
         let (tag, xtag) = {
             let (xtag, tag) = (&tag_buf[..227], &tag_buf[227..]);
             if &tag[0..3] != b"TAG" {
-                return Err(::Error::new(::ErrorKind::NoTag, "no ID3v1 tag was found"));
+                return Err(Error::new(ErrorKind::NoTag, "no ID3v1 tag was found"));
             }
             (
                 tag,
@@ -304,7 +305,7 @@ impl Tag {
     /// The file cursor position will be reset back to the previous position before returning.
     ///
     /// Returns true if the file initially contained a tag.
-    pub fn remove(file: &mut fs::File) -> ::Result<bool> {
+    pub fn remove(file: &mut fs::File) -> crate::Result<bool> {
         let cur_pos = file.seek(io::SeekFrom::Current(0))?;
         let file_len = file.metadata()?.len();
         let has_ext_tag = if file_len >= XTAG_CHUNK.start.abs() as u64 {

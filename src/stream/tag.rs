@@ -1,12 +1,14 @@
+use crate::storage::{self, PlainStorage, Storage};
+use crate::stream::frame;
+use crate::stream::unsynch;
+use crate::tag::{Tag, Version};
+use crate::{Error, ErrorKind};
+use bitflags::bitflags;
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
 use std::cmp;
 use std::fs;
 use std::io::{self, Read, Write};
 use std::path::Path;
-use storage::{self, PlainStorage, Storage};
-use stream::frame;
-use stream::unsynch;
-use tag::{Tag, Version};
 
 static DEFAULT_FILE_DISCARD: &[&str] = &[
     "AENC", "ETCO", "EQUA", "MLLT", "POSS", "SYLT", "SYTC", "RVAD", "TENC", "TLEN", "TSIZ",
@@ -22,15 +24,15 @@ bitflags! {
     }
 }
 
-pub fn decode<R>(mut reader: R) -> ::Result<Tag>
+pub fn decode<R>(mut reader: R) -> crate::Result<Tag>
 where
     R: io::Read,
 {
     let mut tag_header = [0; 10];
     let nread = reader.read(&mut tag_header)?;
     if nread < tag_header.len() || &tag_header[0..3] != b"ID3" {
-        return Err(::Error::new(
-            ::ErrorKind::NoTag,
+        return Err(Error::new(
+            ErrorKind::NoTag,
             "reader does not contain an id3 tag",
         ));
     }
@@ -40,20 +42,20 @@ where
         (_, 3) => Version::Id3v23,
         (_, 4) => Version::Id3v24,
         (_, _) => {
-            return Err(::Error::new(
-                ::ErrorKind::UnsupportedVersion(ver_major, ver_minor),
+            return Err(Error::new(
+                ErrorKind::UnsupportedVersion(ver_major, ver_minor),
                 "unsupported id3 tag version",
             ));
         }
     };
     let flags = Flags::from_bits(tag_header[5])
-        .ok_or_else(|| ::Error::new(::ErrorKind::Parsing, "unknown tag header flags are set"))?;
+        .ok_or_else(|| Error::new(ErrorKind::Parsing, "unknown tag header flags are set"))?;
     let tag_size = unsynch::decode_u32(BigEndian::read_u32(&tag_header[6..10])) as usize;
 
     // compression only exists on 2.2 and conflicts with 2.3+'s extended header
     if version == Version::Id3v22 && flags.contains(Flags::COMPRESSION) {
-        return Err(::Error::new(
-            ::ErrorKind::UnsupportedFeature,
+        return Err(Error::new(
+            ErrorKind::UnsupportedFeature,
             "id3v2.2 compression is not supported",
         ));
     }
@@ -65,8 +67,8 @@ where
         let ext_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?) as usize;
         // the extended header size includes itself
         if ext_size < 6 {
-            return Err(::Error::new(
-                ::ErrorKind::Parsing,
+            return Err(Error::new(
+                ErrorKind::Parsing,
                 "Extended header has a minimum size of 6",
             ));
         }
@@ -128,7 +130,7 @@ impl Encoder {
     ///
     /// Note that the plain tag is written, regardless of the original contents. To safely encode a
     /// tag to an MP3 file, use `Encoder::encode_to_path`.
-    pub fn encode<W>(&self, tag: &Tag, mut writer: W) -> ::Result<()>
+    pub fn encode<W>(&self, tag: &Tag, mut writer: W) -> crate::Result<()>
     where
         W: io::Write,
     {
@@ -164,7 +166,7 @@ impl Encoder {
     }
 
     /// Encodes a tag and replaces any existing tag in the file pointed to by the specified path.
-    pub fn encode_to_path<P: AsRef<Path>>(&self, tag: &Tag, path: P) -> ::Result<()> {
+    pub fn encode_to_path<P: AsRef<Path>>(&self, tag: &Tag, path: P) -> crate::Result<()> {
         let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
         let location = storage::locate_id3v2(&mut file)?.unwrap_or(0..0); // Create a new tag if none could be located.
 
@@ -210,7 +212,7 @@ mod benchmarks {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use frame::{Content, Frame, Picture, PictureType};
+    use crate::frame::{Content, Frame, Picture, PictureType};
     use std::fs;
     use std::io;
 

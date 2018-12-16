@@ -1,6 +1,7 @@
 [package]
 name = "id3"
 version = "0.2.5"
+edition = "2018"
 authors = [
     "James Hurst <jh.jameshurst@gmail.com>",
     "polyfloyd <floyd@polyfloyd.net>",

@@ -36,25 +36,15 @@
 //! tag.write_to_path("music.mp3", Version::Id3v24).unwrap();
 //! ```
 
-#![crate_name = "id3"]
-#![crate_type = "rlib"]
 #![warn(missing_docs)]
 
 #[macro_use]
-extern crate bitflags;
-extern crate byteorder;
-#[macro_use]
 extern crate derive_builder;
-extern crate encoding;
-extern crate flate2;
-#[macro_use]
-extern crate lazy_static;
-extern crate regex;
 
-pub use error::{Error, ErrorKind, Result};
-pub use frame::{Content, Frame, Timestamp};
-pub use stream::tag::{Encoder, EncoderBuilder};
-pub use tag::{Tag, Version};
+pub use crate::error::{Error, ErrorKind, Result};
+pub use crate::frame::{Content, Frame, Timestamp};
+pub use crate::stream::tag::{Encoder, EncoderBuilder};
+pub use crate::tag::{Tag, Version};
 
 /// Contains types and methods for operating on ID3 frames.
 pub mod frame;

@@ -5,12 +5,13 @@
 //! metadata. For example, MP3 uses a header for ID3v2, a trailer for ID3v1 while WAV has a special
 //! "RIFF-chunk" which stores an ID3 tag.
 
+use crate::stream::unsynch;
+use crate::{Error, ErrorKind};
 use byteorder::{BigEndian, ByteOrder};
 use std::cmp;
 use std::fs;
 use std::io::{self, Write};
 use std::ops;
-use stream::unsynch;
 
 /// Refer to the module documentation.
 pub trait Storage<'a> {
@@ -318,7 +319,7 @@ where
     }
 }
 
-pub fn locate_id3v2<R>(mut reader: R) -> ::Result<Option<ops::Range<u64>>>
+pub fn locate_id3v2<R>(mut reader: R) -> crate::Result<Option<ops::Range<u64>>>
 where
     R: io::Read + io::Seek,
 {
@@ -330,8 +331,8 @@ where
     match header[3] {
         2 | 3 | 4 => (),
         _ => {
-            return Err(::Error::new(
-                ::ErrorKind::UnsupportedVersion(header[4], header[3]),
+            return Err(Error::new(
+                ErrorKind::UnsupportedVersion(header[4], header[3]),
                 "unsupported id3 tag version",
             ))
         }

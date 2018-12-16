@@ -1,11 +1,10 @@
+use lazy_static::lazy_static;
 use regex::Regex;
 use std::cmp;
 use std::error;
 use std::fmt;
 use std::str;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd)]
-#[allow(missing_docs)]
 /// Represents a date and time according to the ID3v2.4 spec:
 ///
 /// The timestamp fields are based on a subset of ISO 8601. When being as
@@ -15,6 +14,8 @@ use std::str;
 /// removing as many time indicators as wanted. Hence valid timestamps
 /// are yyyy, yyyy-MM, yyyy-MM-dd, yyyy-MM-ddTHH, yyyy-MM-ddTHH:mm and
 /// yyyy-MM-ddTHH:mm:ss. All time stamps are UTC.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd)]
+#[allow(missing_docs)]
 pub struct Timestamp {
     pub year: i32,
     pub month: Option<u8>,

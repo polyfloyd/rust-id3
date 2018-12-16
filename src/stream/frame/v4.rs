@@ -1,13 +1,15 @@
+use crate::frame::Frame;
+use crate::stream::encoding::Encoding;
+use crate::stream::frame;
+use crate::stream::unsynch;
+use crate::tag;
+use crate::{Error, ErrorKind};
+use bitflags::bitflags;
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
-use frame::Frame;
 use std::io::{self, Read, Write};
 use std::str;
-use stream::encoding::Encoding;
-use stream::frame;
-use stream::unsynch;
-use tag;
 
 bitflags! {
     pub struct Flags: u16 {
@@ -22,7 +24,7 @@ bitflags! {
     }
 }
 
-pub fn decode<R>(reader: &mut R) -> ::Result<Option<(usize, Frame)>>
+pub fn decode<R>(reader: &mut R) -> crate::Result<Option<(usize, Frame)>>
 where
     R: io::Read,
 {
@@ -34,15 +36,15 @@ where
     let id = str::from_utf8(&frame_header[0..4])?;
     let content_size = BigEndian::read_u32(&frame_header[4..8]) as usize;
     let flags = Flags::from_bits(BigEndian::read_u16(&frame_header[8..10]))
-        .ok_or_else(|| ::Error::new(::ErrorKind::Parsing, "unknown frame header flags are set"))?;
+        .ok_or_else(|| Error::new(ErrorKind::Parsing, "unknown frame header flags are set"))?;
     if flags.contains(Flags::ENCRYPTION) {
-        return Err(::Error::new(
-            ::ErrorKind::UnsupportedFeature,
+        return Err(Error::new(
+            ErrorKind::UnsupportedFeature,
             "encryption is not supported",
         ));
     } else if flags.contains(Flags::GROUPING_IDENTITY) {
-        return Err(::Error::new(
-            ::ErrorKind::UnsupportedFeature,
+        return Err(Error::new(
+            ErrorKind::UnsupportedFeature,
             "grouping identity is not supported",
         ));
     }
@@ -64,7 +66,7 @@ where
     Ok(Some((10 + content_size, frame)))
 }
 
-pub fn encode(writer: &mut Write, frame: &Frame, flags: Flags) -> ::Result<usize> {
+pub fn encode(writer: &mut Write, frame: &Frame, flags: Flags) -> crate::Result<usize> {
     let (mut content_buf, comp_hint_delta, decompressed_size) =
         if flags.contains(Flags::COMPRESSION) {
             let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
