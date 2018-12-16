@@ -1,12 +1,15 @@
+use crate::frame::Content;
+use crate::frame::{
+    Comment, ExtendedLink, ExtendedText, Frame, Lyrics, Picture, PictureType, Timestamp,
+};
+use crate::storage::{self, PlainStorage, Storage};
+use crate::stream::{self, unsynch};
+use crate::v1;
 use byteorder::{BigEndian, ReadBytesExt};
-use frame::Content;
-use frame::{Comment, ExtendedLink, ExtendedText, Frame, Lyrics, Picture, PictureType, Timestamp};
 use std::fs::{self, File};
 use std::io::{self, BufReader, Read, Seek, SeekFrom, Write};
 use std::iter;
 use std::path::Path;
-use storage::{self, PlainStorage, Storage};
-use stream::{self, unsynch};
 
 /// Denotes the version of a tag.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -62,23 +65,23 @@ impl<'a> Tag {
     /// Returns true if the reader might contain a valid ID3v1 tag.
     #[deprecated(note = "Use v1::Tag::is_candidate")]
     pub fn is_candidate_v1<R: Read + Seek>(reader: &mut R) -> bool {
-        ::v1::Tag::is_candidate(reader).unwrap_or(false)
+        v1::Tag::is_candidate(reader).unwrap_or(false)
     }
 
     /// Attempts to read an ID3v1 tag from the reader. Since the structure of ID3v1 is so different
     /// from ID3v2, the tag will be converted and stored internally as an ID3v2.3 tag.
     #[deprecated(note = "Use tag_v1.into()")]
-    pub fn read_from_v1<R: Read + Seek>(reader: &mut R) -> ::Result<Tag> {
-        let tag_v1 = ::v1::Tag::read_from(reader)?;
+    pub fn read_from_v1<R: Read + Seek>(reader: &mut R) -> crate::Result<Tag> {
+        let tag_v1 = v1::Tag::read_from(reader)?;
         Ok(tag_v1.into())
     }
 
     /// Attempts to read an ID3v1 tag from the file at the specified path. The tag will be
     /// converted into an ID3v2.3 tag upon success.
     #[deprecated(note = "Use tag_v1.into()")]
-    pub fn read_from_path_v1<P: AsRef<Path>>(path: P) -> ::Result<Tag> {
+    pub fn read_from_path_v1<P: AsRef<Path>>(path: P) -> crate::Result<Tag> {
         let file = File::open(&path)?;
-        let tag_v1 = ::v1::Tag::read_from(file)?;
+        let tag_v1 = v1::Tag::read_from(file)?;
         Ok(tag_v1.into())
     }
     // }}}
@@ -1342,7 +1345,7 @@ impl<'a> Tag {
 
     /// Will return true if the reader is a candidate for an ID3 tag. The reader position will be
     /// reset back to the previous position before returning.
-    pub fn is_candidate<R: Read + Seek>(mut reader: R) -> ::Result<bool> {
+    pub fn is_candidate<R: Read + Seek>(mut reader: R) -> crate::Result<bool> {
         let initial_position = reader.seek(io::SeekFrom::Current(0))?;
         let rs = storage::locate_id3v2(&mut reader);
         reader.seek(io::SeekFrom::Start(initial_position))?;
@@ -1351,7 +1354,7 @@ impl<'a> Tag {
 
     /// Detects the presense of an ID3v2 tag at the current position of the reader and skips it if
     /// it if found. Returns true if a tag was found.
-    pub fn skip<R: Read + Seek>(mut reader: &mut R) -> ::Result<bool> {
+    pub fn skip<R: Read + Seek>(mut reader: &mut R) -> crate::Result<bool> {
         let initial_position = reader.seek(io::SeekFrom::Current(0))?;
         let range = storage::locate_id3v2(&mut reader)?;
         let end = range.as_ref().map(|r| r.end).unwrap_or(0);
@@ -1360,7 +1363,7 @@ impl<'a> Tag {
     }
 
     /// Attempts to read an ID3 tag from the reader.
-    pub fn read_from<R>(reader: R) -> ::Result<Tag>
+    pub fn read_from<R>(reader: R) -> crate::Result<Tag>
     where
         R: io::Read,
     {
@@ -1368,13 +1371,13 @@ impl<'a> Tag {
     }
 
     /// Attempts to read an ID3 tag from the file at the indicated path.
-    pub fn read_from_path<P: AsRef<Path>>(path: P) -> ::Result<Tag> {
+    pub fn read_from_path<P: AsRef<Path>>(path: P) -> crate::Result<Tag> {
         let file = BufReader::new(File::open(&path)?);
         Tag::read_from(file)
     }
 
     /// Attempts to write the ID3 tag to the writer using the specified version.
-    pub fn write_to<W>(&self, writer: W, version: Version) -> ::Result<()>
+    pub fn write_to<W>(&self, writer: W, version: Version) -> crate::Result<()>
     where
         W: io::Write,
     {
@@ -1388,7 +1391,7 @@ impl<'a> Tag {
     /// Attempts to write the ID3 tag from the file at the indicated path. If the specified path is
     /// the same path which the tag was read from, then the tag will be written to the padding if
     /// possible.
-    pub fn write_to_path<P: AsRef<Path>>(&self, path: P, version: Version) -> ::Result<()> {
+    pub fn write_to_path<P: AsRef<Path>>(&self, path: P, version: Version) -> crate::Result<()> {
         let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
         let location = storage::locate_id3v2(&mut file)?.unwrap_or(0..0); // Create a new tag if none could be located.
 
@@ -1402,7 +1405,7 @@ impl<'a> Tag {
     /// Removes an ID3v2 tag from the specified file.
     ///
     /// Returns true if the file initially contained a tag.
-    pub fn remove_from(mut file: &mut fs::File) -> ::Result<bool> {
+    pub fn remove_from(mut file: &mut fs::File) -> crate::Result<bool> {
         let location = match storage::locate_id3v2(&mut file)? {
             Some(l) => l,
             None => return Ok(false),
@@ -1423,8 +1426,8 @@ impl PartialEq for Tag {
     }
 }
 
-impl From<::v1::Tag> for Tag {
-    fn from(tag_v1: ::v1::Tag) -> Tag {
+impl From<v1::Tag> for Tag {
+    fn from(tag_v1: v1::Tag) -> Tag {
         let mut tag = Tag::new();
         if let Some(genre) = tag_v1.genre() {
             tag.set_genre(genre.to_string());

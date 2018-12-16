@@ -1,8 +1,13 @@
-use frame::{Content, ExtendedLink, Picture, PictureType};
+use crate::frame::{Content, ExtendedLink, Picture, PictureType};
+use crate::stream::encoding::Encoding;
+use crate::tag;
+use crate::util::{
+    delim_len, string_from_latin1, string_from_utf16, string_from_utf16be, string_to_latin1,
+    string_to_utf16, string_to_utf16be,
+};
+use crate::{Error, ErrorKind};
 use std::io;
 use std::iter;
-use stream::encoding::Encoding;
-use tag;
 
 #[derive(Copy, Clone)]
 struct EncoderRequest<'a> {
@@ -17,7 +22,7 @@ pub fn encode<W>(
     content: &Content,
     version: tag::Version,
     encoding: Encoding,
-) -> ::Result<usize>
+) -> crate::Result<usize>
 where
     W: io::Write,
 {
@@ -41,7 +46,7 @@ where
 }
 
 /// Attempts to decode the request.
-pub fn decode<R>(id: &str, mut reader: R) -> ::Result<Content>
+pub fn decode<R>(id: &str, mut reader: R) -> crate::Result<Content>
 where
     R: io::Read,
 {
@@ -92,7 +97,7 @@ macro_rules! encode {
                 Encoding::Latin1 => EncodingParams {
                     delim_len: 1,
                     string_func: Box::new(|buf: &mut Vec<u8>, string: &str|
-                        buf.extend(::util::string_to_latin1(string).into_iter())
+                        buf.extend(string_to_latin1(string).into_iter())
                     )
                 },
                 Encoding::UTF8 => EncodingParams {
@@ -103,12 +108,12 @@ macro_rules! encode {
                 Encoding::UTF16 => EncodingParams {
                     delim_len: 2,
                     string_func: Box::new(|buf: &mut Vec<u8>, string: &str|
-                        buf.extend(::util::string_to_utf16(string).into_iter()))
+                        buf.extend(string_to_utf16(string).into_iter()))
                 },
                 Encoding::UTF16BE => EncodingParams {
                     delim_len: 2,
                     string_func: Box::new(|buf: &mut Vec<u8>, string: &str|
-                        buf.extend(::util::string_to_utf16be(string).into_iter()))
+                        buf.extend(string_to_utf16be(string).into_iter()))
                 }
             };
             let mut buf = Vec::new();
@@ -197,12 +202,12 @@ fn picture_to_bytes_v3(request: EncoderRequest) -> Vec<u8> {
     )
 }
 
-fn picture_to_bytes_v2(request: EncoderRequest) -> ::Result<Vec<u8>> {
+fn picture_to_bytes_v2(request: EncoderRequest) -> crate::Result<Vec<u8>> {
     let picture = request.content.picture().unwrap();
     let format = match &picture.mime_type[..] {
         "image/jpeg" => "JPG",
         "image/png" => "PNG",
-        _ => return Err(::Error::new(::ErrorKind::Parsing, "unsupported MIME type")),
+        _ => return Err(Error::new(ErrorKind::Parsing, "unsupported MIME type")),
     };
     Ok(encode!(
         encoding(request.encoding),
@@ -214,7 +219,7 @@ fn picture_to_bytes_v2(request: EncoderRequest) -> ::Result<Vec<u8>> {
     ))
 }
 
-fn picture_to_bytes(request: EncoderRequest) -> ::Result<Vec<u8>> {
+fn picture_to_bytes(request: EncoderRequest) -> crate::Result<Vec<u8>> {
     match request.version {
         tag::Id3v22 => picture_to_bytes_v2(request),
         tag::Id3v23 | tag::Id3v24 => Ok(picture_to_bytes_v3(request)),
@@ -223,7 +228,7 @@ fn picture_to_bytes(request: EncoderRequest) -> ::Result<Vec<u8>> {
 
 struct DecodingParams<'a> {
     encoding: Encoding,
-    string_func: Box<Fn(&[u8]) -> ::Result<String> + 'a>,
+    string_func: Box<Fn(&[u8]) -> crate::Result<String> + 'a>,
 }
 
 impl<'a> DecodingParams<'a> {
@@ -231,47 +236,47 @@ impl<'a> DecodingParams<'a> {
         match encoding {
             Encoding::Latin1 => DecodingParams {
                 encoding: Encoding::Latin1,
-                string_func: Box::new(|bytes: &[u8]| -> ::Result<String> {
-                    ::util::string_from_latin1(bytes)
+                string_func: Box::new(|bytes: &[u8]| -> crate::Result<String> {
+                    string_from_latin1(bytes)
                 }),
             },
             Encoding::UTF8 => DecodingParams {
                 encoding: Encoding::UTF8,
-                string_func: Box::new(|bytes: &[u8]| -> ::Result<String> {
+                string_func: Box::new(|bytes: &[u8]| -> crate::Result<String> {
                     Ok(String::from_utf8(bytes.to_vec())?)
                 }),
             },
             Encoding::UTF16 => DecodingParams {
                 encoding: Encoding::UTF16,
-                string_func: Box::new(|bytes: &[u8]| -> ::Result<String> {
-                    ::util::string_from_utf16(bytes)
+                string_func: Box::new(|bytes: &[u8]| -> crate::Result<String> {
+                    string_from_utf16(bytes)
                 }),
             },
             Encoding::UTF16BE => DecodingParams {
                 encoding: Encoding::UTF16BE,
-                string_func: Box::new(|bytes: &[u8]| -> ::Result<String> {
-                    ::util::string_from_utf16be(bytes)
+                string_func: Box::new(|bytes: &[u8]| -> crate::Result<String> {
+                    string_from_utf16be(bytes)
                 }),
             },
         }
     }
 }
 
-fn encoding_from_byte(n: u8) -> ::Result<Encoding> {
+fn encoding_from_byte(n: u8) -> crate::Result<Encoding> {
     match n {
         0 => Ok(Encoding::Latin1),
         1 => Ok(Encoding::UTF16),
         2 => Ok(Encoding::UTF16BE),
         3 => Ok(Encoding::UTF8),
-        _ => Err(::Error::new(::ErrorKind::Parsing, "unknown encoding")),
+        _ => Err(Error::new(ErrorKind::Parsing, "unknown encoding")),
     }
 }
 
 macro_rules! assert_data {
     ($bytes:ident) => {
         if $bytes.len() == 0 {
-            return Err(::Error::new(
-                ::ErrorKind::Parsing,
+            return Err(Error::new(
+                ErrorKind::Parsing,
                 "frame does not contain any data",
             ));
         }
@@ -283,13 +288,13 @@ fn find_delim(
     encoding: Encoding,
     i: usize,
     terminated: bool,
-) -> Result<(usize, usize), ::Error> {
+) -> crate::Result<(usize, usize)> {
     if !terminated {
         return Ok((bytes.len(), bytes.len()));
     }
-    let delim = ::util::find_delim(encoding, bytes, i)
-        .ok_or_else(|| ::Error::new(::ErrorKind::Parsing, "delimiter not found"))?;
-    Ok((delim, delim + ::util::delim_len(encoding)))
+    let delim = crate::util::find_delim(encoding, bytes, i)
+        .ok_or_else(|| Error::new(ErrorKind::Parsing, "delimiter not found"))?;
+    Ok((delim, delim + delim_len(encoding)))
 }
 
 macro_rules! decode_part {
@@ -305,8 +310,8 @@ macro_rules! decode_part {
         }
     }};
     ($bytes:expr, $params:ident, text()) => {{
-        let (end, with_delim) = match ::util::find_delim($params.encoding, $bytes, 0) {
-            Some(i) => (i, i + ::util::delim_len($params.encoding)),
+        let (end, with_delim) = match crate::util::find_delim($params.encoding, $bytes, 0) {
+            Some(i) => (i, i + delim_len($params.encoding)),
             None => ($bytes.len(), $bytes.len()),
         };
         if end == 0 {
@@ -320,15 +325,12 @@ macro_rules! decode_part {
     }};
     ($bytes:expr, $params:ident, fixed_string($len:expr)) => {{
         if $len >= $bytes.len() {
-            return Err(::Error::new(
-                ::ErrorKind::Parsing,
+            return Err(Error::new(
+                ErrorKind::Parsing,
                 "insufficient data to decode fixed string",
             ));
         }
-        (
-            ::util::string_from_latin1(&$bytes[..$len])?,
-            &$bytes[$len..],
-        )
+        (string_from_latin1(&$bytes[..$len])?, &$bytes[$len..])
     }};
     ($bytes:expr, $params:ident, latin1($terminated:expr)) => {{
         let (end, with_delim) = find_delim($bytes, Encoding::Latin1, 0, $terminated)?;
@@ -339,8 +341,8 @@ macro_rules! decode_part {
     }};
     ($bytes:expr, $params:ident, picture_type()) => {{
         if 1 >= $bytes.len() {
-            return Err(::Error::new(
-                ::ErrorKind::Parsing,
+            return Err(Error::new(
+                ErrorKind::Parsing,
                 "insufficient data to decode picture type",
             ));
         }
@@ -366,7 +368,7 @@ macro_rules! decode_part {
             18 => PictureType::Illustration,
             19 => PictureType::BandLogo,
             20 => PictureType::PublisherLogo,
-            _ => return Err(::Error::new(::ErrorKind::Parsing, "invalid picture type")),
+            _ => return Err(Error::new(ErrorKind::Parsing, "invalid picture type")),
         };
         (ty, &$bytes[1..])
     }};
@@ -378,7 +380,7 @@ macro_rules! decode_part {
 macro_rules! decode {
     ($bytes:ident, $result_type:ident, $($field:ident : $part:ident ( $($params:tt)* ) ),+) => {
         {
-            use frame::$result_type;
+            use crate::frame::$result_type;
 
             assert_data!($bytes);
 
@@ -400,7 +402,7 @@ macro_rules! decode {
 
 /// Attempts to parse the data as an ID3v2.2 picture frame.
 /// Returns a `Content::Picture`.
-fn parse_apic_v2(data: &[u8]) -> ::Result<Content> {
+fn parse_apic_v2(data: &[u8]) -> crate::Result<Content> {
     assert_data!(data);
 
     let encoding = encoding_from_byte(data[0])?;
@@ -411,8 +413,8 @@ fn parse_apic_v2(data: &[u8]) -> ::Result<Content> {
         "PNG" => "image/png".to_string(),
         "JPG" => "image/jpeg".to_string(),
         _ => {
-            return Err(::Error::new(
-                ::ErrorKind::UnsupportedFeature,
+            return Err(Error::new(
+                ErrorKind::UnsupportedFeature,
                 "can't determine MIME type for image format",
             ))
         }
@@ -433,21 +435,21 @@ fn parse_apic_v2(data: &[u8]) -> ::Result<Content> {
 /// Attempts to parse the data as an ID3v2.3/ID3v2.4 picture frame.
 /// Returns a `Content::Picture`.
 #[allow(clippy::cyclomatic_complexity)]
-fn parse_apic_v3(data: &[u8]) -> ::Result<Content> {
+fn parse_apic_v3(data: &[u8]) -> crate::Result<Content> {
     return decode!(data, Picture, mime_type: latin1(true), picture_type : picture_type(),
                    description: string(true), data: bytes());
 }
 
 /// Attempts to parse the data as a comment frame.
 /// Returns a `Content::Comment`.
-fn parse_comm(data: &[u8]) -> ::Result<Content> {
+fn parse_comm(data: &[u8]) -> crate::Result<Content> {
     return decode!(data, Comment, lang: fixed_string(3), description: string(true),
                    text: string(false));
 }
 
 /// Attempts to parse the data as a text frame.
 /// Returns a `Content::Text`.
-fn parse_text(data: &[u8]) -> ::Result<Content> {
+fn parse_text(data: &[u8]) -> crate::Result<Content> {
     assert_data!(data);
     let encoding = encoding_from_byte(data[0])?;
 
@@ -457,19 +459,19 @@ fn parse_text(data: &[u8]) -> ::Result<Content> {
 
 /// Attempts to parse the data as a user defined text frame.
 /// Returns an `Content::ExtendedText`.
-fn parse_txxx(data: &[u8]) -> ::Result<Content> {
+fn parse_txxx(data: &[u8]) -> crate::Result<Content> {
     return decode!(data, ExtendedText, description: string(true), value: string(false));
 }
 
 /// Attempts to parse the data as a web link frame.
 /// Returns a `Content::Link`.
-fn parse_weblink(data: &[u8]) -> ::Result<Content> {
+fn parse_weblink(data: &[u8]) -> crate::Result<Content> {
     Ok(Content::Link(String::from_utf8(data.to_vec())?))
 }
 
 /// Attempts to parse the data as a user defined web link frame.
 /// Returns an `Content::ExtendedLink`.
-fn parse_wxxx(data: &[u8]) -> ::Result<Content> {
+fn parse_wxxx(data: &[u8]) -> crate::Result<Content> {
     assert_data!(data);
 
     let encoding = encoding_from_byte(data[0])?;
@@ -486,7 +488,7 @@ fn parse_wxxx(data: &[u8]) -> ::Result<Content> {
 
 /// Attempts to parse the data as an unsynchronized lyrics text frame.
 /// Returns a `Content::Lyrics`.
-fn parse_uslt(data: &[u8]) -> ::Result<Content> {
+fn parse_uslt(data: &[u8]) -> crate::Result<Content> {
     return decode!(data, Lyrics, lang: fixed_string(3), description: string(true),
                    text: string(false));
 }
@@ -494,8 +496,8 @@ fn parse_uslt(data: &[u8]) -> ::Result<Content> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use frame::Content;
-    use frame::{self, Picture, PictureType};
+    use crate::frame::Content;
+    use crate::frame::{self, Picture, PictureType};
     use std::collections::HashMap;
 
     fn bytes_for_encoding(text: &str, encoding: Encoding) -> Vec<u8> {
@@ -503,8 +505,8 @@ mod tests {
             //string.chars().map(|c| c as u8)
             Encoding::Latin1 => text.chars().map(|c| c as u8).collect(),
             Encoding::UTF8 => text.as_bytes().to_vec(),
-            Encoding::UTF16 => ::util::string_to_utf16(text),
-            Encoding::UTF16BE => ::util::string_to_utf16be(text),
+            Encoding::UTF16 => string_to_utf16(text),
+            Encoding::UTF16BE => string_to_utf16be(text),
         }
     }
 

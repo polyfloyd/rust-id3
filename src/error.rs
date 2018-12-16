@@ -5,7 +5,7 @@ use std::str;
 use std::string;
 
 /// Type alias for the result of tag operations.
-pub type Result<T> = ::std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// Kinds of errors that may occur while performing metadata operations.
 #[derive(Debug)]

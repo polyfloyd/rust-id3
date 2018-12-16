@@ -1,8 +1,9 @@
+use crate::tag::Version;
+use crate::util::{convert_id_2_to_3, convert_id_3_to_2};
 use std::borrow::Cow;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::str;
-use tag::Version;
 
 pub use self::content::{
     Comment, Content, ExtendedLink, ExtendedText, Lyrics, Picture, PictureType,
@@ -79,7 +80,7 @@ impl Frame {
         });
         Frame {
             id: if id.len() == 3 {
-                match ::util::convert_id_2_to_3(id) {
+                match convert_id_2_to_3(id) {
                     Some(translated) => ID::Valid(translated.to_string()),
                     None => ID::Invalid(id.to_string()),
                 }
@@ -106,7 +107,7 @@ impl Frame {
     /// that version.
     pub fn id_for_version(&self, version: Version) -> Option<&str> {
         match (version, &self.id) {
-            (Version::Id3v22, &ID::Valid(ref id)) => ::util::convert_id_3_to_2(id),
+            (Version::Id3v22, &ID::Valid(ref id)) => convert_id_3_to_2(id),
             (Version::Id3v23, &ID::Valid(ref id))
             | (Version::Id3v24, &ID::Valid(ref id))
             | (Version::Id3v22, &ID::Invalid(ref id)) => Some(id),

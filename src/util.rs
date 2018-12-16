@@ -1,13 +1,15 @@
+use crate::stream::encoding::Encoding;
+use crate::{Error, ErrorKind};
 use encoding::all::{UTF_16BE, UTF_16LE};
 use encoding::Encoding as StrEncoding;
 use encoding::{DecoderTrap, EncoderTrap};
+use lazy_static::lazy_static;
 use std::collections::HashMap;
-use stream::encoding::Encoding;
 
 /// Returns a string created from the vector using Latin1 encoding, removing any trailing null
 /// bytes.
 /// Can never return None because all sequences of u8s are valid Latin1 strings.
-pub fn string_from_latin1(data: &[u8]) -> ::Result<String> {
+pub fn string_from_latin1(data: &[u8]) -> crate::Result<String> {
     let value: String = data
         .iter()
         .take_while(|c| **c != 0)
@@ -18,10 +20,10 @@ pub fn string_from_latin1(data: &[u8]) -> ::Result<String> {
 
 /// Returns a string created from the vector using UTF-16 (with byte order mark) encoding.
 /// Returns `None` if the vector is not a valid UTF-16 string.
-pub fn string_from_utf16(data: &[u8]) -> ::Result<String> {
+pub fn string_from_utf16(data: &[u8]) -> crate::Result<String> {
     if data.len() < 2 {
-        return Err(::Error::new(
-            ::ErrorKind::StringDecoding(data.to_vec()),
+        return Err(Error::new(
+            ErrorKind::StringDecoding(data.to_vec()),
             "data is not valid utf16",
         ));
     }
@@ -37,11 +39,11 @@ pub fn string_from_utf16(data: &[u8]) -> ::Result<String> {
 
 /// Returns a string created from the vector using UTF-16LE encoding.
 /// Returns `None` if the vector is not a valid UTF-16LE string.
-pub fn string_from_utf16le(data: &[u8]) -> ::Result<String> {
+pub fn string_from_utf16le(data: &[u8]) -> crate::Result<String> {
     match UTF_16LE.decode(data, DecoderTrap::Strict) {
         Ok(string) => Ok(string),
-        Err(_) => Err(::Error::new(
-            ::ErrorKind::StringDecoding(data.to_vec()),
+        Err(_) => Err(Error::new(
+            ErrorKind::StringDecoding(data.to_vec()),
             "data is not valid utf16-le",
         )),
     }
@@ -49,11 +51,11 @@ pub fn string_from_utf16le(data: &[u8]) -> ::Result<String> {
 
 /// Returns a string created from the vector using UTF-16BE encoding.
 /// Returns `None` if the vector is not a valid UTF-16BE string.
-pub fn string_from_utf16be(data: &[u8]) -> ::Result<String> {
+pub fn string_from_utf16be(data: &[u8]) -> crate::Result<String> {
     match UTF_16BE.decode(data, DecoderTrap::Strict) {
         Ok(string) => Ok(string),
-        Err(_) => Err(::Error::new(
-            ::ErrorKind::StringDecoding(data.to_vec()),
+        Err(_) => Err(Error::new(
+            ErrorKind::StringDecoding(data.to_vec()),
             "data is not valid utf16-be",
         )),
     }

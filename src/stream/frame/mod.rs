@@ -1,9 +1,9 @@
+use crate::frame::Content;
+use crate::frame::Frame;
+use crate::stream::unsynch;
+use crate::tag;
 use flate2::read::ZlibDecoder;
-use frame::Content;
-use frame::Frame;
 use std::io;
-use stream::unsynch;
-use tag;
 
 mod content;
 mod v2;
@@ -14,7 +14,7 @@ pub fn decode<R>(
     reader: &mut R,
     version: tag::Version,
     unsynchronization: bool,
-) -> ::Result<Option<(usize, Frame)>>
+) -> crate::Result<Option<(usize, Frame)>>
 where
     R: io::Read,
 {
@@ -30,7 +30,7 @@ pub fn decode_content<R>(
     id: &str,
     compression: bool,
     unsynchronisation: bool,
-) -> ::Result<Content>
+) -> crate::Result<Content>
 where
     R: io::Read,
 {
@@ -54,7 +54,7 @@ pub fn encode<W>(
     frame: &Frame,
     version: tag::Version,
     unsynchronization: bool,
-) -> ::Result<usize>
+) -> crate::Result<usize>
 where
     W: io::Write,
 {
@@ -91,9 +91,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use frame::Frame;
-    use stream::encoding::Encoding;
-    use stream::unsynch;
+    use crate::frame::Frame;
+    use crate::stream::encoding::Encoding;
+    use crate::stream::unsynch;
+    use crate::util::string_to_utf16;
 
     fn u32_to_bytes(n: u32) -> Vec<u8> {
         vec![
@@ -112,7 +113,7 @@ mod tests {
 
         let mut data = Vec::new();
         data.push(encoding as u8);
-        data.extend(::util::string_to_utf16(text).into_iter());
+        data.extend(string_to_utf16(text).into_iter());
 
         let content = decode_content(&data[..], id, false, false).unwrap();
         let frame = Frame::with_content(id, content);
@@ -135,7 +136,7 @@ mod tests {
 
         let mut data = Vec::new();
         data.push(encoding as u8);
-        data.extend(::util::string_to_utf16(text).into_iter());
+        data.extend(string_to_utf16(text).into_iter());
 
         let content = decode_content(&data[..], id, false, false).unwrap();
         let frame = Frame::with_content(id, content);
