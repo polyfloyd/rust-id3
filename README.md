@@ -2,10 +2,9 @@
 
 [![Build Status](https://travis-ci.org/jameshurst/rust-id3.svg)](https://travis-ci.org/jameshurst/rust-id3)
 [![](http://meritbadge.herokuapp.com/id3)](https://crates.io/crates/id3)
+[![Docs](https://docs.rs/id3/badge.svg)](https://docs.rs/id3)
 
 A library for reading and writing ID3 metadata.
-
-[Documentation](http://jameshurst.github.io/rust-id3/)
 
 ## Usage
 ```rust
