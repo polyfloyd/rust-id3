@@ -3,11 +3,10 @@ use crate::frame::{
     Comment, ExtendedLink, ExtendedText, Frame, Lyrics, Picture, PictureType, Timestamp,
 };
 use crate::storage::{self, PlainStorage, Storage};
-use crate::stream::{self, unsynch};
+use crate::stream;
 use crate::v1;
-use byteorder::{BigEndian, ReadBytesExt};
 use std::fs::{self, File};
-use std::io::{self, BufReader, Read, Seek, SeekFrom, Write};
+use std::io::{self, BufReader, Read, Seek, Write};
 use std::iter::Iterator;
 use std::path::Path;
 
@@ -53,45 +52,6 @@ impl<'a> Tag {
     pub fn new() -> Tag {
         Tag::default()
     }
-
-    /// Creates a new ID3 tag with the specified version.
-    #[deprecated(note = "Tags now use ID3v2.4 for internal storage")]
-    pub fn with_version(_: Version) -> Tag {
-        Tag { frames: Vec::new() }
-    }
-
-    /// Returns true if the reader might contain a valid ID3v1 tag.
-    #[deprecated(note = "Use v1::Tag::is_candidate")]
-    pub fn is_candidate_v1<R: Read + Seek>(reader: &mut R) -> bool {
-        v1::Tag::is_candidate(reader).unwrap_or(false)
-    }
-
-    /// Attempts to read an ID3v1 tag from the reader. Since the structure of ID3v1 is so different
-    /// from ID3v2, the tag will be converted and stored internally as an ID3v2.3 tag.
-    #[deprecated(note = "Use tag_v1.into()")]
-    pub fn read_from_v1<R: Read + Seek>(reader: &mut R) -> crate::Result<Tag> {
-        let tag_v1 = v1::Tag::read_from(reader)?;
-        Ok(tag_v1.into())
-    }
-
-    /// Attempts to read an ID3v1 tag from the file at the specified path. The tag will be
-    /// converted into an ID3v2.3 tag upon success.
-    #[deprecated(note = "Use tag_v1.into()")]
-    pub fn read_from_path_v1<P: AsRef<Path>>(path: P) -> crate::Result<Tag> {
-        let file = File::open(&path)?;
-        let tag_v1 = v1::Tag::read_from(file)?;
-        Ok(tag_v1.into())
-    }
-
-    /// Returns the version of the tag.
-    #[deprecated(note = "Tags now use ID3v2.4 for internal storage")]
-    pub fn version(&self) -> Version {
-        Version::Id3v24
-    }
-
-    /// Sets the version of this tag.
-    #[deprecated(note = "Tags now use ID3v2.4 for internal storage")]
-    pub fn set_version(&mut self, _: Version) {}
 
     /// Returns an iterator over the all frames in the tag.
     ///
@@ -197,52 +157,6 @@ impl<'a> Tag {
         self.frames().find(|frame| frame.id() == id)
     }
 
-    /// Returns a vector of references to frames with the specified identifier.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::{Tag, Frame, Content};
-    ///
-    /// let mut tag = Tag::new();
-    ///
-    /// tag.add_frame(Frame::with_content("TPE1", Content::Text("".to_string())));
-    /// tag.add_frame(Frame::with_content("TALB", Content::Text("".to_string())));
-    ///
-    /// assert_eq!(tag.get_all("TPE1").len(), 1);
-    /// assert_eq!(tag.get_all("TALB").len(), 1);
-    /// ```
-    #[deprecated(note = "Combine frames() with Iterator::filter")]
-    pub fn get_all(&'a self, id: &str) -> Vec<&'a Frame> {
-        let mut matches = Vec::new();
-        for frame in &self.frames {
-            if frame.id() == id {
-                matches.push(frame);
-            }
-        }
-        matches
-    }
-
-    /// Adds the frame to the tag. The frame identifier will attempt to be converted into the
-    /// corresponding identifier for the tag version.
-    ///
-    /// Returns whether the frame was added to the tag. The only reason the frame would not be
-    /// added to the tag is if the frame identifier could not be converted from the frame version
-    /// to the tag version.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::{Tag, Frame, Content};
-    ///
-    /// let mut tag = Tag::new();
-    /// tag.push(Frame::with_content("TALB", Content::Text("".to_string())));
-    /// assert_eq!(tag.frames().nth(0).unwrap().id(), "TALB");
-    /// ```
-    #[deprecated(note = "Use add_frame")]
-    pub fn push(&mut self, new_frame: Frame) -> bool {
-        self.add_frame(new_frame);
-        true
-    }
-
     /// Adds the frame to the tag, replacing and returning any conflicting frame.
     ///
     /// # Example
@@ -262,21 +176,6 @@ impl<'a> Tag {
             .map(|conflict_index| self.frames.remove(conflict_index));
         self.frames.push(new_frame);
         removed
-    }
-
-    /// Adds a text frame.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::Tag;
-    ///
-    /// let mut tag = Tag::new();
-    /// tag.add_text_frame("TRCK", "1/13");
-    /// assert_eq!(tag.get("TRCK").unwrap().content().text().unwrap(), "1/13");
-    /// ```
-    #[deprecated(note = "Use set_text()")]
-    pub fn add_text_frame<K: Into<String>, V: Into<String>>(&mut self, id: K, text: V) {
-        self.set_text(id, text);
     }
 
     /// Adds a text frame.
@@ -345,16 +244,6 @@ impl<'a> Tag {
             })
     }
 
-    /// Returns a vector of the extended text (TXXX) description/value pairs.
-    #[deprecated(note = "Use extended_texts()")]
-    pub fn txxx(&self) -> Vec<(&str, &str)> {
-        self.frames()
-            .filter(|frame| frame.id() == "TXXX")
-            .filter_map(|frame| frame.content().extended_text())
-            .map(|ext| (ext.description.as_str(), ext.value.as_str()))
-            .collect()
-    }
-
     /// Adds a user defined text frame (TXXX).
     ///
     /// # Example
@@ -383,12 +272,6 @@ impl<'a> Tag {
             }),
         );
         self.add_frame(frame);
-    }
-
-    /// Adds a user defined text frame (TXXX).
-    #[deprecated(note = "Use add_extended_text()")]
-    pub fn add_txxx<K: Into<String>, V: Into<String>>(&mut self, description: K, value: V) {
-        self.add_extended_text(description, value)
     }
 
     /// Removes the user defined text frame (TXXX) with the specified key and value.
@@ -440,14 +323,6 @@ impl<'a> Tag {
                 true
             }
         });
-    }
-
-    /// Removes the user defined text frame (TXXX) with the specified key and value.
-    ///
-    /// A key or value may be `None` to specify a wildcard value.
-    #[deprecated(note = "Use remove_extended_text()")]
-    pub fn remove_txxx(&mut self, description: Option<&str>, value: Option<&str>) {
-        self.remove_extended_text(description, value);
     }
 
     /// Adds a picture frame (APIC).
@@ -1248,75 +1123,37 @@ impl<'a> Tag {
     /// use id3::frame::Lyrics;
     ///
     /// let mut tag = Tag::new();
-    /// tag.set_lyrics(Lyrics {
+    /// tag.add_lyrics(Lyrics {
     ///     lang: "eng".to_string(),
     ///     description: "".to_string(),
     ///     text: "The lyrics".to_string(),
     /// });
     /// assert_eq!(tag.lyrics().nth(0).unwrap().text, "The lyrics");
     /// ```
-    #[deprecated(note = "There can be more than one lyrics frame")]
-    pub fn set_lyrics(&mut self, lyrics: Lyrics) {
+    pub fn add_lyrics(&mut self, lyrics: Lyrics) {
         let frame = Frame::with_content("USLT", Content::Lyrics(lyrics));
         self.add_frame(frame);
     }
 
     /// Removes the lyrics text (USLT) from the tag.
     ///
-    /// # Exmaple
+    /// # Example
     /// ```
     /// use id3::Tag;
     /// use id3::frame::Lyrics;
     ///
     /// let mut tag = Tag::new();
-    /// tag.set_lyrics(Lyrics {
+    /// tag.add_lyrics(Lyrics {
     ///     lang: "eng".to_string(),
     ///     description: "".to_string(),
     ///     text: "The lyrics".to_string(),
     /// });
     /// assert_eq!(1, tag.lyrics().count());
-    /// tag.remove_lyrics();
+    /// tag.remove_all_lyrics();
     /// assert_eq!(0, tag.lyrics().count());
     /// ```
-    #[deprecated(note = "There can be more than one lyrics frame")]
-    pub fn remove_lyrics(&mut self) {
+    pub fn remove_all_lyrics(&mut self) {
         self.remove("USLT");
-    }
-
-    /// Returns the contents of the reader without any ID3 metadata.
-    #[deprecated(note = "Use Tag::skip() instead")]
-    pub fn skip_metadata<R: Read + Seek>(reader: &mut R) -> Vec<u8> {
-        macro_rules! try_io {
-            ($reader:ident, $action:expr) => {
-                match $action {
-                    Ok(bytes) => bytes,
-                    Err(_) => match $reader.seek(SeekFrom::Start(0)) {
-                        Ok(_) => {
-                            let mut bytes = Vec::<u8>::new();
-                            match $reader.read_to_end(&mut bytes) {
-                                Ok(_) => return bytes,
-                                Err(_) => return Vec::new(),
-                            }
-                        }
-                        Err(_) => return Vec::new(),
-                    },
-                }
-            };
-        }
-
-        let mut ident = [0u8; 3];
-        try_io!(reader, reader.read_exact(&mut ident));
-        if &ident[..] == b"ID3" {
-            try_io!(reader, reader.seek(SeekFrom::Current(3)));
-            let offset = 10 + unsynch::decode_u32(try_io!(reader, reader.read_u32::<BigEndian>()));
-            try_io!(reader, reader.seek(SeekFrom::Start(u64::from(offset))));
-        } else {
-            try_io!(reader, reader.seek(SeekFrom::Start(0)));
-        }
-
-        let mut bytes = Vec::<u8>::new();
-        try_io!(reader, reader.read_to_end(&mut bytes));
-        bytes
     }
 
     /// Will return true if the reader is a candidate for an ID3 tag. The reader position will be
