@@ -24,7 +24,7 @@
 //! use id3::{Tag, Frame, Version};
 //! use id3::frame::Content;
 //!
-//! let mut tag = Tag::with_version(Version::Id3v24);
+//! let mut tag = Tag::new();
 //!
 //! // set the album the hard way
 //! let frame = Frame::with_content("TALB", Content::Text("album".to_string()));

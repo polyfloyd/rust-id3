@@ -26,12 +26,6 @@ pub struct Timestamp {
 }
 
 impl Timestamp {
-    /// Parses a timestamp.
-    #[deprecated(note = "Use \"yyyy\".parse()")]
-    pub fn parse(source: &str) -> Option<Timestamp> {
-        source.parse().ok()
-    }
-
     /// Encodes the timestamp for storing in a frame.
     pub fn to_string(&self) -> String {
         use std::fmt::Write;

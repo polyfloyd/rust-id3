@@ -1,6 +1,5 @@
 use crate::tag::Version;
 use crate::util::{convert_id_2_to_3, convert_id_3_to_2};
-use std::borrow::Cow;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::str;
@@ -57,15 +56,6 @@ impl Hash for Frame {
 }
 
 impl Frame {
-    /// Creates a new ID3v2.3 frame with the specified identifier.
-    ///
-    /// # Panics
-    /// If the id's length is not 3 or 4 bytes long or not known.
-    #[deprecated(note = "Use with_content")]
-    pub fn new<T: Into<String>>(id: T) -> Frame {
-        Frame::with_content(&id.into(), Content::Unknown(Vec::new()))
-    }
-
     /// Creates a frame with the specified ID and content.
     ///
     /// Both ID3v2.2 and >ID3v2.3 IDs are accepted, although they will be converted to ID3v2.3
@@ -139,28 +129,6 @@ impl Frame {
     pub fn set_file_alter_preservation(&mut self, file_alter_preservation: bool) {
         self.file_alter_preservation = file_alter_preservation;
     }
-
-    /// Returns a string representing the parsed content.
-    ///
-    /// Returns `None` if the parsed content can not be represented as text.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::frame::{self, Frame, Content};
-    ///
-    /// let title_frame = Frame::with_content("TIT2", Content::Text("title".to_owned()));
-    /// assert_eq!(&title_frame.text().unwrap()[..], "title");
-    ///
-    /// let mut txxx_frame = Frame::with_content("TXXX", Content::ExtendedText(frame::ExtendedText {
-    ///     description: "description".to_owned(),
-    ///     value: "value".to_owned()
-    /// }));
-    /// assert_eq!(&txxx_frame.text().unwrap()[..], "description: value");
-    /// ```
-    #[deprecated(note = "Format using fmt::Display")]
-    pub fn text(&self) -> Option<Cow<str>> {
-        Some(Cow::Owned(format!("{}", self)))
-    }
 }
 
 impl fmt::Display for Frame {
@@ -182,5 +150,25 @@ impl fmt::Display for Frame {
             ),
             Content::Unknown(ref content) => write!(f, "unknown, {} bytes", content.len()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_display() {
+        let title_frame = Frame::with_content("TIT2", Content::Text("title".to_owned()));
+        assert_eq!(format!("{}", title_frame), "title");
+
+        let txxx_frame = Frame::with_content(
+            "TXXX",
+            Content::ExtendedText(ExtendedText {
+                description: "description".to_owned(),
+                value: "value".to_owned(),
+            }),
+        );
+        assert_eq!(format!("{}", txxx_frame), "description: value");
     }
 }
