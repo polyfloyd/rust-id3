@@ -48,7 +48,6 @@ pub struct Tag {
     frames: Vec<Frame>,
 }
 
-// Tag {{{
 impl<'a> Tag {
     /// Creates a new ID3v2.4 tag with no frames.
     pub fn new() -> Tag {
@@ -61,7 +60,6 @@ impl<'a> Tag {
         Tag { frames: Vec::new() }
     }
 
-    // id3v1 {{{
     /// Returns true if the reader might contain a valid ID3v1 tag.
     #[deprecated(note = "Use v1::Tag::is_candidate")]
     pub fn is_candidate_v1<R: Read + Seek>(reader: &mut R) -> bool {
@@ -84,7 +82,6 @@ impl<'a> Tag {
         let tag_v1 = v1::Tag::read_from(file)?;
         Ok(tag_v1.into())
     }
-    // }}}
 
     /// Returns the version of the tag.
     #[deprecated(note = "Tags now use ID3v2.4 for internal storage")]
@@ -366,7 +363,6 @@ impl<'a> Tag {
             })
     }
 
-    // Getters/Setters {{{
     /// Returns a vector of the extended text (TXXX) description/value pairs.
     #[deprecated(note = "Use extended_texts()")]
     pub fn txxx(&self) -> Vec<(&str, &str)> {
@@ -1304,9 +1300,7 @@ impl<'a> Tag {
     pub fn remove_lyrics(&mut self) {
         self.remove("USLT");
     }
-    //}}}
 
-    // Reading/Writing {{{
     /// Returns the contents of the reader without any ID3 metadata.
     #[deprecated(note = "Use Tag::skip() instead")]
     pub fn skip_metadata<R: Read + Seek>(reader: &mut R) -> Vec<u8> {
@@ -1416,7 +1410,6 @@ impl<'a> Tag {
         storage.writer()?.flush()?;
         Ok(true)
     }
-    //}}}
 }
 
 impl PartialEq for Tag {

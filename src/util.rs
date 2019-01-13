@@ -231,7 +231,6 @@ pub fn convert_id_3_to_2(id: &str) -> Option<&'static str> {
     ID_3_TO_2.get(id).cloned()
 }
 
-// Tests {{{
 #[cfg(test)]
 mod tests {
     use super::*;
