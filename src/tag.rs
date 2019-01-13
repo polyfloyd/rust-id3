@@ -8,7 +8,7 @@ use crate::v1;
 use byteorder::{BigEndian, ReadBytesExt};
 use std::fs::{self, File};
 use std::io::{self, BufReader, Read, Seek, SeekFrom, Write};
-use std::iter;
+use std::iter::Iterator;
 use std::path::Path;
 
 /// Denotes the version of a tag.
@@ -106,26 +106,20 @@ impl<'a> Tag {
     ///
     /// assert_eq!(tag.frames().count(), 2);
     /// ```
-    pub fn frames(&'a self) -> Box<iter::Iterator<Item = &'a Frame> + 'a> {
-        Box::new(self.frames.iter())
+    pub fn frames(&'a self) -> impl Iterator<Item = &'a Frame> + 'a {
+        self.frames.iter()
     }
 
     /// Returns an iterator over the extended texts in the tag.
-    pub fn extended_texts(&'a self) -> Box<iter::Iterator<Item = &'a ExtendedText> + 'a> {
-        let iter = self
-            .frames
-            .iter()
-            .filter_map(|frame| frame.content().extended_text());
-        Box::new(iter)
+    pub fn extended_texts(&'a self) -> impl Iterator<Item = &'a ExtendedText> + 'a {
+        self.frames()
+            .filter_map(|frame| frame.content().extended_text())
     }
 
     /// Returns an iterator over the extended links in the tag.
-    pub fn extended_links(&'a self) -> Box<iter::Iterator<Item = &'a ExtendedLink> + 'a> {
-        let iter = self
-            .frames
-            .iter()
-            .filter_map(|frame| frame.content().extended_link());
-        Box::new(iter)
+    pub fn extended_links(&'a self) -> impl Iterator<Item = &'a ExtendedLink> + 'a {
+        self.frames()
+            .filter_map(|frame| frame.content().extended_link())
     }
 
     /// Returns an iterator over the comments in the tag.
@@ -153,21 +147,13 @@ impl<'a> Tag {
     ///
     /// assert_eq!(tag.comments().count(), 2);
     /// ```
-    pub fn comments(&'a self) -> Box<iter::Iterator<Item = &'a Comment> + 'a> {
-        let iter = self
-            .frames
-            .iter()
-            .filter_map(|frame| frame.content().comment());
-        Box::new(iter)
+    pub fn comments(&'a self) -> impl Iterator<Item = &'a Comment> + 'a {
+        self.frames().filter_map(|frame| frame.content().comment())
     }
 
     /// Returns an iterator over the extended links in the tag.
-    pub fn lyrics(&'a self) -> Box<iter::Iterator<Item = &'a Lyrics> + 'a> {
-        let iter = self
-            .frames
-            .iter()
-            .filter_map(|frame| frame.content().lyrics());
-        Box::new(iter)
+    pub fn lyrics(&'a self) -> impl Iterator<Item = &'a Lyrics> + 'a {
+        self.frames().filter_map(|frame| frame.content().lyrics())
     }
 
     /// Returns an iterator over the pictures in the tag.
@@ -190,12 +176,8 @@ impl<'a> Tag {
     ///
     /// assert_eq!(tag.pictures().count(), 1);
     /// ```
-    pub fn pictures(&'a self) -> Box<iter::Iterator<Item = &'a Picture> + 'a> {
-        let iter = self
-            .frames
-            .iter()
-            .filter_map(|frame| frame.content().picture());
-        Box::new(iter)
+    pub fn pictures(&'a self) -> impl Iterator<Item = &'a Picture> + 'a {
+        self.frames().filter_map(|frame| frame.content().picture())
     }
 
     /// Returns a reference to the first frame with the specified identifier.
@@ -212,7 +194,7 @@ impl<'a> Tag {
     /// assert!(tag.get("TCON").is_none());
     /// ```
     pub fn get(&self, id: &str) -> Option<&Frame> {
-        self.frames.iter().find(|frame| frame.id() == id)
+        self.frames().find(|frame| frame.id() == id)
     }
 
     /// Returns a vector of references to frames with the specified identifier.
@@ -1415,7 +1397,7 @@ impl<'a> Tag {
 impl PartialEq for Tag {
     fn eq(&self, other: &Tag) -> bool {
         self.frames.len() == other.frames.len()
-            && self.frames.iter().all(|frame| other.frames.contains(frame))
+            && self.frames().all(|frame| other.frames.contains(frame))
     }
 }
 
