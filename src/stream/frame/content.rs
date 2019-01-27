@@ -416,7 +416,7 @@ fn parse_apic_v2(data: &[u8]) -> crate::Result<Content> {
             return Err(Error::new(
                 ErrorKind::UnsupportedFeature,
                 "can't determine MIME type for image format",
-            ))
+            ));
         }
     };
     let (picture_type, next) = decode_part!(next, params, picture_type());
