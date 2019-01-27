@@ -8,7 +8,7 @@ use bitflags::bitflags;
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
-use std::io::{self, Read, Write};
+use std::io;
 use std::str;
 
 bitflags! {
@@ -24,10 +24,7 @@ bitflags! {
     }
 }
 
-pub fn decode<R>(reader: &mut R) -> crate::Result<Option<(usize, Frame)>>
-where
-    R: io::Read,
-{
+pub fn decode(mut reader: impl io::Read) -> crate::Result<Option<(usize, Frame)>> {
     let mut frame_header = [0; 10];
     let nread = reader.read(&mut frame_header)?;
     if nread < frame_header.len() || frame_header[0] == 0x00 {
@@ -66,7 +63,7 @@ where
     Ok(Some((10 + content_size, frame)))
 }
 
-pub fn encode(writer: &mut Write, frame: &Frame, flags: Flags) -> crate::Result<usize> {
+pub fn encode(mut writer: impl io::Write, frame: &Frame, flags: Flags) -> crate::Result<usize> {
     let (mut content_buf, comp_hint_delta, decompressed_size) =
         if flags.contains(Flags::COMPRESSION) {
             let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());

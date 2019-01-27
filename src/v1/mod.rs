@@ -201,10 +201,7 @@ impl Tag {
     /// Checks whether the reader contains an ID3v1 tag.
     ///
     /// The reader position will be reset back to the previous position before returning.
-    pub fn is_candidate<R>(mut reader: R) -> crate::Result<bool>
-    where
-        R: io::Read + io::Seek,
-    {
+    pub fn is_candidate(mut reader: impl io::Read + io::Seek) -> crate::Result<bool> {
         let initial_position = reader.seek(io::SeekFrom::Current(0))?;
         reader.seek(io::SeekFrom::End(TAG_CHUNK.start))?;
         let mut buf = [0; 3];
@@ -214,10 +211,7 @@ impl Tag {
     }
 
     /// Seeks to and reads a ID3v1 tag from the reader.
-    pub fn read_from<R>(mut reader: R) -> crate::Result<Tag>
-    where
-        R: io::Read + io::Seek,
-    {
+    pub fn read_from(mut reader: impl io::Read + io::Seek) -> crate::Result<Tag> {
         let mut tag_buf = [0; 355];
         let file_len = reader.seek(io::SeekFrom::End(0))?;
         if file_len >= XTAG_CHUNK.start.abs() as u64 {

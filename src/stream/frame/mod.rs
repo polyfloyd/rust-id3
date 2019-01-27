@@ -10,30 +10,24 @@ mod v2;
 mod v3;
 mod v4;
 
-pub fn decode<R>(
-    reader: &mut R,
+pub fn decode(
+    mut reader: impl io::Read,
     version: tag::Version,
     unsynchronization: bool,
-) -> crate::Result<Option<(usize, Frame)>>
-where
-    R: io::Read,
-{
+) -> crate::Result<Option<(usize, Frame)>> {
     match version {
-        tag::Id3v22 => v2::decode(reader, unsynchronization),
-        tag::Id3v23 => v3::decode(reader, unsynchronization),
-        tag::Id3v24 => v4::decode(reader),
+        tag::Id3v22 => v2::decode(&mut reader, unsynchronization),
+        tag::Id3v23 => v3::decode(&mut reader, unsynchronization),
+        tag::Id3v24 => v4::decode(&mut reader),
     }
 }
 
-pub fn decode_content<R>(
-    reader: R,
+pub fn decode_content(
+    reader: impl io::Read,
     id: &str,
     compression: bool,
     unsynchronisation: bool,
-) -> crate::Result<Content>
-where
-    R: io::Read,
-{
+) -> crate::Result<Content> {
     let result = if unsynchronisation {
         let reader_unsynch = unsynch::Reader::new(reader);
         if compression {

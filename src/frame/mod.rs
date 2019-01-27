@@ -63,19 +63,19 @@ impl Frame {
     ///
     /// # Panics
     /// If the id's length is not 3 or 4 bytes long.
-    pub fn with_content(id: &str, content: Content) -> Frame {
+    pub fn with_content(id: impl AsRef<str>, content: Content) -> Frame {
         assert!({
-            let l = id.bytes().count();
+            let l = id.as_ref().bytes().count();
             l == 3 || l == 4
         });
         Frame {
-            id: if id.len() == 3 {
-                match convert_id_2_to_3(id) {
+            id: if id.as_ref().len() == 3 {
+                match convert_id_2_to_3(id.as_ref()) {
                     Some(translated) => ID::Valid(translated.to_string()),
-                    None => ID::Invalid(id.to_string()),
+                    None => ID::Invalid(id.as_ref().to_string()),
                 }
             } else {
-                ID::Valid(id.to_string())
+                ID::Valid(id.as_ref().to_string())
             },
             content,
             tag_alter_preservation: false,
