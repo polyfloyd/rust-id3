@@ -70,7 +70,7 @@ where
                 v3::Flags::FILE_ALTER_PRESERVATION,
                 frame.file_alter_preservation(),
             );
-            v3::encode(writer, frame, v3::Flags::empty(), unsynchronization)
+            v3::encode(writer, frame, flags, unsynchronization)
         }
         tag::Id3v24 => {
             let mut flags = v4::Flags::empty();
