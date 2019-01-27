@@ -222,11 +222,16 @@ mod tests {
         tag.set_artist("Artist");
         tag.set_genre("Genre");
         tag.set_duration(1337);
+        let mut image_data = Vec::new();
+        fs::File::open("testdata/image.jpg")
+            .unwrap()
+            .read_to_end(&mut image_data)
+            .unwrap();
         tag.add_picture(Picture {
-            mime_type: "image/png".to_string(),
+            mime_type: "image/jpeg".to_string(),
             picture_type: PictureType::CoverFront,
             description: "an image".to_string(),
-            data: (0..255).cycle().take(8192).collect(),
+            data: image_data,
         });
         tag
     }
