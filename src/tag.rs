@@ -6,7 +6,7 @@ use crate::storage::{self, PlainStorage, Storage};
 use crate::stream;
 use crate::v1;
 use std::fs::{self, File};
-use std::io::{self, BufReader, Read, Seek, Write};
+use std::io::{self, BufReader, Write};
 use std::iter::Iterator;
 use std::path::Path;
 
@@ -153,8 +153,8 @@ impl<'a> Tag {
     /// assert!(tag.get("TIT2").is_some());
     /// assert!(tag.get("TCON").is_none());
     /// ```
-    pub fn get(&self, id: &str) -> Option<&Frame> {
-        self.frames().find(|frame| frame.id() == id)
+    pub fn get(&self, id: impl AsRef<str>) -> Option<&Frame> {
+        self.frames().find(|frame| frame.id() == id.as_ref())
     }
 
     /// Adds the frame to the tag, replacing and returning any conflicting frame.
@@ -188,8 +188,8 @@ impl<'a> Tag {
     /// tag.set_text("TRCK", "1/13");
     /// assert_eq!(tag.get("TRCK").unwrap().content().text().unwrap(), "1/13");
     /// ```
-    pub fn set_text<K: Into<String>, V: Into<String>>(&mut self, id: K, text: V) {
-        self.add_frame(Frame::with_content(&id.into(), Content::Text(text.into())));
+    pub fn set_text(&mut self, id: impl AsRef<str>, text: impl Into<String>) {
+        self.add_frame(Frame::with_content(id, Content::Text(text.into())));
     }
 
     /// Removes all frames with the specified identifier.
@@ -211,8 +211,8 @@ impl<'a> Tag {
     /// tag.remove("TPE1");
     /// assert_eq!(tag.frames().count(), 0);
     /// ```
-    pub fn remove(&mut self, id: &str) {
-        self.frames.retain(|frame| frame.id() != id);
+    pub fn remove(&mut self, id: impl AsRef<str>) {
+        self.frames.retain(|frame| frame.id() != id.as_ref());
     }
 
     /// Returns the `Content::Text` string for the frame with the specified identifier.
@@ -259,11 +259,7 @@ impl<'a> Tag {
     /// assert!(tag.extended_texts().any(|t| t.description == "key1" && t.value == "value1"));
     /// assert!(tag.extended_texts().any(|t| t.description == "key2" && t.value == "value2"));
     /// ```
-    pub fn add_extended_text<K: Into<String>, V: Into<String>>(
-        &mut self,
-        description: K,
-        value: V,
-    ) {
+    pub fn add_extended_text(&mut self, description: impl Into<String>, value: impl Into<String>) {
         let frame = Frame::with_content(
             "TXXX",
             Content::ExtendedText(ExtendedText {
@@ -605,7 +601,7 @@ impl<'a> Tag {
     /// tag.set_artist("artist");
     /// assert_eq!(tag.artist().unwrap(), "artist");
     /// ```
-    pub fn set_artist<T: Into<String>>(&mut self, artist: T) {
+    pub fn set_artist(&mut self, artist: impl Into<String>) {
         self.set_text("TPE1", artist);
     }
 
@@ -652,7 +648,7 @@ impl<'a> Tag {
     /// tag.set_album_artist("artist");
     /// assert_eq!(tag.album_artist().unwrap(), "artist");
     /// ```
-    pub fn set_album_artist<T: Into<String>>(&mut self, album_artist: T) {
+    pub fn set_album_artist(&mut self, album_artist: impl Into<String>) {
         self.set_text("TPE2", album_artist);
     }
 
@@ -699,7 +695,7 @@ impl<'a> Tag {
     /// tag.set_album("album");
     /// assert_eq!(tag.album().unwrap(), "album");
     /// ```
-    pub fn set_album<T: Into<String>>(&mut self, album: T) {
+    pub fn set_album(&mut self, album: impl Into<String>) {
         self.set_text("TALB", album);
     }
 
@@ -746,7 +742,7 @@ impl<'a> Tag {
     /// tag.set_title("title");
     /// assert_eq!(tag.title().unwrap(), "title");
     /// ```
-    pub fn set_title<T: Into<String>>(&mut self, title: T) {
+    pub fn set_title(&mut self, title: impl Into<String>) {
         self.set_text("TIT2", title);
     }
 
@@ -841,7 +837,7 @@ impl<'a> Tag {
     /// tag.set_genre("genre");
     /// assert_eq!(tag.genre().unwrap(), "genre");
     /// ```
-    pub fn set_genre<T: Into<String>>(&mut self, genre: T) {
+    pub fn set_genre(&mut self, genre: impl Into<String>) {
         self.set_text("TCON", genre);
     }
 
@@ -1158,7 +1154,7 @@ impl<'a> Tag {
 
     /// Will return true if the reader is a candidate for an ID3 tag. The reader position will be
     /// reset back to the previous position before returning.
-    pub fn is_candidate<R: Read + Seek>(mut reader: R) -> crate::Result<bool> {
+    pub fn is_candidate(mut reader: impl io::Read + io::Seek) -> crate::Result<bool> {
         let initial_position = reader.seek(io::SeekFrom::Current(0))?;
         let rs = storage::locate_id3v2(&mut reader);
         reader.seek(io::SeekFrom::Start(initial_position))?;
@@ -1167,7 +1163,7 @@ impl<'a> Tag {
 
     /// Detects the presense of an ID3v2 tag at the current position of the reader and skips it if
     /// it if found. Returns true if a tag was found.
-    pub fn skip<R: Read + Seek>(mut reader: &mut R) -> crate::Result<bool> {
+    pub fn skip(mut reader: impl io::Read + io::Seek) -> crate::Result<bool> {
         let initial_position = reader.seek(io::SeekFrom::Current(0))?;
         let range = storage::locate_id3v2(&mut reader)?;
         let end = range.as_ref().map(|r| r.end).unwrap_or(0);
@@ -1176,24 +1172,18 @@ impl<'a> Tag {
     }
 
     /// Attempts to read an ID3 tag from the reader.
-    pub fn read_from<R>(reader: R) -> crate::Result<Tag>
-    where
-        R: io::Read,
-    {
+    pub fn read_from(reader: impl io::Read) -> crate::Result<Tag> {
         stream::tag::decode(reader)
     }
 
     /// Attempts to read an ID3 tag from the file at the indicated path.
-    pub fn read_from_path<P: AsRef<Path>>(path: P) -> crate::Result<Tag> {
-        let file = BufReader::new(File::open(&path)?);
+    pub fn read_from_path(path: impl AsRef<Path>) -> crate::Result<Tag> {
+        let file = BufReader::new(File::open(path)?);
         Tag::read_from(file)
     }
 
     /// Attempts to write the ID3 tag to the writer using the specified version.
-    pub fn write_to<W>(&self, writer: W, version: Version) -> crate::Result<()>
-    where
-        W: io::Write,
-    {
+    pub fn write_to(&self, writer: impl io::Write, version: Version) -> crate::Result<()> {
         stream::tag::EncoderBuilder::default()
             .version(version)
             .build()
@@ -1204,7 +1194,7 @@ impl<'a> Tag {
     /// Attempts to write the ID3 tag from the file at the indicated path. If the specified path is
     /// the same path which the tag was read from, then the tag will be written to the padding if
     /// possible.
-    pub fn write_to_path<P: AsRef<Path>>(&self, path: P, version: Version) -> crate::Result<()> {
+    pub fn write_to_path(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
         let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
         let location = storage::locate_id3v2(&mut file)?.unwrap_or(0..0); // Create a new tag if none could be located.
 
@@ -1275,6 +1265,7 @@ mod tests {
     extern crate tempdir;
     use super::*;
     use std::fs;
+    use std::io::Seek;
 
     #[test]
     fn remove_id3v2() {

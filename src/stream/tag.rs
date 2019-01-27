@@ -24,10 +24,7 @@ bitflags! {
     }
 }
 
-pub fn decode<R>(mut reader: R) -> crate::Result<Tag>
-where
-    R: io::Read,
-{
+pub fn decode(mut reader: impl io::Read) -> crate::Result<Tag> {
     let mut tag_header = [0; 10];
     let nread = reader.read(&mut tag_header)?;
     if nread < tag_header.len() || &tag_header[0..3] != b"ID3" {
@@ -130,10 +127,7 @@ impl Encoder {
     ///
     /// Note that the plain tag is written, regardless of the original contents. To safely encode a
     /// tag to an MP3 file, use `Encoder::encode_to_path`.
-    pub fn encode<W>(&self, tag: &Tag, mut writer: W) -> crate::Result<()>
-    where
-        W: io::Write,
-    {
+    pub fn encode(&self, tag: &Tag, mut writer: impl io::Write) -> crate::Result<()> {
         // remove frames which have the flags indicating they should be removed
         let saved_frames = tag
             .frames()
@@ -166,7 +160,7 @@ impl Encoder {
     }
 
     /// Encodes a tag and replaces any existing tag in the file pointed to by the specified path.
-    pub fn encode_to_path<P: AsRef<Path>>(&self, tag: &Tag, path: P) -> crate::Result<()> {
+    pub fn encode_to_path(&self, tag: &Tag, path: impl AsRef<Path>) -> crate::Result<()> {
         let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
         let location = storage::locate_id3v2(&mut file)?.unwrap_or(0..0); // Create a new tag if none could be located.
 

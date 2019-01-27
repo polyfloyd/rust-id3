@@ -17,15 +17,12 @@ struct EncoderRequest<'a> {
 }
 
 /// Creates a vector representation of the request.
-pub fn encode<W>(
-    mut writer: W,
+pub fn encode(
+    mut writer: impl io::Write,
     content: &Content,
     version: tag::Version,
     encoding: Encoding,
-) -> crate::Result<usize>
-where
-    W: io::Write,
-{
+) -> crate::Result<usize> {
     let request = EncoderRequest {
         version,
         encoding,
@@ -46,10 +43,7 @@ where
 }
 
 /// Attempts to decode the request.
-pub fn decode<R>(id: &str, mut reader: R) -> crate::Result<Content>
-where
-    R: io::Read,
-{
+pub fn decode(id: &str, mut reader: impl io::Read) -> crate::Result<Content> {
     let mut data = Vec::new();
     reader.read_to_end(&mut data)?;
     match id {
