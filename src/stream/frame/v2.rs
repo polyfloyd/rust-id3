@@ -50,7 +50,7 @@ pub fn encode(writer: &mut Write, frame: &Frame, unsynchronisation: bool) -> cra
     assert_eq!(3, id.len());
     writer.write_all(id.as_bytes())?;
     let mut size_buf = [0; 4];
-    BigEndian::write_u32(&mut size_buf, content_buf.len() as u32);
+    BigEndian::write_u32(&mut size_buf, unsynch::encode_u32(content_buf.len() as u32));
     writer.write_all(&size_buf[1..4])?;
     if unsynchronisation {
         unsynch::encode_vec(&mut content_buf);
