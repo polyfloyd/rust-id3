@@ -334,7 +334,7 @@ where
             return Err(Error::new(
                 ErrorKind::UnsupportedVersion(header[4], header[3]),
                 "unsupported id3 tag version",
-            ))
+            ));
         }
     };
 
