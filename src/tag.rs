@@ -215,35 +215,6 @@ impl<'a> Tag {
         self.frames.retain(|frame| frame.id() != id.as_ref());
     }
 
-    /// Returns the `Content::Text` string for the frame with the specified identifier.
-    /// Returns `None` if the frame with the specified ID can't be found or if the content is not
-    /// `Content::Text`.
-    fn text_for_frame_id(&self, id: &str) -> Option<&str> {
-        self.get(id).and_then(|frame| frame.content().text())
-    }
-
-    fn read_timestamp_frame(&self, id: &str) -> Option<Timestamp> {
-        self.get(id)
-            .and_then(|frame| frame.content().text())
-            .and_then(|text| text.parse().ok())
-    }
-
-    /// Loads a text frame by its ID and attempt to split it into two parts
-    ///
-    /// Internally used by track and disc getters and setters.
-    fn text_pair(&self, id: &str) -> Option<(u32, Option<u32>)> {
-        self.get(id)
-            .and_then(|frame| frame.content().text())
-            .and_then(|text| {
-                let mut split = text.splitn(2, '/');
-                if let Ok(num) = split.next().unwrap().parse() {
-                    Some((num, split.next().and_then(|s| s.parse().ok())))
-                } else {
-                    None
-                }
-            })
-    }
-
     /// Adds a user defined text frame (TXXX).
     ///
     /// # Example
@@ -858,11 +829,6 @@ impl<'a> Tag {
         self.remove("TCON");
     }
 
-    /// Returns the (disc, total_discs) tuple.
-    fn disc_pair(&self) -> Option<(u32, Option<u32>)> {
-        self.text_pair("TPOS")
-    }
-
     /// Returns the disc number (TPOS).
     ///
     /// # Example
@@ -1219,6 +1185,40 @@ impl<'a> Tag {
         storage.writer()?.flush()?;
         Ok(true)
     }
+
+    /// Returns the `Content::Text` string for the frame with the specified identifier.
+    /// Returns `None` if the frame with the specified ID can't be found or if the content is not
+    /// `Content::Text`.
+    fn text_for_frame_id(&self, id: &str) -> Option<&str> {
+        self.get(id).and_then(|frame| frame.content().text())
+    }
+
+    fn read_timestamp_frame(&self, id: &str) -> Option<Timestamp> {
+        self.get(id)
+            .and_then(|frame| frame.content().text())
+            .and_then(|text| text.parse().ok())
+    }
+
+    /// Returns the (disc, total_discs) tuple.
+    fn disc_pair(&self) -> Option<(u32, Option<u32>)> {
+        self.text_pair("TPOS")
+    }
+
+    /// Loads a text frame by its ID and attempt to split it into two parts
+    ///
+    /// Internally used by track and disc getters and setters.
+    fn text_pair(&self, id: &str) -> Option<(u32, Option<u32>)> {
+        self.get(id)
+            .and_then(|frame| frame.content().text())
+            .and_then(|text| {
+                let mut split = text.splitn(2, '/');
+                if let Ok(num) = split.next().unwrap().parse() {
+                    Some((num, split.next().and_then(|s| s.parse().ok())))
+                } else {
+                    None
+                }
+            })
+    }
 }
 
 impl PartialEq for Tag {
@@ -1262,7 +1262,6 @@ impl From<v1::Tag> for Tag {
 
 #[cfg(test)]
 mod tests {
-    extern crate tempdir;
     use super::*;
     use std::fs;
     use std::io::Seek;

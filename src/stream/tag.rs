@@ -174,7 +174,6 @@ impl Encoder {
 
 #[cfg(all(test, feature = "unstable"))]
 mod benchmarks {
-    extern crate test;
     use super::*;
     use std::fs;
 

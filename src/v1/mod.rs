@@ -369,7 +369,6 @@ mod benchmarks {
 
 #[cfg(test)]
 mod tests {
-    extern crate tempdir;
     use super::*;
     use std::fs;
 
