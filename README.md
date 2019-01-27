@@ -8,8 +8,6 @@ A library for reading and writing ID3 metadata.
 
 ## Usage
 ```rust
-extern crate id3;
-
 fn main() {
   let tag = id3::Tag::read_from_path("testdata/id3v24.id3").unwrap();
 
