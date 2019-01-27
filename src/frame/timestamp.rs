@@ -14,7 +14,7 @@ use std::str;
 /// removing as many time indicators as wanted. Hence valid timestamps
 /// are yyyy, yyyy-MM, yyyy-MM-dd, yyyy-MM-ddTHH, yyyy-MM-ddTHH:mm and
 /// yyyy-MM-ddTHH:mm:ss. All time stamps are UTC.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Hash)]
 #[allow(missing_docs)]
 pub struct Timestamp {
     pub year: i32,

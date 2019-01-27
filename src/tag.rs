@@ -11,7 +11,7 @@ use std::iter::Iterator;
 use std::path::Path;
 
 /// Denotes the version of a tag.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Version {
     /// ID3v2.2
     Id3v22,
