@@ -90,7 +90,9 @@ pub fn encode(
     };
 
     writer.write_all(frame.id().as_bytes())?;
-    writer.write_u32::<BigEndian>((content_buf.len() + comp_hint_delta) as u32)?;
+    writer.write_u32::<BigEndian>(unsynch::encode_u32(
+        (content_buf.len() + comp_hint_delta) as u32,
+    ))?;
     writer.write_u16::<BigEndian>(flags.bits())?;
     if let Some(s) = decompressed_size {
         writer.write_u32::<BigEndian>(s as u32)?;
