@@ -45,8 +45,8 @@ impl Error {
 
 impl error::Error for Error {
     fn description(&self) -> &str {
-        if self.cause().is_some() {
-            self.cause().unwrap().description()
+        if let Some(cause) = self.cause() {
+            cause.description()
         } else {
             match self.kind {
                 ErrorKind::Io(ref err) => error::Error::description(err),
