@@ -252,11 +252,11 @@ impl Tag {
         // Decodes a string consisting out of a base and possible extension to a String.
         // The input are one or two null-terminated ISO-8859-1 byte slices.
         fn decode_str(base: &[u8], ext: Option<&[u8]>) -> String {
-            base.into_iter()
+            base.iter()
                 .take_while(|c| **c != 0)
                 .chain({
                     ext.into_iter()
-                        .flat_map(|s| s.into_iter())
+                        .flat_map(|s| s.iter())
                         .take_while(|c| **c != 0)
                 })
                 // This works because the ISO 8859-1 code points match the unicode code
