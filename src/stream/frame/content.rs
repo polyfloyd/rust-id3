@@ -205,7 +205,7 @@ fn picture_to_bytes_v3(request: EncoderRequest) -> Vec<u8> {
 fn picture_to_bytes_v2(request: EncoderRequest) -> crate::Result<Vec<u8>> {
     let picture = request.content.picture().unwrap();
     let format = match &picture.mime_type[..] {
-        "image/jpeg" => "JPG",
+        "image/jpeg" | "image/jpg" => "JPG",
         "image/png" => "PNG",
         _ => return Err(Error::new(ErrorKind::Parsing, "unsupported MIME type")),
     };
