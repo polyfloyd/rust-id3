@@ -88,17 +88,19 @@ pub fn encode(
         )?;
         (content_buf, 0, None)
     };
+    if unsynchronization {
+        unsynch::encode_vec(&mut content_buf);
+    }
 
-    writer.write_all(frame.id().as_bytes())?;
-    writer.write_u32::<BigEndian>(unsynch::encode_u32(
-        (content_buf.len() + comp_hint_delta) as u32,
-    ))?;
+    writer.write_all({
+        let id = frame.id().as_bytes();
+        assert_eq!(4, id.len());
+        id
+    })?;
+    writer.write_u32::<BigEndian>((content_buf.len() + comp_hint_delta) as u32)?;
     writer.write_u16::<BigEndian>(flags.bits())?;
     if let Some(s) = decompressed_size {
         writer.write_u32::<BigEndian>(s as u32)?;
-    }
-    if unsynchronization {
-        unsynch::encode_vec(&mut content_buf);
     }
     writer.write_all(&content_buf)?;
     Ok(10 + comp_hint_delta + content_buf.len())
