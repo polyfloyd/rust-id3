@@ -31,7 +31,7 @@ pub fn decode(mut reader: impl io::Read) -> crate::Result<Option<(usize, Frame)>
         return Ok(None);
     }
     let id = str::from_utf8(&frame_header[0..4])?;
-    let content_size = BigEndian::read_u32(&frame_header[4..8]) as usize;
+    let content_size = unsynch::decode_u32(BigEndian::read_u32(&frame_header[4..8])) as usize;
     let flags = Flags::from_bits(BigEndian::read_u16(&frame_header[8..10]))
         .ok_or_else(|| Error::new(ErrorKind::Parsing, "unknown frame header flags are set"))?;
     if flags.contains(Flags::ENCRYPTION) {
@@ -86,8 +86,15 @@ pub fn encode(mut writer: impl io::Write, frame: &Frame, flags: Flags) -> crate:
             )?;
             (content_buf, 0, None)
         };
+    if flags.contains(Flags::UNSYNCHRONISATION) {
+        unsynch::encode_vec(&mut content_buf);
+    }
 
-    writer.write_all(frame.id().as_bytes())?;
+    writer.write_all({
+        let id = frame.id().as_bytes();
+        assert_eq!(4, id.len());
+        id
+    })?;
     writer.write_u32::<BigEndian>(unsynch::encode_u32(
         (content_buf.len() + comp_hint_delta) as u32,
     ))?;
@@ -96,9 +103,6 @@ pub fn encode(mut writer: impl io::Write, frame: &Frame, flags: Flags) -> crate:
         if flags.contains(Flags::DATA_LENGTH_INDICATOR) {
             writer.write_u32::<BigEndian>(unsynch::encode_u32(s as u32))?;
         }
-    }
-    if flags.contains(Flags::UNSYNCHRONISATION) {
-        unsynch::encode_vec(&mut content_buf);
     }
     writer.write_all(&content_buf)?;
     Ok(10 + comp_hint_delta + content_buf.len())
