@@ -7,6 +7,7 @@ use std::mem;
 
 /// Returns the synchsafe variant of a `u32` value.
 pub fn encode_u32(n: u32) -> u32 {
+    assert!(n < 0x1000_0000);
     let mut x: u32 = n & 0x7F | (n & 0xFFFF_FF80) << 1;
     x = x & 0x7FFF | (x & 0xFFFF_8000) << 1;
     x = x & 0x7F_FFFF | (x & 0xFF80_0000) << 1;
@@ -112,8 +113,11 @@ mod tests {
 
     #[test]
     fn synchsafe() {
-        assert_eq!(681_570, encode_u32(176_994));
-        assert_eq!(176_994, decode_u32(681_570));
+        for i in 0..1<<26 {
+            assert_eq!(i, decode_u32(encode_u32(i)));
+        }
+        assert_eq!(0x7f7f7f7f, encode_u32(0x0fff_ffff));
+        assert_eq!(0x0fff_ffff, decode_u32(0x7f7f7f7f));
     }
 
     #[test]
