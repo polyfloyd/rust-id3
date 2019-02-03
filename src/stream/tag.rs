@@ -106,8 +106,11 @@ pub struct Encoder {
     #[builder(default = "Version::Id3v24")]
     version: Version,
     /// Enable the unsynchronisatin scheme. This avoids patterns that resemble MP3-frame headers
-    /// from being encoded. If you are encoding to MP3 files, you probably want this enabled.
-    #[builder(default = "true")]
+    /// from being encoded. If you are encoding to MP3 files and wish to be compatible with very
+    /// old tools, you probably want this enabled.
+    ///
+    /// Unsynchronisation is disabled by default due to compatibility issues.
+    #[builder(default = "false")]
     unsynchronisation: bool,
     /// Enable compression.
     #[builder(default = "false")]
