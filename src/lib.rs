@@ -35,6 +35,12 @@
 //!
 //! tag.write_to_path("music.mp3", Version::Id3v24).unwrap();
 //! ```
+//!
+//! # Resources
+//!
+//! * ID3v2.2 http://id3.org/id3v2-00
+//! * ID3v2.3 http://id3.org/id3v2.3.0
+//! * ID3v2.4 http://id3.org/id3v2.4.0-structure
 
 #![warn(missing_docs)]
 
