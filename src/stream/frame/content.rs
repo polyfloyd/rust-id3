@@ -189,7 +189,7 @@ fn picture_to_bytes_v3(request: EncoderRequest) -> Vec<u8> {
         encoding(request.encoding),
         bytes(content.mime_type.as_bytes()),
         byte(0),
-        byte(content.picture_type),
+        byte(u8::from(content.picture_type)),
         string(content.description),
         delim(0),
         bytes(content.data)
@@ -206,7 +206,7 @@ fn picture_to_bytes_v2(request: EncoderRequest) -> crate::Result<Vec<u8>> {
     Ok(encode!(
         encoding(request.encoding),
         bytes(format.as_bytes()),
-        byte(picture.picture_type),
+        byte(u8::from(picture.picture_type)),
         string(picture.description),
         delim(0),
         bytes(picture.data)
@@ -362,7 +362,7 @@ macro_rules! decode_part {
             18 => PictureType::Illustration,
             19 => PictureType::BandLogo,
             20 => PictureType::PublisherLogo,
-            _ => return Err(Error::new(ErrorKind::Parsing, "invalid picture type")),
+            b  => PictureType::Undefined(b),
         };
         (ty, &$bytes[1..])
     }};
@@ -535,7 +535,7 @@ mod tests {
                     let mut data = Vec::new();
                     data.push(*encoding as u8);
                     data.extend(format.bytes());
-                    data.push(picture_type as u8);
+                    data.push(picture_type.into());
                     data.extend(bytes_for_encoding(description, *encoding).into_iter());
                     data.extend(delim_for_encoding(*encoding).into_iter());
                     data.extend(picture_data.iter().cloned());
@@ -584,7 +584,7 @@ mod tests {
                     data.push(*encoding as u8);
                     data.extend(mime_type.bytes());
                     data.push(0x0);
-                    data.push(picture_type as u8);
+                    data.push(picture_type.into());
                     data.extend(bytes_for_encoding(description, *encoding).into_iter());
                     data.extend(delim_for_encoding(*encoding).into_iter());
                     data.extend(picture_data.iter().cloned());
