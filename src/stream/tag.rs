@@ -82,21 +82,46 @@ pub fn decode(mut reader: impl io::Read) -> crate::Result<Tag> {
     }
 
     let mut tag = Tag::new();
-    while offset < tag_size + tag_header.len() {
-        let (bytes_read, frame) = match frame::decode(
-            &mut reader,
-            version,
-            flags.contains(Flags::UNSYNCHRONISATION),
-        )? {
-            Some(frame) => frame,
-            None => break, // Padding.
-        };
-        tag.add_frame(frame);
-        offset += bytes_read;
+
+    if version == Version::Id3v22 {
+        //limit the reader only to the given tag_size, don't return any more bytes after that.
+        let v2_reader = reader.take(tag_size as u64);
+
+        if flags.contains(Flags::UNSYNCHRONISATION){
+            //unwrap all 'unsynchronized' bytes in the tag before parsing frames
+            decode_v2_frames(unsynch::Reader::new(v2_reader),&mut tag)?;
+        }else{
+            decode_v2_frames(v2_reader,&mut tag)?;
+        }
+
+    }else{
+        while offset < tag_size + tag_header.len() {
+            let (bytes_read, frame) = match frame::decode(
+                &mut reader,
+                version,
+                flags.contains(Flags::UNSYNCHRONISATION),
+            )? {
+                Some(frame) => frame,
+                None => break, // Padding.
+            };
+            tag.add_frame(frame);
+            offset += bytes_read;
+        }
     }
 
     Ok(tag)
 }
+
+pub fn decode_v2_frames(mut reader: impl io::Read, tag:&mut Tag) -> crate::Result<()> {
+    //add all frames, until either an error is thrown or there are no more frames to parse
+    //(because of EOF or a Padding)
+    while let Some((_bytes_read,frame)) = frame::v2::decode(&mut reader)? {
+        tag.add_frame(frame);
+    }
+    Ok(())
+}
+
+
 
 /// The Encoder may be used to encode tags.
 #[derive(Debug, Builder)]
@@ -153,6 +178,10 @@ impl Encoder {
         let mut frame_data = Vec::new();
         for frame in saved_frames {
             frame::encode(&mut frame_data, frame, self.version, self.unsynchronisation)?;
+        }
+        //in v2, Unsynchronization is applied to the whole tag data at once, not for each frame separately
+        if self.version == Version::Id3v22 && self.unsynchronisation{
+            unsynch::encode_vec(&mut frame_data)
         }
         writer.write_all(b"ID3")?;
         writer.write_all(&[self.version.minor() as u8, 0])?;
