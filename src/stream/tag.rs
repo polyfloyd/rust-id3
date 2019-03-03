@@ -262,6 +262,29 @@ mod tests {
     }
 
     #[test]
+    fn read_id3v22() {
+        let mut file = fs::File::open("testdata/id3v22.id3").unwrap();
+        let tag:Tag = decode(&mut file).unwrap();
+        assert_eq!("Henry Frottey INTRO", tag.title().unwrap());
+        assert_eq!("Hörbuch & Gesprochene Inhalte", tag.genre().unwrap());
+        assert_eq!(1, tag.disc().unwrap());
+        assert_eq!(27, tag.total_discs().unwrap());
+        assert_eq!(2015, tag.year().unwrap());
+        assert_eq!(
+            PictureType::Other,
+            tag.pictures().nth(0).unwrap().picture_type
+        );
+        assert_eq!(
+            "",
+            tag.pictures().nth(0).unwrap().description
+        );
+        assert_eq!(
+            "image/jpeg",
+            tag.pictures().nth(0).unwrap().mime_type
+        );
+    }
+
+    #[test]
     fn read_id3v23() {
         let mut file = fs::File::open("testdata/id3v23.id3").unwrap();
         let tag = decode(&mut file).unwrap();
