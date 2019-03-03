@@ -196,6 +196,36 @@ pub enum PictureType {
     Illustration,
     BandLogo,
     PublisherLogo,
+    Undefined(u8),
+}
+
+impl From<PictureType> for u8{
+    fn from(pt: PictureType) -> Self {
+        match pt {
+            PictureType::Other => 0,
+            PictureType::Icon => 1,
+            PictureType::OtherIcon => 2,
+            PictureType::CoverFront => 3,
+            PictureType::CoverBack => 4,
+            PictureType::Leaflet => 5,
+            PictureType::Media => 6,
+            PictureType::LeadArtist => 7,
+            PictureType::Artist => 8,
+            PictureType::Conductor => 9,
+            PictureType::Band => 10,
+            PictureType::Composer => 11,
+            PictureType::Lyricist => 12,
+            PictureType::RecordingLocation => 13,
+            PictureType::DuringRecording => 14,
+            PictureType::DuringPerformance => 15,
+            PictureType::ScreenCapture => 16,
+            PictureType::BrightFish => 17,
+            PictureType::Illustration => 18,
+            PictureType::BandLogo => 19,
+            PictureType::PublisherLogo => 20,
+            PictureType::Undefined(b) => b,
+        }
+    }
 }
 
 /// A structure representing an ID3 picture frame's contents.
