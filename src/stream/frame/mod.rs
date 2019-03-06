@@ -6,7 +6,7 @@ use flate2::read::ZlibDecoder;
 use std::io;
 
 mod content;
-mod v2;
+pub mod v2;
 mod v3;
 mod v4;
 
@@ -16,7 +16,7 @@ pub fn decode(
     unsynchronization: bool,
 ) -> crate::Result<Option<(usize, Frame)>> {
     match version {
-        tag::Id3v22 => v2::decode(&mut reader, unsynchronization),
+        tag::Id3v22 => unreachable!(),//We handled this already
         tag::Id3v23 => v3::decode(&mut reader, unsynchronization),
         tag::Id3v24 => v4::decode(&mut reader),
     }
@@ -53,7 +53,7 @@ where
     W: io::Write,
 {
     match version {
-        tag::Id3v22 => v2::encode(writer, frame, unsynchronization),
+        tag::Id3v22 => v2::encode(writer, frame),
         tag::Id3v23 => {
             let mut flags = v3::Flags::empty();
             flags.set(
