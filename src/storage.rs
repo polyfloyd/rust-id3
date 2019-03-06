@@ -319,7 +319,9 @@ where
     }
 }
 
-pub fn locate_id3v2(mut reader: impl io::Read + io::Seek) -> crate::Result<Option<ops::Range<u64>>> {
+pub fn locate_id3v2(
+    mut reader: impl io::Read + io::Seek,
+) -> crate::Result<Option<ops::Range<u64>>> {
     let mut header = [0u8; 10];
     let nread = reader.read(&mut header)?;
     if nread < header.len() || &header[..3] != b"ID3" {

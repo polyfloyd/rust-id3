@@ -199,7 +199,7 @@ pub enum PictureType {
     Undefined(u8),
 }
 
-impl From<PictureType> for u8{
+impl From<PictureType> for u8 {
     fn from(pt: PictureType) -> Self {
         match pt {
             PictureType::Other => 0,
