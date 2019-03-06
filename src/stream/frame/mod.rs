@@ -16,7 +16,7 @@ pub fn decode(
     unsynchronization: bool,
 ) -> crate::Result<Option<(usize, Frame)>> {
     match version {
-        tag::Id3v22 => unreachable!(),//We handled this already
+        tag::Id3v22 => unreachable!(), //We handled this already
         tag::Id3v23 => v3::decode(&mut reader, unsynchronization),
         tag::Id3v24 => v4::decode(&mut reader),
     }

@@ -113,7 +113,7 @@ mod tests {
 
     #[test]
     fn synchsafe() {
-        for i in 0..1<<26 {
+        for i in 0..1 << 26 {
             assert_eq!(i, decode_u32(encode_u32(i)));
         }
         assert_eq!(0x7f7f7f7f, encode_u32(0x0fff_ffff));

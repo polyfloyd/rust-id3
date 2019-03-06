@@ -362,7 +362,7 @@ macro_rules! decode_part {
             18 => PictureType::Illustration,
             19 => PictureType::BandLogo,
             20 => PictureType::PublisherLogo,
-            b  => PictureType::Undefined(b),
+            b => PictureType::Undefined(b),
         };
         (ty, &$bytes[1..])
     }};
