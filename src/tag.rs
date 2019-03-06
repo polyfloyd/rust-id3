@@ -467,7 +467,7 @@ impl<'a> Tag {
     pub fn year(&self) -> Option<i32> {
         self.get("TYER")
             .and_then(|frame| frame.content().text())
-            .and_then(|text| text.trim_left_matches('0').parse().ok())
+            .and_then(|text| text.trim_start_matches('0').parse().ok())
     }
 
     /// Sets the year (TYER).

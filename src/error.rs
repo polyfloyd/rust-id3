@@ -45,7 +45,7 @@ impl Error {
 
 impl error::Error for Error {
     fn description(&self) -> &str {
-        if let Some(cause) = self.cause() {
+        if let Some(cause) = self.source() {
             cause.description()
         } else {
             match self.kind {
