@@ -1,6 +1,7 @@
 use crate::frame::Content;
 use crate::frame::{
-    Comment, ExtendedLink, ExtendedText, Frame, Lyrics, Picture, PictureType, Timestamp,
+    Comment, ExtendedLink, ExtendedText, Frame, Lyrics, Picture, PictureType, SynchronisedLyrics,
+    Timestamp,
 };
 use crate::storage::{self, PlainStorage, Storage};
 use crate::stream;
@@ -111,9 +112,15 @@ impl<'a> Tag {
         self.frames().filter_map(|frame| frame.content().comment())
     }
 
-    /// Returns an iterator over the extended links in the tag.
+    /// Returns an iterator over the lyrics frames in the tag.
     pub fn lyrics(&'a self) -> impl Iterator<Item = &'a Lyrics> + 'a {
         self.frames().filter_map(|frame| frame.content().lyrics())
+    }
+
+    /// Returns an iterator over the synchronised lyrics frames in the tag.
+    pub fn synchronised_lyrics(&'a self) -> impl Iterator<Item = &'a SynchronisedLyrics> + 'a {
+        self.frames()
+            .filter_map(|frame| frame.content().synchronised_lyrics())
     }
 
     /// Returns an iterator over the pictures in the tag.
@@ -1116,6 +1123,57 @@ impl<'a> Tag {
     /// ```
     pub fn remove_all_lyrics(&mut self) {
         self.remove("USLT");
+    }
+
+    /// Adds a synchronised lyrics frame (SYLT).
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    /// use id3::frame::{SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat};
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.add_synchronised_lyrics(SynchronisedLyrics {
+    ///     lang: "eng".to_string(),
+    ///     timestamp_format: TimestampFormat::MS,
+    ///     content_type: SynchronisedLyricsType::Lyrics,
+    ///     content: vec![
+    ///         (1000, "he".to_string()),
+    ///         (1100, "llo".to_string()),
+    ///         (1200, "world".to_string()),
+    ///     ],
+    /// });
+    /// assert_eq!(1, tag.synchronised_lyrics().count());
+    /// ```
+    pub fn add_synchronised_lyrics(&mut self, lyrics: SynchronisedLyrics) {
+        let frame = Frame::with_content("SYLT", Content::SynchronisedLyrics(lyrics));
+        self.add_frame(frame);
+    }
+
+    /// Removes all synchronised lyrics (SYLT) frames from the tag.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    /// use id3::frame::{SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat};
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.add_synchronised_lyrics(SynchronisedLyrics {
+    ///     lang: "eng".to_string(),
+    ///     timestamp_format: TimestampFormat::MS,
+    ///     content_type: SynchronisedLyricsType::Lyrics,
+    ///     content: vec![
+    ///         (1000, "he".to_string()),
+    ///         (1100, "llo".to_string()),
+    ///         (1200, "world".to_string()),
+    ///     ],
+    /// });
+    /// assert_eq!(1, tag.synchronised_lyrics().count());
+    /// tag.remove_all_synchronised_lyrics();
+    /// assert_eq!(0, tag.synchronised_lyrics().count());
+    /// ```
+    pub fn remove_all_synchronised_lyrics(&mut self) {
+        self.remove("SYLT");
     }
 
     /// Will return true if the reader is a candidate for an ID3 tag. The reader position will be

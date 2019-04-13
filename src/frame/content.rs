@@ -15,6 +15,8 @@ pub enum Content {
     Comment(Comment),
     /// A value containing the parsed contents of a lyrics frame (USLT).
     Lyrics(Lyrics),
+    /// A value containing the parsed contents of a synchronised lyrics frame (SYLT).
+    SynchronisedLyrics(SynchronisedLyrics),
     /// A value containing the parsed contents of a picture frame (APIC).
     Picture(Picture),
     /// A value containing the bytes of a unknown frame.
@@ -31,7 +33,7 @@ impl Content {
     }
 
     /// Returns the `ExtendedText` or None if the value is not `ExtendedText`.
-    pub fn extended_text(&self) -> Option<&super::ExtendedText> {
+    pub fn extended_text(&self) -> Option<&ExtendedText> {
         match *self {
             Content::ExtendedText(ref content) => Some(content),
             _ => None,
@@ -47,7 +49,7 @@ impl Content {
     }
 
     /// Returns the `ExtendedLink` or None if the value is not `ExtendedLink`.
-    pub fn extended_link(&self) -> Option<&super::ExtendedLink> {
+    pub fn extended_link(&self) -> Option<&ExtendedLink> {
         match *self {
             Content::ExtendedLink(ref content) => Some(content),
             _ => None,
@@ -55,7 +57,7 @@ impl Content {
     }
 
     /// Returns the `Comment` or None if the value is not `Comment`.
-    pub fn comment(&self) -> Option<&super::Comment> {
+    pub fn comment(&self) -> Option<&Comment> {
         match *self {
             Content::Comment(ref content) => Some(content),
             _ => None,
@@ -63,15 +65,23 @@ impl Content {
     }
 
     /// Returns the `Lyrics` or None if the value is not `Lyrics`.
-    pub fn lyrics(&self) -> Option<&super::Lyrics> {
+    pub fn lyrics(&self) -> Option<&Lyrics> {
         match *self {
             Content::Lyrics(ref content) => Some(content),
             _ => None,
         }
     }
 
+    /// Returns the `SynchronisedLyrics` or None if the value is not `SynchronisedLyrics`.
+    pub fn synchronised_lyrics(&self) -> Option<&SynchronisedLyrics> {
+        match *self {
+            Content::SynchronisedLyrics(ref content) => Some(content),
+            _ => None,
+        }
+    }
+
     /// Returns the `Picture` or None if the value is not `Picture`.
-    pub fn picture(&self) -> Option<&super::Picture> {
+    pub fn picture(&self) -> Option<&Picture> {
         match *self {
             Content::Picture(ref picture) => Some(picture),
             _ => None,
@@ -169,6 +179,59 @@ impl Hash for Lyrics {
         self.lang.hash(state);
         self.description.hash(state);
     }
+}
+
+/// The parsed contents of an unsynchronized lyrics frame.
+#[derive(Clone, Debug, Eq)]
+#[allow(missing_docs)]
+pub struct SynchronisedLyrics {
+    pub lang: String,
+    pub timestamp_format: TimestampFormat,
+    pub content_type: SynchronisedLyricsType,
+    // The content of a synchronised lyrics consists of the text segments mapped to a timestamp as
+    // specified by the `timestamp_format` field.
+    pub content: Vec<(u32, String)>,
+}
+
+impl PartialEq for SynchronisedLyrics {
+    fn eq(&self, other: &Self) -> bool {
+        self.lang == other.lang && self.content_type == other.content_type
+    }
+}
+
+impl Hash for SynchronisedLyrics {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.lang.hash(state);
+        self.content_type.hash(state);
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[allow(missing_docs)]
+pub enum TimestampFormat {
+    // Absolute time, using MPEG frames as unit.
+    MPEG,
+    // Absolute time, using milliseconds as unit.
+    MS,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[allow(missing_docs)]
+pub enum SynchronisedLyricsType {
+    // Is other.
+    Other,
+    // Is lyrics.
+    Lyrics,
+    // Is text transcription.
+    Transcription,
+    // Is movement/part name (e.g. "Adagio").
+    PartName,
+    // Is events (e.g. "Don Quijote enters the stage").
+    Event,
+    // Is chord (e.g. "Bb F Fsus").
+    Chord,
+    // Is trivia/'pop up' information.
+    Trivia,
 }
 
 /// Types of pictures used in APIC frames.

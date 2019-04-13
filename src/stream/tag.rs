@@ -234,7 +234,10 @@ mod benchmarks {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::frame::{Content, Frame, Picture, PictureType};
+    use crate::frame::{
+        Content, Frame, Picture, PictureType, SynchronisedLyrics, SynchronisedLyricsType,
+        TimestampFormat,
+    };
     use std::fs;
     use std::io;
 
@@ -254,6 +257,16 @@ mod tests {
             picture_type: PictureType::CoverFront,
             description: "an image".to_string(),
             data: image_data,
+        });
+        tag.add_synchronised_lyrics(SynchronisedLyrics {
+            lang: "eng".to_string(),
+            timestamp_format: TimestampFormat::MS,
+            content_type: SynchronisedLyricsType::Lyrics,
+            content: vec![
+                (1000, "he".to_string()),
+                (1100, "llo".to_string()),
+                (1200, "world".to_string()),
+            ],
         });
         tag
     }
