@@ -1,4 +1,7 @@
-use crate::frame::{Content, ExtendedLink, Picture, PictureType};
+use crate::frame::{
+    Content, ExtendedLink, Picture, PictureType, SynchronisedLyrics, SynchronisedLyricsType,
+    TimestampFormat,
+};
 use crate::stream::encoding::Encoding;
 use crate::tag;
 use crate::util::{
@@ -34,6 +37,7 @@ pub fn encode(
         Content::Link(_) => weblink_to_bytes(request),
         Content::ExtendedLink(_) => extended_weblink_to_bytes(request),
         Content::Lyrics(_) => lyrics_to_bytes(request),
+        Content::SynchronisedLyrics(_) => synchronised_lyrics_to_bytes(request),
         Content::Comment(_) => comment_to_bytes(request),
         Content::Picture(_) => picture_to_bytes(request)?,
         Content::Unknown(data) => data.clone(),
@@ -53,6 +57,7 @@ pub fn decode(id: &str, mut reader: impl io::Read) -> crate::Result<Content> {
         "WXXX" | "WXX" => parse_wxxx(data.as_slice()),
         "COMM" | "COM" => parse_comm(data.as_slice()),
         "USLT" | "ULT" => parse_uslt(data.as_slice()),
+        "SYLT" | "SLT" => parse_sylt(data.as_slice()),
         id if id.starts_with('T') => parse_text(data.as_slice()),
         id if id.starts_with('W') => parse_weblink(data.as_slice()),
         _ => Ok(Content::Unknown(data)),
@@ -163,6 +168,87 @@ fn lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
         delim(0),
         string(content.text)
     )
+}
+
+fn synchronised_lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
+    let content = request.content.synchronised_lyrics().unwrap();
+    let encoding = match request.encoding {
+        Encoding::Latin1 => Encoding::Latin1,
+        _ => Encoding::UTF8,
+    };
+    let text_delim: &[u8] = match encoding {
+        Encoding::Latin1 => &[0],
+        Encoding::UTF8 => &[0, 0],
+        _ => unreachable!(),
+    };
+
+    let params = match encoding {
+        Encoding::Latin1 => EncodingParams {
+            delim_len: 1,
+            string_func: Box::new(|buf: &mut Vec<u8>, string: &str| {
+                buf.extend(string_to_latin1(string).into_iter())
+            }),
+        },
+        Encoding::UTF8 => EncodingParams {
+            // UTF-8
+            delim_len: 2,
+            string_func: Box::new(|buf: &mut Vec<u8>, string: &str| buf.extend(string.bytes())),
+        },
+        _ => unreachable!(),
+    };
+
+    let mut buf = Vec::new();
+    encode_part!(
+        buf,
+        params,
+        byte(match encoding {
+            Encoding::Latin1 => 0,
+            Encoding::UTF8 => 1,
+            _ => unreachable!(),
+        })
+    );
+    encode_part!(
+        buf,
+        params,
+        bytes(
+            content
+                .lang
+                .bytes()
+                .chain(iter::repeat(b' '))
+                .take(3)
+                .collect::<Vec<u8>>()
+        )
+    );
+    encode_part!(
+        buf,
+        params,
+        byte(match content.timestamp_format {
+            TimestampFormat::MPEG => 0,
+            TimestampFormat::MS => 1,
+        })
+    );
+    encode_part!(
+        buf,
+        params,
+        byte(match content.content_type {
+            SynchronisedLyricsType::Other => 0,
+            SynchronisedLyricsType::Lyrics => 1,
+            SynchronisedLyricsType::Transcription => 2,
+            SynchronisedLyricsType::PartName => 3,
+            SynchronisedLyricsType::Event => 4,
+            SynchronisedLyricsType::Chord => 5,
+            SynchronisedLyricsType::Trivia => 6,
+        })
+    );
+    for (timestamp, text) in &content.content {
+        encode_part!(buf, params, string(text));
+        encode_part!(buf, params, bytes(text_delim));
+        // NOTE: The ID3v2.3 spec is not clear on the encoding of the timestamp other
+        // than "32 bit sized".
+        encode_part!(buf, params, bytes(timestamp.to_be_bytes()));
+    }
+    buf.push(0); // delim.
+    buf
 }
 
 fn comment_to_bytes(request: EncoderRequest) -> Vec<u8> {
@@ -485,6 +571,72 @@ fn parse_wxxx(data: &[u8]) -> crate::Result<Content> {
 fn parse_uslt(data: &[u8]) -> crate::Result<Content> {
     return decode!(data, Lyrics, lang: fixed_string(3), description: string(true),
                    text: string(false));
+}
+
+fn parse_sylt(data: &[u8]) -> crate::Result<Content> {
+    let (encoding, text_delim) = match data[0] {
+        0 => (Encoding::Latin1, &[0][..]),
+        1 => (Encoding::UTF8, &[0, 0][..]),
+        _ => return Err(Error::new(ErrorKind::Parsing, "invalid SYLT encoding")),
+    };
+    let decode_str: &Fn(&[u8]) -> crate::Result<String> = match encoding {
+        Encoding::Latin1 => &string_from_latin1,
+        Encoding::UTF8 => &|d: &[u8]| Ok(String::from_utf8(d.to_vec())?),
+        _ => unreachable!(),
+    };
+    let next = &data[1..];
+
+    let (lang, next) = decode_part!(&next, params, fixed_string(3));
+    let timestamp_format = match next[0] {
+        0 => TimestampFormat::MPEG,
+        1 => TimestampFormat::MS,
+        _ => {
+            return Err(Error::new(
+                ErrorKind::Parsing,
+                "invalid SYLT timestamp format",
+            ))
+        }
+    };
+    let next = &next[1..];
+
+    let content_type = match next[0] {
+        0 => SynchronisedLyricsType::Other,
+        1 => SynchronisedLyricsType::Lyrics,
+        2 => SynchronisedLyricsType::Transcription,
+        3 => SynchronisedLyricsType::PartName,
+        4 => SynchronisedLyricsType::Event,
+        5 => SynchronisedLyricsType::Chord,
+        6 => SynchronisedLyricsType::Trivia,
+        _ => return Err(Error::new(ErrorKind::Parsing, "invalid SYLT content type")),
+    };
+    let mut next = &next[1..];
+
+    let mut content = Vec::new();
+    loop {
+        let ii = next.windows(text_delim.len()).position(|w| w == text_delim);
+        let i = match ii {
+            Some(i) => i,
+            None => break,
+        };
+
+        let text = decode_str(&next[..i])?;
+        let timestamp = u32::from_be_bytes({
+            let t = &next[i + text_delim.len()..i + text_delim.len() + 4];
+            let mut a = [0; 4];
+            a.copy_from_slice(t);
+            a
+        });
+        content.push((timestamp, text));
+
+        next = &next[i + text_delim.len() + 4..];
+    }
+
+    Ok(Content::SynchronisedLyrics(SynchronisedLyrics {
+        lang,
+        timestamp_format,
+        content_type,
+        content,
+    }))
 }
 
 #[cfg(test)]

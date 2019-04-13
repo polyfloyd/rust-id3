@@ -5,7 +5,8 @@ use std::hash::{Hash, Hasher};
 use std::str;
 
 pub use self::content::{
-    Comment, Content, ExtendedLink, ExtendedText, Lyrics, Picture, PictureType,
+    Comment, Content, ExtendedLink, ExtendedText, Lyrics, Picture, PictureType, SynchronisedLyrics,
+    SynchronisedLyricsType, TimestampFormat,
 };
 pub use self::timestamp::Timestamp;
 
@@ -136,6 +137,7 @@ impl fmt::Display for Frame {
         match self.content {
             Content::Text(ref content) | Content::Link(ref content) => write!(f, "{}", content),
             Content::Lyrics(ref content) => write!(f, "{}", content.text),
+            Content::SynchronisedLyrics(ref content) => write!(f, "{:?}", content.content_type),
             Content::ExtendedText(ref content) => {
                 write!(f, "{}: {}", content.description, content.value)
             }
