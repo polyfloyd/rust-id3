@@ -232,9 +232,7 @@ where
             let rwbuf_len = rwbuf.len();
             for i in 1.. {
                 let raw_from = old_file_end as i64 - i as i64 * rwbuf.len() as i64;
-                let raw_to = new_file_end
-                    .checked_sub(i * rwbuf.len() as u64)
-                    .unwrap_or(0);
+                let raw_to = new_file_end.saturating_sub(i * rwbuf.len() as u64);
                 let from = cmp::max(old_region_end as i64, raw_from) as u64;
                 let to = cmp::max(new_region_end, raw_to);
                 assert!(from < to);
@@ -267,9 +265,7 @@ where
                     let to = new_region_end + i * rwbuf.len() as u64;
                     assert!(from > to);
 
-                    let part = (to + rwbuf_len as u64)
-                        .checked_sub(new_file_end)
-                        .unwrap_or(0);
+                    let part = (to + rwbuf_len as u64).saturating_sub(new_file_end);
                     let rwbuf_part = &mut rwbuf[part as usize..];
                     self.storage.file.seek(io::SeekFrom::Start(from))?;
                     self.storage.file.read_exact(rwbuf_part)?;

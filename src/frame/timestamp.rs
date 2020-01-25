@@ -25,31 +25,6 @@ pub struct Timestamp {
     pub second: Option<u8>,
 }
 
-impl Timestamp {
-    /// Encodes the timestamp for storing in a frame.
-    pub fn to_string(&self) -> String {
-        use std::fmt::Write;
-        let mut out = String::with_capacity(19);
-        write!(out, "{:04}", self.year).unwrap();
-        if let Some(month) = self.month {
-            write!(out, "-{:02}", month).unwrap();
-            if let Some(day) = self.day {
-                write!(out, "-{:02}", day).unwrap();
-                if let Some(hour) = self.hour {
-                    write!(out, "T{:02}", hour).unwrap();
-                    if let Some(minute) = self.minute {
-                        write!(out, ":{:02}", minute).unwrap();
-                        if let Some(second) = self.second {
-                            write!(out, ":{:02}", second).unwrap();
-                        }
-                    }
-                }
-            }
-        }
-        out
-    }
-}
-
 impl Ord for Timestamp {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.year
@@ -59,6 +34,28 @@ impl Ord for Timestamp {
             .then(self.hour.cmp(&other.hour))
             .then(self.minute.cmp(&other.minute))
             .then(self.second.cmp(&other.second))
+    }
+}
+
+impl fmt::Display for Timestamp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:04}", self.year)?;
+        if let Some(month) = self.month {
+            write!(f, "-{:02}", month)?;
+            if let Some(day) = self.day {
+                write!(f, "-{:02}", day)?;
+                if let Some(hour) = self.hour {
+                    write!(f, "T{:02}", hour)?;
+                    if let Some(minute) = self.minute {
+                        write!(f, ":{:02}", minute)?;
+                        if let Some(second) = self.second {
+                            write!(f, ":{:02}", second)?;
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -126,7 +123,7 @@ impl error::Error for ParseError {
         "Timestamp parse error"
     }
 
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         None
     }
 }
