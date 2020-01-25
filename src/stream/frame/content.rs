@@ -66,7 +66,7 @@ pub fn decode(id: &str, mut reader: impl io::Read) -> crate::Result<Content> {
 
 struct EncodingParams<'a> {
     delim_len: u8,
-    string_func: Box<Fn(&mut Vec<u8>, &str) + 'a>,
+    string_func: Box<dyn Fn(&mut Vec<u8>, &str) + 'a>,
 }
 
 macro_rules! encode_part {
@@ -308,7 +308,7 @@ fn picture_to_bytes(request: EncoderRequest) -> crate::Result<Vec<u8>> {
 
 struct DecodingParams<'a> {
     encoding: Encoding,
-    string_func: Box<Fn(&[u8]) -> crate::Result<String> + 'a>,
+    string_func: Box<dyn Fn(&[u8]) -> crate::Result<String> + 'a>,
 }
 
 impl<'a> DecodingParams<'a> {
@@ -514,7 +514,6 @@ fn parse_apic_v2(data: &[u8]) -> crate::Result<Content> {
 
 /// Attempts to parse the data as an ID3v2.3/ID3v2.4 picture frame.
 /// Returns a `Content::Picture`.
-#[allow(clippy::cyclomatic_complexity)]
 fn parse_apic_v3(data: &[u8]) -> crate::Result<Content> {
     return decode!(data, Picture, mime_type: latin1(true), picture_type : picture_type(),
                    description: string(true), data: bytes());
@@ -579,7 +578,7 @@ fn parse_sylt(data: &[u8]) -> crate::Result<Content> {
         1 => (Encoding::UTF8, &[0, 0][..]),
         _ => return Err(Error::new(ErrorKind::Parsing, "invalid SYLT encoding")),
     };
-    let decode_str: &Fn(&[u8]) -> crate::Result<String> = match encoding {
+    let decode_str: &dyn Fn(&[u8]) -> crate::Result<String> = match encoding {
         Encoding::Latin1 => &string_from_latin1,
         Encoding::UTF8 => &|d: &[u8]| Ok(String::from_utf8(d.to_vec())?),
         _ => unreachable!(),
