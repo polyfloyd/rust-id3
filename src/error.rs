@@ -1,3 +1,4 @@
+use crate::tag::Tag;
 use std::error;
 use std::fmt;
 use std::io;
@@ -34,12 +35,26 @@ pub struct Error {
     pub kind: ErrorKind,
     /// A human readable string describing the error.
     pub description: &'static str,
+    /// If any, the part of the tag that was able to be decoded before the error occurred.
+    pub partial_tag: Option<Tag>,
 }
 
 impl Error {
     /// Creates a new `Error` using the error kind and description.
     pub fn new(kind: ErrorKind, description: &'static str) -> Error {
-        Error { kind, description }
+        Error {
+            kind,
+            description,
+            partial_tag: None,
+        }
+    }
+
+    /// Creates a new `Error` using the error kind and description.
+    pub(crate) fn with_tag(self, tag: Tag) -> Error {
+        Error {
+            partial_tag: Some(tag),
+            ..self
+        }
     }
 }
 
@@ -68,6 +83,7 @@ impl From<io::Error> for Error {
         Error {
             kind: ErrorKind::Io(err),
             description: "",
+            partial_tag: None,
         }
     }
 }
@@ -77,6 +93,7 @@ impl From<string::FromUtf8Error> for Error {
         Error {
             kind: ErrorKind::StringDecoding(err.into_bytes()),
             description: "data is not valid utf-8",
+            partial_tag: None,
         }
     }
 }
@@ -86,6 +103,7 @@ impl From<str::Utf8Error> for Error {
         Error {
             kind: ErrorKind::StringDecoding(vec![]),
             description: "data is not valid utf-8",
+            partial_tag: None,
         }
     }
 }

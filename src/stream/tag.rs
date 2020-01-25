@@ -81,43 +81,55 @@ pub fn decode(mut reader: impl io::Read) -> crate::Result<Tag> {
         }
     }
 
-    let mut tag = Tag::new();
-
     if version == Version::Id3v22 {
         //limit the reader only to the given tag_size, don't return any more bytes after that.
         let v2_reader = reader.take(tag_size as u64);
 
         if flags.contains(Flags::UNSYNCHRONISATION) {
             //unwrap all 'unsynchronized' bytes in the tag before parsing frames
-            decode_v2_frames(unsynch::Reader::new(v2_reader), &mut tag)?;
+            decode_v2_frames(unsynch::Reader::new(v2_reader))
         } else {
-            decode_v2_frames(v2_reader, &mut tag)?;
+            decode_v2_frames(v2_reader)
         }
     } else {
+        let mut tag = Tag::new();
         while offset < tag_size + tag_header.len() {
-            let (bytes_read, frame) = match frame::decode(
+            let rs = frame::decode(
                 &mut reader,
                 version,
                 flags.contains(Flags::UNSYNCHRONISATION),
-            )? {
+            );
+            let v = match rs {
+                Ok(v) => v,
+                Err(err) => return Err(err.with_tag(tag)),
+            };
+            let (bytes_read, frame) = match v {
                 Some(frame) => frame,
                 None => break, // Padding.
             };
             tag.add_frame(frame);
             offset += bytes_read;
         }
+        Ok(tag)
     }
-
-    Ok(tag)
 }
 
-pub fn decode_v2_frames(mut reader: impl io::Read, tag: &mut Tag) -> crate::Result<()> {
-    //add all frames, until either an error is thrown or there are no more frames to parse
-    //(because of EOF or a Padding)
-    while let Some((_bytes_read, frame)) = frame::v2::decode(&mut reader)? {
-        tag.add_frame(frame);
+pub fn decode_v2_frames(mut reader: impl io::Read) -> crate::Result<Tag> {
+    let mut tag = Tag::new();
+    // Add all frames, until either an error is thrown or there are no more frames to parse
+    // (because of EOF or a Padding).
+    loop {
+        let v = match frame::v2::decode(&mut reader) {
+            Ok(v) => v,
+            Err(err) => return Err(err.with_tag(tag)),
+        };
+        match v {
+            Some((_bytes_read, frame)) => {
+                tag.add_frame(frame);
+            }
+            None => break Ok(tag),
+        }
     }
-    Ok(())
 }
 
 /// The Encoder may be used to encode tags.
