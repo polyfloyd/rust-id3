@@ -1,0 +1,27 @@
+name: CI
+
+on: [push]
+
+jobs:
+
+  build:
+    strategy:
+      matrix:
+        toolchain: [stable, nightly]
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - run: rustup default ${{ matrix.toolchain }}
+    - run: rustup update
+    - run: cargo build
+    - run: cargo test
+
+  style:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - run: cargo fmt -- --check
+    - run: cargo clippy
