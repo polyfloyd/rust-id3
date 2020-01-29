@@ -1,8 +1,8 @@
-# rust-id3
-
-[![Build Status](https://travis-ci.org/jameshurst/rust-id3.svg)](https://travis-ci.org/jameshurst/rust-id3)
-[![](http://meritbadge.herokuapp.com/id3)](https://crates.io/crates/id3)
-[![Docs](https://docs.rs/id3/badge.svg)](https://docs.rs/id3)
+rust-id3
+========
+[![Build Status](https://github.com/polyfloyd/rust-id3/workflows/CI/badge.svg)](https://github.com/polyfloyd/rust-id3/actions)
+[![Crate](https://img.shields.io/crates/v/id3.svg)](https://crates.io/crates/id3)
+[![Documentation](https://docs.rs/id3/badge.svg)](https://docs.rs/id3/)
 
 A library for reading and writing ID3 metadata.
 
