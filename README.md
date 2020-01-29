@@ -30,8 +30,3 @@ fn main() {
 
   * Grouping identity
   * Encryption
-
-## Contributors
-
-  * [Olivier Renaud](https://bitbucket.org/olivren)
-    * Initial ID3v1 reading code
