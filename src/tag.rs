@@ -1208,10 +1208,8 @@ impl<'a> Tag {
 
     /// Attempts to write the ID3 tag to the writer using the specified version.
     pub fn write_to(&self, writer: impl io::Write, version: Version) -> crate::Result<()> {
-        stream::tag::EncoderBuilder::default()
+        stream::tag::Encoder::new()
             .version(version)
-            .build()
-            .unwrap()
             .encode(self, writer)
     }
 
