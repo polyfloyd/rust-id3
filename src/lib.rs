@@ -44,12 +44,9 @@
 
 #![warn(missing_docs)]
 
-#[macro_use]
-extern crate derive_builder;
-
 pub use crate::error::{Error, ErrorKind, Result};
 pub use crate::frame::{Content, Frame, Timestamp};
-pub use crate::stream::tag::{Encoder, EncoderBuilder};
+pub use crate::stream::tag::Encoder;
 pub use crate::tag::{Tag, Version};
 
 /// Contains types and methods for operating on ID3 frames.
