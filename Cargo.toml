@@ -19,7 +19,6 @@ unstable = []
 [dependencies]
 bitflags = "1"
 byteorder = "1"
-derive_builder = "0.7"
 encoding = "0.2"
 flate2 = "1"
 lazy_static = "1"

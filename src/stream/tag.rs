@@ -132,34 +132,64 @@ pub fn decode_v2_frames(mut reader: impl io::Read) -> crate::Result<Tag> {
     }
 }
 
-/// The Encoder may be used to encode tags.
-#[derive(Debug, Builder)]
-#[builder(pattern = "owned")]
+/// The `Encoder` may be used to encode tags.
+#[derive(Clone, Debug)]
 pub struct Encoder {
-    /// The tag version to encode to.
-    #[builder(default = "Version::Id3v24")]
     version: Version,
-    /// Enable the unsynchronisatin scheme. This avoids patterns that resemble MP3-frame headers
-    /// from being encoded. If you are encoding to MP3 files and wish to be compatible with very
-    /// old tools, you probably want this enabled.
-    ///
-    /// Unsynchronisation is disabled by default due to compatibility issues.
-    #[builder(default = "false")]
     unsynchronisation: bool,
-    /// Enable compression.
-    #[builder(default = "false")]
     compression: bool,
-    /// Informs the encoder that the file this tag belongs to has been changed.
+    file_altered: bool,
+}
+
+impl Encoder {
+    /// Constructs a new `Encoder` with the following configuration:
+    ///
+    /// * version is ID3v2.4
+    /// * unsynchronization is disabled due to compatibility issues
+    /// * no compression
+    /// * file is not marked as altered
+    pub fn new() -> Self {
+        Self {
+            version: Version::Id3v24,
+            unsynchronisation: false,
+            compression: false,
+            file_altered: false,
+        }
+    }
+
+    /// Sets the ID3 version.
+    pub fn version(mut self, version: Version) -> Self {
+        self.version = version;
+        self
+    }
+
+    /// Enables or disables the unsynchronisation scheme.
+    ///
+    /// This avoids patterns that resemble MP3-frame headers from being
+    /// encoded. If you are encoding to MP3 files and wish to be compatible
+    /// with very old tools, you probably want this enabled.
+    pub fn unsynchronisation(mut self, unsynchronisation: bool) -> Self {
+        self.unsynchronisation = unsynchronisation;
+        self
+    }
+
+    /// Enables or disables compression.
+    pub fn compression(mut self, compression: bool) -> Self {
+        self.compression = compression;
+        self
+    }
+
+    /// Informs the encoder whether the file this tag belongs to has been changed.
     ///
     /// This subsequently discards any tags that have their File Alter Preservation bits set and
     /// that have a relation to the file contents:
     ///
     ///   AENC, ETCO, EQUA, MLLT, POSS, SYLT, SYTC, RVAD, TENC, TLEN, TSIZ
-    #[builder(default = "false")]
-    file_altered: bool,
-}
+    pub fn file_altered(mut self, file_altered: bool) -> Self {
+        self.file_altered = file_altered;
+        self
+    }
 
-impl Encoder {
     /// Encodes the specified tag using the settings set in the encoder.
     ///
     /// Note that the plain tag is written, regardless of the original contents. To safely encode a
@@ -210,6 +240,12 @@ impl Encoder {
         self.encode(tag, &mut w)?;
         w.flush()?;
         Ok(())
+    }
+}
+
+impl Default for Encoder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -342,10 +378,8 @@ mod tests {
     fn write_id3v22() {
         let tag = make_tag();
         let mut buffer = Vec::new();
-        EncoderBuilder::default()
+        Encoder::new()
             .version(Version::Id3v22)
-            .build()
-            .unwrap()
             .encode(&tag, &mut buffer)
             .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
@@ -356,11 +390,9 @@ mod tests {
     fn write_id3v22_unsynch() {
         let tag = make_tag();
         let mut buffer = Vec::new();
-        EncoderBuilder::default()
+        Encoder::new()
             .unsynchronisation(true)
             .version(Version::Id3v22)
-            .build()
-            .unwrap()
             .encode(&tag, &mut buffer)
             .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
@@ -374,10 +406,8 @@ mod tests {
         tag.add_frame(Frame::with_content("YYY", Content::Unknown(vec![4, 5, 6])));
         tag.add_frame(Frame::with_content("ZZZ", Content::Unknown(vec![7, 8, 9])));
         let mut buffer = Vec::new();
-        EncoderBuilder::default()
+        Encoder::new()
             .version(Version::Id3v22)
-            .build()
-            .unwrap()
             .encode(&tag, &mut buffer)
             .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
@@ -388,10 +418,8 @@ mod tests {
     fn write_id3v23() {
         let tag = make_tag();
         let mut buffer = Vec::new();
-        EncoderBuilder::default()
+        Encoder::new()
             .version(Version::Id3v23)
-            .build()
-            .unwrap()
             .encode(&tag, &mut buffer)
             .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
@@ -402,11 +430,9 @@ mod tests {
     fn write_id3v23_compression() {
         let tag = make_tag();
         let mut buffer = Vec::new();
-        EncoderBuilder::default()
+        Encoder::new()
             .compression(true)
             .version(Version::Id3v23)
-            .build()
-            .unwrap()
             .encode(&tag, &mut buffer)
             .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
@@ -417,11 +443,9 @@ mod tests {
     fn write_id3v23_unsynch() {
         let tag = make_tag();
         let mut buffer = Vec::new();
-        EncoderBuilder::default()
+        Encoder::new()
             .unsynchronisation(true)
             .version(Version::Id3v23)
-            .build()
-            .unwrap()
             .encode(&tag, &mut buffer)
             .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
@@ -432,10 +456,8 @@ mod tests {
     fn write_id3v24() {
         let tag = make_tag();
         let mut buffer = Vec::new();
-        EncoderBuilder::default()
+        Encoder::new()
             .version(Version::Id3v24)
-            .build()
-            .unwrap()
             .encode(&tag, &mut buffer)
             .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
@@ -446,11 +468,9 @@ mod tests {
     fn write_id3v24_compression() {
         let tag = make_tag();
         let mut buffer = Vec::new();
-        EncoderBuilder::default()
+        Encoder::new()
             .compression(true)
             .version(Version::Id3v24)
-            .build()
-            .unwrap()
             .encode(&tag, &mut buffer)
             .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
@@ -461,11 +481,9 @@ mod tests {
     fn write_id3v24_unsynch() {
         let tag = make_tag();
         let mut buffer = Vec::new();
-        EncoderBuilder::default()
+        Encoder::new()
             .unsynchronisation(true)
             .version(Version::Id3v24)
-            .build()
-            .unwrap()
             .encode(&tag, &mut buffer)
             .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
@@ -478,11 +496,9 @@ mod tests {
         tag.set_duration(1337);
 
         let mut buffer = Vec::new();
-        EncoderBuilder::default()
+        Encoder::new()
             .version(Version::Id3v24)
             .file_altered(true)
-            .build()
-            .unwrap()
             .encode(&tag, &mut buffer)
             .unwrap();
 
