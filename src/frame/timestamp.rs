@@ -1,9 +1,8 @@
-use lazy_static::lazy_static;
-use regex::Regex;
 use std::cmp;
+use std::convert::TryFrom;
 use std::error;
 use std::fmt;
-use std::str;
+use std::str::FromStr;
 
 /// Represents a date and time according to the ID3v2.4 spec:
 ///
@@ -59,48 +58,91 @@ impl fmt::Display for Timestamp {
     }
 }
 
-impl str::FromStr for Timestamp {
-    type Err = ParseError;
-    fn from_str(source: &str) -> Result<Self, Self::Err> {
-        lazy_static! {
-            static ref REGEXP: Regex = Regex::new(
-                r"(?x)
-                ^
-                (?P<year>\d+)
-                (?:
-                    -(?P<month>\d{1,2})
-                    (?:
-                        -(?P<day>\d{1,2})
-                        (?:
-                            T(?P<hours>\d{1,2})
-                            (?:
-                                :(?P<minutes>\d{1,2})
-                                (?:
-                                    :(?P<seconds>\d{1,2})
-                                )?
-                            )?
-                        )?
-                    )?
-                )?
-                $
-            "
-            )
-            .unwrap();
+struct Parser<'a>(&'a str);
+
+impl Parser<'_> {
+    fn parse_timestamp(&mut self, source: &str) -> Result<Timestamp, ()> {
+        let mut parser = Parser(source);
+        let mut timestamp = Timestamp {
+            year: if let Ok(year) = parser.parse_year() {
+                year as i32
+            } else {
+                return Err(());
+            },
+            month: None,
+            day: None,
+            hour: None,
+            minute: None,
+            second: None,
+        };
+
+        fn parse(mut parser: Parser, timestamp: &mut Timestamp) -> Result<(), ()> {
+            parser.expect(b'-')?;
+            timestamp.month = parser.parse_other().map(Some)?;
+            parser.expect(b'-')?;
+            timestamp.day = parser.parse_other().map(Some)?;
+            parser.expect(b'T')?;
+            timestamp.hour = parser.parse_other().map(Some)?;
+            parser.expect(b':')?;
+            timestamp.minute = parser.parse_other().map(Some)?;
+            parser.expect(b':')?;
+            timestamp.second = parser.parse_other().ok();
+            Ok(())
+        };
+        let _ = parse(parser, &mut timestamp);
+
+        Ok(timestamp)
+    }
+
+    fn expect(&mut self, ch: u8) -> Result<(), ()> {
+        if self.0.starts_with(ch as char) {
+            self.0 = &self.0[1..];
+            Ok(())
+        } else {
+            Err(())
         }
-        REGEXP
-            .captures(source)
-            .ok_or(ParseError::Unmatched)
-            .map(|cap| Timestamp {
-                year: cap
-                    .name("year")
-                    .and_then(|v| v.as_str().parse().ok())
-                    .unwrap(),
-                month: cap.name("month").and_then(|v| v.as_str().parse().ok()),
-                day: cap.name("day").and_then(|v| v.as_str().parse().ok()),
-                hour: cap.name("hours").and_then(|v| v.as_str().parse().ok()),
-                minute: cap.name("minutes").and_then(|v| v.as_str().parse().ok()),
-                second: cap.name("seconds").and_then(|v| v.as_str().parse().ok()),
-            })
+    }
+
+    fn parse_year(&mut self) -> Result<i32, ()> {
+        self.parse_number()
+            .and_then(|n| i32::try_from(n).map_err(|_| ()))
+    }
+
+    fn parse_other(&mut self) -> Result<u8, ()> {
+        self.parse_number()
+            .and_then(|n| if n < 100 { Ok(n as u8) } else { Err(()) })
+    }
+
+    fn parse_number(&mut self) -> Result<u32, ()> {
+        let mut ok = false;
+        let mut r = 0u32;
+        while self.0.starts_with(|c| ('0'..='9').contains(&c)) {
+            ok = true;
+            r = if let Some(r) = r
+                .checked_mul(10)
+                .and_then(|r| r.checked_add(u32::from(self.0.as_bytes()[0] - b'0')))
+            {
+                r
+            } else {
+                return Err(());
+            };
+            self.0 = &self.0[1..];
+        }
+        if ok {
+            Ok(r)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl FromStr for Timestamp {
+    type Err = ParseError;
+
+    fn from_str(source: &str) -> Result<Self, Self::Err> {
+        Parser(source)
+            .parse_timestamp(source)
+            .map_err(|_| ParseError::Unmatched)
     }
 }
 
@@ -219,6 +261,17 @@ fn test_parse_timestamp() {
             second: Some(30)
         }
     );
+    assert_eq!(
+        "19890-1-2T9:7:2".parse::<Timestamp>().unwrap(),
+        Timestamp {
+            year: 19890,
+            month: Some(1),
+            day: Some(2),
+            hour: Some(9),
+            minute: Some(7),
+            second: Some(2)
+        }
+    );
 }
 
 #[test]
@@ -254,5 +307,9 @@ fn test_encode_timestamp() {
             .unwrap()
             .to_string(),
         "1989-12-27T09:15:30"
+    );
+    assert_eq!(
+        "19890-1-2T9:7:2".parse::<Timestamp>().unwrap().to_string(),
+        "19890-01-02T09:07:02"
     );
 }
