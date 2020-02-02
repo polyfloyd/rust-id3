@@ -22,7 +22,6 @@ byteorder = "1"
 encoding = "0.2"
 flate2 = "1"
 lazy_static = "1"
-regex = "1"
 
 [dev-dependencies]
 tempdir = "0.3"
