@@ -1321,10 +1321,11 @@ mod tests {
     use super::*;
     use std::fs;
     use std::io::Seek;
+    use tempfile::tempdir;
 
     #[test]
     fn remove_id3v2() {
-        let tmp = tempdir::TempDir::new("id3_v2").unwrap();
+        let tmp = tempdir().unwrap();
         let tmp_name = tmp.path().join("remove_id3v2_tag");
         {
             let mut tag_file = fs::File::create(&tmp_name).unwrap();
