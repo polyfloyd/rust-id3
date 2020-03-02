@@ -24,4 +24,4 @@ flate2 = "1"
 lazy_static = "1"
 
 [dev-dependencies]
-tempdir = "0.3"
+tempfile = "3"

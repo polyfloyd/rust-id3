@@ -371,6 +371,7 @@ mod benchmarks {
 mod tests {
     use super::*;
     use std::fs;
+    use tempfile::tempdir;
 
     #[test]
     fn read_id3v1() {
@@ -392,7 +393,7 @@ mod tests {
 
     #[test]
     fn remove_id3v1() {
-        let tmp = tempdir::TempDir::new("id3_v1").unwrap();
+        let tmp = tempdir().unwrap();
         let tmp_name = tmp.path().join("remove_id3v1_tag");
         {
             let mut tag_file = fs::File::create(&tmp_name).unwrap();
