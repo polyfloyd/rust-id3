@@ -3,6 +3,7 @@ use std::cmp;
 use std::fs;
 use std::io::{self, Read, Seek};
 use std::ops;
+use std::path::Path;
 
 /// Location of the ID3v1 tag chunk relative to the end of the file.
 static TAG_CHUNK: ops::Range<i64> = -128..0;
@@ -292,6 +293,12 @@ impl Tag {
             start_time,
             end_time,
         })
+    }
+
+    /// Attempts to read an ID3v1 tag from the file at the indicated path.
+    pub fn read_from_path(path: impl AsRef<Path>) -> crate::Result<Tag> {
+        let file = fs::File::open(path)?;
+        Tag::read_from(file)
     }
 
     /// Removes an ID3v1 tag plus possible extended data if any.
