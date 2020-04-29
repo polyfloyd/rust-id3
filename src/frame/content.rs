@@ -1,3 +1,4 @@
+use std::fmt;
 use std::hash::{Hash, Hasher};
 
 /// The decoded contents of a frame.
@@ -97,6 +98,22 @@ impl Content {
     }
 }
 
+impl fmt::Display for Content {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Content::Text(s) => write!(f, "{}", s),
+            Content::Link(s) => write!(f, "{}", s),
+            Content::ExtendedText(ext_text) => write!(f, "{}", ext_text),
+            Content::ExtendedLink(ext_link) => write!(f, "{}", ext_link),
+            Content::Comment(comment) => write!(f, "{}", comment),
+            Content::Lyrics(lyrics) => write!(f, "{}", lyrics),
+            Content::SynchronisedLyrics(sync_lyrics) => write!(f, "{}", sync_lyrics.content_type),
+            Content::Picture(picture) => write!(f, "{}", picture),
+            Content::Unknown(data) => write!(f, "Unknown, {} bytes", data.len()),
+        }
+    }
+}
+
 /// The parsed contents of an extended text frame.
 #[derive(Clone, Debug, Eq)]
 #[allow(missing_docs)]
@@ -117,6 +134,16 @@ impl Hash for ExtendedText {
     }
 }
 
+impl fmt::Display for ExtendedText {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.description.is_empty() {
+            f.write_str(&self.value)
+        } else {
+            write!(f, "{}: {}", self.description, self.value)
+        }
+    }
+}
+
 /// The parsed contents of an extended link frame.
 #[derive(Clone, Debug, Eq)]
 #[allow(missing_docs)]
@@ -134,6 +161,16 @@ impl PartialEq for ExtendedLink {
 impl Hash for ExtendedLink {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.description.hash(state);
+    }
+}
+
+impl fmt::Display for ExtendedLink {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.description.is_empty() {
+            f.write_str(&self.link)
+        } else {
+            write!(f, "{}: {}", self.description, self.link)
+        }
     }
 }
 
@@ -159,6 +196,16 @@ impl Hash for Comment {
     }
 }
 
+impl fmt::Display for Comment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.description.is_empty() {
+            f.write_str(&self.text)
+        } else {
+            write!(f, "{}: {}", self.description, self.text)
+        }
+    }
+}
+
 /// The parsed contents of an unsynchronized lyrics frame.
 #[derive(Clone, Debug, Eq)]
 #[allow(missing_docs)]
@@ -181,6 +228,16 @@ impl Hash for Lyrics {
     }
 }
 
+impl fmt::Display for Lyrics {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.description.is_empty() {
+            f.write_str(&self.text)
+        } else {
+            write!(f, "{}: {}", self.description, self.text)
+        }
+    }
+}
+
 /// The parsed contents of an unsynchronized lyrics frame.
 #[derive(Clone, Debug, Eq)]
 #[allow(missing_docs)]
@@ -191,6 +248,43 @@ pub struct SynchronisedLyrics {
     // The content of a synchronised lyrics consists of the text segments mapped to a timestamp as
     // specified by the `timestamp_format` field.
     pub content: Vec<(u32, String)>,
+}
+
+const MILLISECONDS_PER_HOUR: u32 = 3600000;
+const MILLISECONDS_PER_MINUTE: u32 = 60000;
+const MILLISECONDS_PER_SECOND: u32 = 1000;
+
+impl SynchronisedLyrics {
+    pub fn format_table(&self) -> String {
+        match self.timestamp_format {
+            TimestampFormat::MPEG => {
+                let mut s = format!("Frame\t{}\n", self.content_type);
+
+                for (frame, lyric) in self.content.iter() {
+                    s.push_str(&format!("{}\t{}\n", frame, lyric));
+                }
+
+                s
+            }
+            TimestampFormat::MS => {
+                let mut s = format!("Timecode\t{}\n", self.content_type);
+
+                for (total_ms, lyric) in self.content.iter() {
+                    let hours = total_ms / MILLISECONDS_PER_HOUR;
+                    let mins = (total_ms % MILLISECONDS_PER_HOUR) / MILLISECONDS_PER_MINUTE;
+                    let secs = (total_ms % MILLISECONDS_PER_MINUTE) / MILLISECONDS_PER_SECOND;
+                    let ms = total_ms % MILLISECONDS_PER_SECOND;
+
+                    s.push_str(&format!(
+                        "{:02}:{:02}:{:02}.{:03}\t{}\n",
+                        hours, mins, secs, ms, lyric
+                    ));
+                }
+
+                s
+            }
+        }
+    }
 }
 
 impl PartialEq for SynchronisedLyrics {
@@ -215,6 +309,15 @@ pub enum TimestampFormat {
     MS,
 }
 
+impl fmt::Display for TimestampFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TimestampFormat::MPEG => f.write_str("MPEG frames"),
+            TimestampFormat::MS => f.write_str("Milliseconds"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(missing_docs)]
 pub enum SynchronisedLyricsType {
@@ -232,6 +335,20 @@ pub enum SynchronisedLyricsType {
     Chord,
     // Is trivia/'pop up' information.
     Trivia,
+}
+
+impl fmt::Display for SynchronisedLyricsType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SynchronisedLyricsType::Other => f.write_str("Other"),
+            SynchronisedLyricsType::Lyrics => f.write_str("Lyrics"),
+            SynchronisedLyricsType::Transcription => f.write_str("Transcription"),
+            SynchronisedLyricsType::PartName => f.write_str("Part name"),
+            SynchronisedLyricsType::Event => f.write_str("Event"),
+            SynchronisedLyricsType::Chord => f.write_str("Chord"),
+            SynchronisedLyricsType::Trivia => f.write_str("Trivia"),
+        }
+    }
 }
 
 /// Types of pictures used in APIC frames.
@@ -291,6 +408,35 @@ impl From<PictureType> for u8 {
     }
 }
 
+impl fmt::Display for PictureType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PictureType::Other => f.write_str("Other"),
+            PictureType::Icon => f.write_str("Icon"),
+            PictureType::OtherIcon => f.write_str("Other icon"),
+            PictureType::CoverFront => f.write_str("Front cover"),
+            PictureType::CoverBack => f.write_str("Back cover"),
+            PictureType::Leaflet => f.write_str("Leaflet"),
+            PictureType::Media => f.write_str("Media"),
+            PictureType::LeadArtist => f.write_str("Lead artist"),
+            PictureType::Artist => f.write_str("Artist"),
+            PictureType::Conductor => f.write_str("Conductor"),
+            PictureType::Band => f.write_str("Band"),
+            PictureType::Composer => f.write_str("Composer"),
+            PictureType::Lyricist => f.write_str("Lyricist"),
+            PictureType::RecordingLocation => f.write_str("Recording location"),
+            PictureType::DuringRecording => f.write_str("During recording"),
+            PictureType::DuringPerformance => f.write_str("During performance"),
+            PictureType::ScreenCapture => f.write_str("Screen capture"),
+            PictureType::BrightFish => f.write_str("Bright fish"),
+            PictureType::Illustration => f.write_str("Illustration"),
+            PictureType::BandLogo => f.write_str("Band logo"),
+            PictureType::PublisherLogo => f.write_str("Publisher logo"),
+            PictureType::Undefined(b) => write!(f, "Undefined type {}", b),
+        }
+    }
+}
+
 /// A structure representing an ID3 picture frame's contents.
 #[derive(Clone, Eq, Debug)]
 pub struct Picture {
@@ -313,5 +459,143 @@ impl PartialEq for Picture {
 impl Hash for Picture {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.picture_type.hash(state);
+    }
+}
+
+impl fmt::Display for Picture {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.description.is_empty() {
+            write!(f, "{} ({})", self.picture_type, self.mime_type)
+        } else {
+            write!(
+                f,
+                "{}: {} ({}, {} bytes)",
+                self.description,
+                self.picture_type,
+                self.mime_type,
+                self.data.len()
+            )
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn content_text_display() {
+        let text = Content::Text(String::from("text value"));
+        assert_eq!(format!("{}", text), "text value");
+    }
+
+    #[test]
+    fn content_extended_text_display() {
+        let ext_text = Content::ExtendedText(ExtendedText {
+            description: String::from("description value"),
+            value: String::from("value value"),
+        });
+        assert_eq!(format!("{}", ext_text), "description value: value value");
+    }
+
+    #[test]
+    fn content_link_display() {
+        let link = Content::Link(String::from("link value"));
+        assert_eq!(format!("{}", link), "link value");
+    }
+
+    #[test]
+    fn content_extended_link_display() {
+        let ext_link = Content::ExtendedLink(ExtendedLink {
+            description: String::from("description value"),
+            link: String::from("link value"),
+        });
+        assert_eq!(format!("{}", ext_link), "description value: link value");
+    }
+
+    #[test]
+    fn content_comment_display() {
+        let comment = Content::Comment(Comment {
+            lang: String::from("lang value"),
+            description: String::from("description value"),
+            text: String::from("text value"),
+        });
+        assert_eq!(format!("{}", comment), "description value: text value");
+    }
+
+    #[test]
+    fn content_lyrics_display() {
+        let lyrics = Content::Lyrics(Lyrics {
+            lang: String::from("lang value"),
+            description: String::from("description value"),
+            text: String::from("text value"),
+        });
+        assert_eq!(format!("{}", lyrics), "description value: text value");
+    }
+
+    #[test]
+    fn content_synchronised_lyrics_display() {
+        let sync_lyrics = Content::SynchronisedLyrics(SynchronisedLyrics {
+            lang: String::from("lang value"),
+            timestamp_format: TimestampFormat::MPEG,
+            content_type: SynchronisedLyricsType::Lyrics,
+            content: vec![
+                (1, String::from("first line")),
+                (2, String::from("second line")),
+            ],
+        });
+        assert_eq!(format!("{}", sync_lyrics), "Lyrics");
+    }
+
+    #[test]
+    fn content_picture_display() {
+        let picture = Content::Picture(Picture {
+            mime_type: String::from("MIME type"),
+            picture_type: PictureType::Artist,
+            description: String::from("description value"),
+            data: vec![1, 2, 3],
+        });
+        assert_eq!(
+            format!("{}", picture),
+            "description value: Artist (MIME type, 3 bytes)"
+        );
+    }
+
+    #[test]
+    fn content_unknown_display() {
+        let unknown = Content::Unknown(vec![1, 2, 3]);
+        assert_eq!(format!("{}", unknown), "Unknown, 3 bytes");
+    }
+
+    #[test]
+    fn synchronised_lyrics_format_table() {
+        let sync_lyrics_mpeg_lyrics = SynchronisedLyrics {
+            lang: String::from("lang value"),
+            timestamp_format: TimestampFormat::MPEG,
+            content_type: SynchronisedLyricsType::Lyrics,
+            content: vec![
+                (1, String::from("first line")),
+                (2, String::from("second line")),
+            ],
+        };
+        assert_eq!(
+            sync_lyrics_mpeg_lyrics.format_table(),
+            "Frame\tLyrics\n1\tfirst line\n2\tsecond line\n"
+        );
+
+        let sync_lyrics_ms_chord = SynchronisedLyrics {
+            lang: String::from("lang value"),
+            timestamp_format: TimestampFormat::MS,
+            content_type: SynchronisedLyricsType::Chord,
+            content: vec![
+                (1000, String::from("A")),
+                (2000, String::from("B")),
+                (12345678, String::from("C")),
+            ],
+        };
+        assert_eq!(
+            sync_lyrics_ms_chord.format_table(),
+            "Timecode\tChord\n00:00:01.000\tA\n00:00:02.000\tB\n03:25:45.678\tC\n"
+        );
     }
 }
