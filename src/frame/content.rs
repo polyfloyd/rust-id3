@@ -1,5 +1,6 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::io;
 
 /// The decoded contents of a frame.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -255,19 +256,31 @@ const MILLISECONDS_PER_MINUTE: u32 = 60000;
 const MILLISECONDS_PER_SECOND: u32 = 1000;
 
 impl SynchronisedLyrics {
-    pub fn format_table(&self) -> String {
+    /// Write the lyrics to the provided `writer` as a plain text table.
+    ///
+    /// A typical table might look like:
+    ///
+    /// ```text
+    /// Timecode        Lyrics
+    /// 00:00:12.123    Song line one
+    /// 00:00:22.456    Song line two
+    /// …
+    ///```
+    ///
+    /// # Errors
+    ///
+    /// This function will return any I/O error reported while formatting.
+    pub fn fmt_table(&self, writer: &mut impl io::Write) -> io::Result<()> {
         match self.timestamp_format {
             TimestampFormat::MPEG => {
-                let mut s = format!("Frame\t{}\n", self.content_type);
+                write!(writer, "Frame\t{}\n", self.content_type)?;
 
                 for (frame, lyric) in self.content.iter() {
-                    s.push_str(&format!("{}\t{}\n", frame, lyric));
+                    write!(writer, "{}\t{}\n", frame, lyric)?;
                 }
-
-                s
             }
             TimestampFormat::MS => {
-                let mut s = format!("Timecode\t{}\n", self.content_type);
+                write!(writer, "Timecode\t{}\n", self.content_type)?;
 
                 for (total_ms, lyric) in self.content.iter() {
                     let hours = total_ms / MILLISECONDS_PER_HOUR;
@@ -275,15 +288,16 @@ impl SynchronisedLyrics {
                     let secs = (total_ms % MILLISECONDS_PER_MINUTE) / MILLISECONDS_PER_SECOND;
                     let ms = total_ms % MILLISECONDS_PER_SECOND;
 
-                    s.push_str(&format!(
+                    write!(
+                        writer,
                         "{:02}:{:02}:{:02}.{:03}\t{}\n",
                         hours, mins, secs, ms, lyric
-                    ));
+                    )?;
                 }
-
-                s
             }
         }
+
+        Ok(())
     }
 }
 
@@ -578,8 +592,10 @@ mod tests {
                 (2, String::from("second line")),
             ],
         };
+        let mut buffer: Vec<u8> = Vec::new();
+        assert!(sync_lyrics_mpeg_lyrics.fmt_table(&mut buffer).is_ok());
         assert_eq!(
-            sync_lyrics_mpeg_lyrics.format_table(),
+            std::str::from_utf8(&buffer).unwrap(),
             "Frame\tLyrics\n1\tfirst line\n2\tsecond line\n"
         );
 
@@ -593,8 +609,10 @@ mod tests {
                 (12345678, String::from("C")),
             ],
         };
+        let mut buffer: Vec<u8> = Vec::new();
+        assert!(sync_lyrics_ms_chord.fmt_table(&mut buffer).is_ok());
         assert_eq!(
-            sync_lyrics_ms_chord.format_table(),
+            std::str::from_utf8(&buffer).unwrap(),
             "Timecode\tChord\n00:00:01.000\tA\n00:00:02.000\tB\n03:25:45.678\tC\n"
         );
     }
