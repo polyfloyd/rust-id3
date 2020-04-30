@@ -306,7 +306,7 @@ impl Frame {
             "WPB" => "Publishers official webpage",
             "WXX" => "User defined URL link frame",
 
-            _ => self.id(),
+            v => v,
         }
     }
 }
