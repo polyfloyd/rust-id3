@@ -270,7 +270,7 @@ impl SynchronisedLyrics {
     /// # Errors
     ///
     /// This function will return any I/O error reported while formatting.
-    pub fn fmt_table(&self, writer: &mut impl io::Write) -> io::Result<()> {
+    pub fn fmt_table(&self, mut writer: impl io::Write) -> io::Result<()> {
         match self.timestamp_format {
             TimestampFormat::MPEG => {
                 write!(writer, "Frame\t{}\n", self.content_type)?;
