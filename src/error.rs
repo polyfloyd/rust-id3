@@ -60,6 +60,7 @@ impl Error {
 
 impl error::Error for Error {
     fn description(&self) -> &str {
+        #![allow(deprecated)]
         if let Some(cause) = self.source() {
             cause.description()
         } else {
@@ -109,21 +110,17 @@ impl From<str::Utf8Error> for Error {
 }
 
 impl fmt::Debug for Error {
-    fn fmt(&self, out: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.description != "" {
-            write!(out, "{:?}: {}", self.kind, error::Error::description(self))
+            write!(f, "{:?}: {}", self.kind, self.description)
         } else {
-            write!(out, "{}", error::Error::description(self))
+            write!(f, "{:?}", self.kind)
         }
     }
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, out: &mut fmt::Formatter) -> fmt::Result {
-        if self.description != "" {
-            write!(out, "{:?}: {}", self.kind, error::Error::description(self))
-        } else {
-            write!(out, "{}", error::Error::description(self))
-        }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
