@@ -2,38 +2,63 @@
 
 //! A library to read and write ID3v2 tags. ID3 versions v2.2, v2.3, and v2.4 are supported.
 //!
-//! # Modifying an existing tag
+//! # Reading tag frames
+//!
+//! ```
+//! use id3::{Tag, Version};
+//!
+//! fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     let tag = Tag::read_from_path("testdata/id3v24.id3")?;
+//!
+//!     // Get a bunch of frames...
+//!     if let Some(artist) = tag.artist() {
+//!         println!("artist: {}", artist);
+//!     }
+//!     if let Some(title) = tag.title() {
+//!         println!("title: {}", title);
+//!     }
+//!     if let Some(album) = tag.album() {
+//!         println!("album: {}", album);
+//!     }
+//!
+//!     // Get frames before getting their content for more complex tags.
+//!     if let Some(artist) = tag.get("TPE1").and_then(|frame| frame.content().text()) {
+//!         println!("artist: {}", artist);
+//!     }
+//!     Ok(())
+//! }
+//! ```
+//!
+//! # Modifying an existing tag.
 //!
 //! ```no_run
 //! use id3::{Tag, Version};
 //!
-//! let mut tag = Tag::read_from_path("music.mp3").unwrap();
+//! fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     let mut tag = Tag::read_from_path("music.mp3")?;
+//!     tag.set_album("Fancy Album Title");
 //!
-//! // print the artist the hard way
-//! println!("{}", tag.get("TPE1").unwrap().content().text().unwrap());
-//!
-//! // or print it the easy way
-//! println!("{}", tag.artist().unwrap());
-//!
-//! tag.write_to_path("music.mp3", Version::Id3v24).unwrap();
+//!     tag.write_to_path("music.mp3", Version::Id3v24)?;
+//!     Ok(())
+//! }
 //! ```
 //!
-//! # Creating a new tag
+//! # Creating a new tag, overwriting any old tag.
 //!
 //! ```no_run
 //! use id3::{Tag, Frame, Version};
 //! use id3::frame::Content;
 //!
-//! let mut tag = Tag::new();
+//! fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     let mut tag = Tag::new();
+//!     tag.set_album("Fancy Album Title");
 //!
-//! // set the album the hard way
-//! let frame = Frame::with_content("TALB", Content::Text("album".to_string()));
-//! tag.add_frame(frame);
+//!     // Set the album the hard way.
+//!     tag.add_frame(Frame::with_content("TALB", Content::Text("album".to_string())));
 //!
-//! // or set it the easy way
-//! tag.set_album("album");
-//!
-//! tag.write_to_path("music.mp3", Version::Id3v24).unwrap();
+//!     tag.write_to_path("music.mp3", Version::Id3v24)?;
+//!     Ok(())
+//! }
 //! ```
 //!
 //! # Resources
