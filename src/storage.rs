@@ -513,9 +513,37 @@ mod tests {
     }
 
     #[test]
-    fn test_locate_id3v2() {
+    fn test_locate_id3v22() {
+        let file = fs::File::open("testdata/id3v22.id3").unwrap();
+        let location = locate_id3v2(file).unwrap();
+        assert_eq!(Some(0..0x0000c3ea), location);
+    }
+
+    #[test]
+    fn test_locate_id3v23() {
+        let file = fs::File::open("testdata/id3v23.id3").unwrap();
+        let location = locate_id3v2(file).unwrap();
+        assert_eq!(Some(0..0x00006c0a), location);
+    }
+
+    #[test]
+    fn test_locate_id3v24() {
         let file = fs::File::open("testdata/id3v24.id3").unwrap();
         let location = locate_id3v2(file).unwrap();
-        assert!(location.is_some());
+        assert_eq!(Some(0..0x00006c0a), location);
+    }
+
+    #[test]
+    fn test_locate_id3v24_ext() {
+        let file = fs::File::open("testdata/id3v24_ext.id3").unwrap();
+        let location = locate_id3v2(file).unwrap();
+        assert_eq!(Some(0..0x0000018d), location);
+    }
+
+    #[test]
+    fn test_locate_no_tag() {
+        let file = fs::File::open("testdata/mpeg-header").unwrap();
+        let location = locate_id3v2(file).unwrap();
+        assert_eq!(None, location);
     }
 }
