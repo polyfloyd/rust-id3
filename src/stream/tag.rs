@@ -218,15 +218,18 @@ impl Encoder {
         for frame in saved_frames {
             frame::encode(&mut frame_data, frame, self.version, self.unsynchronisation)?;
         }
-        //in v2, Unsynchronization is applied to the whole tag data at once, not for each frame separately
+        // In ID3v2, Unsynchronization is applied to the whole tag data at once, not for each frame
+        // separately.
         if self.version == Version::Id3v22 && self.unsynchronisation {
             unsynch::encode_vec(&mut frame_data)
         }
+        let tag_size = 10 + frame_data.len() + 1;
         writer.write_all(b"ID3")?;
         writer.write_all(&[self.version.minor() as u8, 0])?;
         writer.write_u8(flags.bits())?;
-        writer.write_u32::<BigEndian>(unsynch::encode_u32(frame_data.len() as u32))?;
+        writer.write_u32::<BigEndian>(unsynch::encode_u32(tag_size as u32))?;
         writer.write_all(&frame_data[..])?;
+        writer.write_u8(0)?;
         Ok(())
     }
 
