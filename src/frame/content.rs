@@ -273,14 +273,14 @@ impl SynchronisedLyrics {
     pub fn fmt_table(&self, mut writer: impl io::Write) -> io::Result<()> {
         match self.timestamp_format {
             TimestampFormat::MPEG => {
-                write!(writer, "Frame\t{}\n", self.content_type)?;
+                writeln!(writer, "Frame\t{}", self.content_type)?;
 
                 for (frame, lyric) in self.content.iter() {
-                    write!(writer, "{}\t{}\n", frame, lyric)?;
+                    writeln!(writer, "{}\t{}", frame, lyric)?;
                 }
             }
             TimestampFormat::MS => {
-                write!(writer, "Timecode\t{}\n", self.content_type)?;
+                writeln!(writer, "Timecode\t{}", self.content_type)?;
 
                 for (total_ms, lyric) in self.content.iter() {
                     let hours = total_ms / MILLISECONDS_PER_HOUR;
@@ -288,9 +288,9 @@ impl SynchronisedLyrics {
                     let secs = (total_ms % MILLISECONDS_PER_MINUTE) / MILLISECONDS_PER_SECOND;
                     let ms = total_ms % MILLISECONDS_PER_SECOND;
 
-                    write!(
+                    writeln!(
                         writer,
-                        "{:02}:{:02}:{:02}.{:03}\t{}\n",
+                        "{:02}:{:02}:{:02}.{:03}\t{}",
                         hours, mins, secs, ms, lyric
                     )?;
                 }

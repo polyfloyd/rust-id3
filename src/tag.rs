@@ -1218,6 +1218,7 @@ impl<'a> Tag {
     /// possible.
     pub fn write_to_path(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
         let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
+        #[allow(clippy::reversed_empty_ranges)]
         let location = storage::locate_id3v2(&mut file)?.unwrap_or(0..0); // Create a new tag if none could be located.
 
         let mut storage = PlainStorage::new(file, location);
