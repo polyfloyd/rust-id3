@@ -453,7 +453,7 @@ macro_rules! decode_part {
         (ty, &$bytes[1..])
     }};
     ($bytes:expr, $params:ident, bytes()) => {{
-        ($bytes.to_vec(), &$bytes[0..0])
+        ($bytes.to_vec(), &[0u8; 0])
     }};
 }
 
