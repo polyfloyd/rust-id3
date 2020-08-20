@@ -121,6 +121,25 @@ impl fmt::Debug for Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        match self.description.is_empty() {
+            true => write!(f, "{}", self.kind),
+            false => write!(f, "{}: {}", self.kind, self.description),
+        }
+    }
+}
+
+impl fmt::Display for ErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ErrorKind::Io(io_error) => write!(f, "IO: {}", io_error),
+            ErrorKind::StringDecoding(_) => write!(f, "StringDecoding"),
+            ErrorKind::NoTag => write!(f, "NoTag"),
+            ErrorKind::UnsupportedVersion(major, minor) => {
+                write!(f, "UnsupportedVersion: {}.{}", major, minor)
+            }
+            ErrorKind::Parsing => write!(f, "Parsing"),
+            ErrorKind::InvalidInput => write!(f, "InvalidInput"),
+            ErrorKind::UnsupportedFeature => write!(f, "UnsupportedFeature"),
+        }
     }
 }
