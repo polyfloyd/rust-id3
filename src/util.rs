@@ -70,11 +70,11 @@ pub fn string_to_latin1(text: &str) -> Vec<u8> {
 pub fn string_to_utf16(text: &str) -> Vec<u8> {
     let mut out = Vec::with_capacity(2 + text.len() * 2);
     if cfg!(target_endian = "little") {
-        out.extend([0xFF, 0xFE].iter().cloned()); // add little endian BOM
-        out.extend(string_to_utf16le(text).into_iter());
+        out.extend(&[0xFF, 0xFE]); // add little endian BOM
+        out.extend(string_to_utf16le(text));
     } else {
-        out.extend([0xFE, 0xFF].iter().cloned()); // add big endian BOM
-        out.extend(string_to_utf16be(text).into_iter());
+        out.extend(&[0xFE, 0xFF]); // add big endian BOM
+        out.extend(string_to_utf16be(text));
     }
     out
 }
@@ -223,12 +223,12 @@ lazy_static! {
 
 /// Returns the coresponding ID3v2.3/ID3v2.4 ID given the ID3v2.2 ID.
 pub fn convert_id_2_to_3(id: &str) -> Option<&'static str> {
-    ID_2_TO_3.get(id).cloned()
+    ID_2_TO_3.get(id).copied()
 }
 
 /// Returns the coresponding ID3v2.2 ID given the ID3v2.3/ID3v2.3 ID.
 pub fn convert_id_3_to_2(id: &str) -> Option<&'static str> {
-    ID_3_TO_2.get(id).cloned()
+    ID_3_TO_2.get(id).copied()
 }
 
 #[cfg(test)]
