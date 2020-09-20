@@ -1,10 +1,8 @@
 use crate::stream::encoding::Encoding;
 use crate::{Error, ErrorKind};
-use encoding::all::{UTF_16BE, UTF_16LE};
-use encoding::Encoding as StrEncoding;
-use encoding::{DecoderTrap, EncoderTrap};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
+use std::convert::TryInto;
 
 /// Returns a string created from the vector using Latin1 encoding, removing any trailing null
 /// bytes.
@@ -40,25 +38,33 @@ pub fn string_from_utf16(data: &[u8]) -> crate::Result<String> {
 /// Returns a string created from the vector using UTF-16LE encoding.
 /// Returns `None` if the vector is not a valid UTF-16LE string.
 pub fn string_from_utf16le(data: &[u8]) -> crate::Result<String> {
-    match UTF_16LE.decode(data, DecoderTrap::Strict) {
-        Ok(string) => Ok(string),
-        Err(_) => Err(Error::new(
+    let mut data2 = Vec::with_capacity(data.len() / 2);
+    for chunk in data.chunks_exact(2) {
+        let bytes = chunk.try_into().unwrap();
+        data2.push(u16::from_le_bytes(bytes));
+    }
+    String::from_utf16(&data2).map_err(|_| {
+        Error::new(
             ErrorKind::StringDecoding(data.to_vec()),
             "data is not valid utf16-le",
-        )),
-    }
+        )
+    })
 }
 
 /// Returns a string created from the vector using UTF-16BE encoding.
 /// Returns `None` if the vector is not a valid UTF-16BE string.
 pub fn string_from_utf16be(data: &[u8]) -> crate::Result<String> {
-    match UTF_16BE.decode(data, DecoderTrap::Strict) {
-        Ok(string) => Ok(string),
-        Err(_) => Err(Error::new(
-            ErrorKind::StringDecoding(data.to_vec()),
-            "data is not valid utf16-be",
-        )),
+    let mut data2 = Vec::with_capacity(data.len() / 2);
+    for chunk in data.chunks_exact(2) {
+        let bytes = chunk.try_into().unwrap();
+        data2.push(u16::from_be_bytes(bytes));
     }
+    String::from_utf16(&data2).map_err(|_| {
+        Error::new(
+            ErrorKind::StringDecoding(data.to_vec()),
+            "data is not valid utf16-le",
+        )
+    })
 }
 
 /// Returns a Latin1 vector representation of the string.
@@ -81,12 +87,26 @@ pub fn string_to_utf16(text: &str) -> Vec<u8> {
 
 /// Returns a UTF-16BE vector representation of the string.
 pub fn string_to_utf16be(text: &str) -> Vec<u8> {
-    UTF_16BE.encode(text, EncoderTrap::Replace).unwrap()
+    let encoder = text.encode_utf16();
+    let size_hint = encoder.size_hint();
+
+    let mut out = Vec::with_capacity(size_hint.1.unwrap_or(size_hint.0) * 2);
+    for encoded_char in encoder {
+        out.extend_from_slice(&encoded_char.to_be_bytes());
+    }
+    out
 }
 
 /// Returns a UTF-16LE vector representation of the string.
 pub fn string_to_utf16le(text: &str) -> Vec<u8> {
-    UTF_16LE.encode(text, EncoderTrap::Replace).unwrap()
+    let encoder = text.encode_utf16();
+    let size_hint = encoder.size_hint();
+
+    let mut out = Vec::with_capacity(size_hint.1.unwrap_or(size_hint.0) * 2);
+    for encoded_char in encoder {
+        out.extend_from_slice(&encoded_char.to_le_bytes());
+    }
+    out
 }
 
 /// Returns the index of the first delimiter for the specified encoding.
