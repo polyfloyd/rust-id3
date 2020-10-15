@@ -1,7 +1,5 @@
 use crate::stream::encoding::Encoding;
 use crate::{Error, ErrorKind};
-use lazy_static::lazy_static;
-use std::collections::HashMap;
 use std::convert::TryInto;
 
 /// Returns a string created from the vector using Latin1 encoding, removing any trailing null
@@ -155,100 +153,115 @@ pub fn delim_len(encoding: Encoding) -> usize {
     }
 }
 
-lazy_static! {
-    static ref ID_2_TO_3: HashMap<&'static str, &'static str> = {
-        let mut m = HashMap::new();
-        m.insert("BUF", "RBUF");
+macro_rules! convert_2_to_3_and_back {
+    ( $( $id2:expr, $id3:expr ),* ) => {
+        fn convert_id_2_to_3_(id: &str) -> Option<&'static str> {
+            match id {
+                $(
+                    $id2 => Some($id3),
+                )*
+                _ => None,
+            }
+        }
 
-        m.insert("CNT", "PCNT");
-        m.insert("COM", "COMM");
-        m.insert("CRA", "AENC");
-        // "CRM" does not exist in ID3v2.3
-
-        m.insert("ETC", "ETCO");
-        m.insert("EQU", "EQUA");
-
-        m.insert("GEO", "GEOB");
-
-        m.insert("IPL", "IPLS");
-
-        m.insert("LNK", "LINK");
-
-        m.insert("MCI", "MCDI");
-        m.insert("MLL", "MLLT");
-
-        m.insert("PIC", "APIC");
-        m.insert("POP", "POPM");
-
-        m.insert("REV", "RVRB");
-        m.insert("RVA", "RVA2");
-
-        m.insert("SLT", "SYLT");
-        m.insert("STC", "SYTC");
-
-        m.insert("TAL", "TALB");
-        m.insert("TBP", "TBPM");
-        m.insert("TCM", "TCOM");
-        m.insert("TCO", "TCON");
-        m.insert("TCR", "TCOP");
-        m.insert("TDA", "TDAT");
-        m.insert("TDY", "TDLY");
-        m.insert("TEN", "TENC");
-        m.insert("TFT", "TFLT");
-        m.insert("TIM", "TIME");
-        m.insert("TKE", "TKEY");
-        m.insert("TLA", "TLAN");
-        m.insert("TLE", "TLEN");
-        m.insert("TMT", "TMED");
-        m.insert("TOA", "TOPE");
-        m.insert("TOF", "TOFN");
-        m.insert("TOL", "TOLY");
-        m.insert("TOT", "TOAL");
-        m.insert("TOR", "TORY");
-        m.insert("TP1", "TPE1");
-        m.insert("TP2", "TPE2");
-        m.insert("TP3", "TPE3");
-        m.insert("TP4", "TPE4");
-        m.insert("TPA", "TPOS");
-        m.insert("TPB", "TPUB");
-        m.insert("TRC", "TSRC");
-        m.insert("TRD", "TRDA");
-        m.insert("TRK", "TRCK");
-        m.insert("TSI", "TSIZ");
-        m.insert("TSS", "TSSE");
-        m.insert("TT1", "TIT1");
-        m.insert("TT2", "TIT2");
-        m.insert("TT3", "TIT3");
-        m.insert("TXT", "TEXT");
-        m.insert("TXX", "TXXX");
-        m.insert("TYE", "TYER");
-
-        m.insert("UFI", "UFID");
-        m.insert("ULT", "USLT");
-
-        m.insert("WAF", "WOAF");
-        m.insert("WAR", "WOAR");
-        m.insert("WAS", "WOAS");
-        m.insert("WCM", "WCOM");
-        m.insert("WCP", "WCOP");
-        m.insert("WPB", "WPUB");
-        m.insert("WXX", "WXXX");
-        m
-    };
-
-    static ref ID_3_TO_2: HashMap<&'static str, &'static str> = ID_2_TO_3.iter()
-        .map(|(k, v)| (*v, *k))
-        .collect();
+        fn convert_id_3_to_2_(id: &str) -> Option<&'static str> {
+            match id {
+                $(
+                    $id3 => Some($id2),
+                )*
+                _ => None,
+            }
+        }
+    }
 }
+
+#[rustfmt::skip]
+convert_2_to_3_and_back!(
+    "BUF", "RBUF",
+
+    "CNT", "PCNT",
+    "COM", "COMM",
+    "CRA", "AENC",
+    // "CRM" does not exist in ID3v2.3
+
+    "ETC", "ETCO",
+    "EQU", "EQUA",
+
+    "GEO", "GEOB",
+
+    "IPL", "IPLS",
+
+    "LNK", "LINK",
+
+    "MCI", "MCDI",
+    "MLL", "MLLT",
+
+    "PIC", "APIC",
+    "POP", "POPM",
+
+    "REV", "RVRB",
+    "RVA", "RVA2",
+
+    "SLT", "SYLT",
+    "STC", "SYTC",
+
+    "TAL", "TALB",
+    "TBP", "TBPM",
+    "TCM", "TCOM",
+    "TCO", "TCON",
+    "TCR", "TCOP",
+    "TDA", "TDAT",
+    "TDY", "TDLY",
+    "TEN", "TENC",
+    "TFT", "TFLT",
+    "TIM", "TIME",
+    "TKE", "TKEY",
+    "TLA", "TLAN",
+    "TLE", "TLEN",
+    "TMT", "TMED",
+    "TOA", "TOPE",
+    "TOF", "TOFN",
+    "TOL", "TOLY",
+    "TOT", "TOAL",
+    "TOR", "TORY",
+    "TP1", "TPE1",
+    "TP2", "TPE2",
+    "TP3", "TPE3",
+    "TP4", "TPE4",
+    "TPA", "TPOS",
+    "TPB", "TPUB",
+    "TRC", "TSRC",
+    "TRD", "TRDA",
+    "TRK", "TRCK",
+    "TSI", "TSIZ",
+    "TSS", "TSSE",
+    "TT1", "TIT1",
+    "TT2", "TIT2",
+    "TT3", "TIT3",
+    "TXT", "TEXT",
+    "TXX", "TXXX",
+    "TYE", "TYER",
+
+    "UFI", "UFID",
+    "ULT", "USLT",
+
+    "WAF", "WOAF",
+    "WAR", "WOAR",
+    "WAS", "WOAS",
+    "WCM", "WCOM",
+    "WCP", "WCOP",
+    "WPB", "WPUB",
+    "WXX", "WXXX"
+);
 
 /// Returns the coresponding ID3v2.3/ID3v2.4 ID given the ID3v2.2 ID.
 pub fn convert_id_2_to_3(id: &str) -> Option<&'static str> {
-    ID_2_TO_3.get(id).copied()
+    convert_id_2_to_3_(id)
 }
 
 /// Returns the coresponding ID3v2.2 ID given the ID3v2.3/ID3v2.3 ID.
 pub fn convert_id_3_to_2(id: &str) -> Option<&'static str> {
-    ID_3_TO_2.get(id).copied()
+    convert_id_3_to_2_(id)
 }
 
 #[cfg(test)]
