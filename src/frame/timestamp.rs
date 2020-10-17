@@ -13,7 +13,7 @@ use std::str::FromStr;
 /// removing as many time indicators as wanted. Hence valid timestamps
 /// are yyyy, yyyy-MM, yyyy-MM-dd, yyyy-MM-ddTHH, yyyy-MM-ddTHH:mm and
 /// yyyy-MM-ddTHH:mm:ss. All time stamps are UTC.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(missing_docs)]
 pub struct Timestamp {
     pub year: i32,
@@ -33,6 +33,12 @@ impl Ord for Timestamp {
             .then(self.hour.cmp(&other.hour))
             .then(self.minute.cmp(&other.minute))
             .then(self.second.cmp(&other.second))
+    }
+}
+
+impl PartialOrd for Timestamp {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
