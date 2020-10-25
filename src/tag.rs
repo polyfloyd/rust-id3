@@ -368,6 +368,35 @@ impl<'a> Tag {
         });
     }
 
+    /// Removes all pictures.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    /// use id3::frame::{Picture, PictureType};
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.add_picture(Picture {
+    ///     mime_type: "image/jpeg".to_string(),
+    ///     picture_type: PictureType::Other,
+    ///     description: "some image".to_string(),
+    ///     data: vec![],
+    /// });
+    /// tag.add_picture(Picture {
+    ///     mime_type: "image/png".to_string(),
+    ///     picture_type: PictureType::CoverFront,
+    ///     description: "some other image".to_string(),
+    ///     data: vec![],
+    /// });
+    ///
+    /// assert_eq!(tag.pictures().count(), 2);
+    /// tag.remove_all_pictures();
+    /// assert_eq!(tag.pictures().count(), 0);
+    /// ```
+    pub fn remove_all_pictures(&mut self) {
+        self.frames.retain(|frame| frame.id() != "APIC");
+    }
+
     /// Adds a comment (COMM).
     ///
     /// # Example
