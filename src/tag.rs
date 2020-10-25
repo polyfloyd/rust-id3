@@ -520,6 +520,23 @@ impl<'a> Tag {
         self.set_text("TYER", format!("{:04}", year));
     }
 
+    /// Removes the year (TYER).
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_year(2014);
+    /// assert!(tag.year().is_some());
+    ///
+    /// tag.remove_year();
+    /// assert!(tag.year().is_none());
+    /// ```
+    pub fn remove_year(&mut self) {
+        self.remove("TYER");
+    }
+
     /// Return the content of the TRDC frame, if any
     ///
     /// # Example
@@ -551,6 +568,24 @@ impl<'a> Tag {
         self.set_text("TDRC", time_string);
     }
 
+    /// Remove the content of the TDRC frame
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    /// use id3::Timestamp;
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_date_recorded(Timestamp{ year: 2014, month: None, day: None, hour: None, minute: None, second: None });
+    /// assert!(tag.date_recorded().is_some());
+    ///
+    /// tag.remove_date_recorded();
+    /// assert!(tag.date_recorded().is_none());
+    /// ```
+    pub fn remove_date_recorded(&mut self) {
+        self.remove("TDRC");
+    }
+
     /// Return the content of the TDRL frame, if any
     ///
     /// # Example
@@ -580,6 +615,24 @@ impl<'a> Tag {
     pub fn set_date_released(&mut self, timestamp: Timestamp) {
         let time_string = timestamp.to_string();
         self.set_text("TDRL", time_string);
+    }
+
+    /// Remove the content of the TDRL frame
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    /// use id3::Timestamp;
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_date_released(Timestamp{ year: 2014, month: None, day: None, hour: None, minute: None, second: None });
+    /// assert!(tag.date_released().is_some());
+    ///
+    /// tag.remove_date_released();
+    /// assert!(tag.date_released().is_none());
+    /// ```
+    pub fn remove_date_released(&mut self) {
+        self.remove("TDRL");
     }
 
     /// Returns the artist (TPE1).
