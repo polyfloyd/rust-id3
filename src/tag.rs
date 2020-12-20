@@ -1363,7 +1363,7 @@ impl<'a> Tag {
 
     /// Reads AIFF file and returns ID3 Tag from it
     pub fn read_from_aiff(path: impl AsRef<Path>) -> crate::Result<Tag> {
-        match aiff::load_aiff_id3(path.as_ref().to_str().unwrap()) {
+        match aiff::load_aiff_id3(path) {
             Ok(t) => {
                 match t {
                     Some(tag) => Ok(tag),
@@ -1376,7 +1376,7 @@ impl<'a> Tag {
 
     /// Overwrite AIFF file ID3 chunk
     pub fn write_to_aiff(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
-        match aiff::overwrite_aiff_id3(path.as_ref().to_str().unwrap(), &self, version) {
+        match aiff::overwrite_aiff_id3(path, &self, version) {
             Ok(_) => Ok(()),
             Err(_) => Err(Error::new(ErrorKind::Parsing, "Failed writting to AIFF file!"))
         }
@@ -1460,7 +1460,7 @@ mod tests {
         // Rest is contents of testdata/id3v24.id3
 
         //Copy
-        std::fs::copy("testdata/aiff.aiff", "testdata/tmp.aiff").ok();
+        std::fs::copy("testdata/aiff.aiff", "testdata/tmp.aiff").unwrap();
 
         //Read
         let mut tag = Tag::read_from_aiff("testdata/tmp.aiff").unwrap();
@@ -1480,6 +1480,6 @@ mod tests {
         assert_eq!(tag.album(), Some("NewAlbum"));
 
         //Delete temp file
-        std::fs::remove_file("testdata/tmp.aiff").ok();
+        std::fs::remove_file("testdata/tmp.aiff").unwrap();
     }
 }
