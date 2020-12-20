@@ -6,6 +6,8 @@ use crate::frame::{
 use crate::storage::{self, PlainStorage, Storage};
 use crate::stream;
 use crate::v1;
+use crate::{Error, ErrorKind};
+use crate::aiff;
 use std::fs::{self, File};
 use std::io::{self, BufReader, Write};
 use std::iter::Iterator;
@@ -1358,6 +1360,27 @@ impl<'a> Tag {
                 }
             })
     }
+
+    /// Reads AIFF file and returns ID3 Tag from it
+    pub fn read_from_aiff(path: impl AsRef<Path>) -> crate::Result<Tag> {
+        match aiff::load_aiff_id3(path.as_ref().to_str().unwrap()) {
+            Ok(t) => {
+                match t {
+                    Some(tag) => Ok(tag),
+                    None => Err(Error::new(ErrorKind::NoTag, "Missing ID3 tag!"))
+                }
+            },
+            Err(_) => Err(Error::new(ErrorKind::Parsing, "Failed loading AIFF file!"))
+        }
+    }
+
+    /// Overwrite AIFF file ID3 chunk
+    pub fn write_to_aiff(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
+        match aiff::overwrite_aiff_id3(path.as_ref().to_str().unwrap(), &self, version) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(Error::new(ErrorKind::Parsing, "Failed writting to AIFF file!"))
+        }
+    }
 }
 
 impl PartialEq for Tag {
@@ -1424,5 +1447,39 @@ mod tests {
         assert!(Tag::remove_from(&mut tag_file).unwrap());
         tag_file.seek(io::SeekFrom::Start(0)).unwrap();
         assert!(!Tag::remove_from(&mut tag_file).unwrap());
+    }
+
+    #[test]
+    fn aiff() {
+        // Sample AIFF file (testdata/aiff.aiff):
+        // FORM Chunk: 46 4f 52 4d
+        // Size (should be entire file size - 8): 00 00 70 2a
+        // Form type (AIFF): 41 49 46 46
+        // ID3 Chunk (ID3 + 0x20): 49 44 33 20
+        // Size of ID3 chunk (should be same as testdata/id3v24.id3): 00 00 70 1e
+        // Rest is contents of testdata/id3v24.id3
+
+        //Copy
+        std::fs::copy("testdata/aiff.aiff", "testdata/tmp.aiff").ok();
+
+        //Read
+        let mut tag = Tag::read_from_aiff("testdata/tmp.aiff").unwrap();
+        assert_eq!(tag.title(), Some("Title"));
+        assert_eq!(tag.album(), Some("Album"));
+
+        //Edit
+        tag.set_title("NewTitle");
+        tag.set_album("NewAlbum");
+
+        //Write
+        tag.write_to_aiff("testdata/tmp.aiff", Version::Id3v24).unwrap();
+
+        //Check written data
+        tag = Tag::read_from_aiff("testdata/tmp.aiff").unwrap();
+        assert_eq!(tag.title(), Some("NewTitle"));
+        assert_eq!(tag.album(), Some("NewAlbum"));
+
+        //Delete temp file
+        std::fs::remove_file("testdata/tmp.aiff").ok();
     }
 }
