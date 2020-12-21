@@ -3,9 +3,10 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::path::Path;
+use crate::{Error, ErrorKind};
 use crate::{Tag, Version};
 
-pub fn load_aiff_id3(path: impl AsRef<Path>) -> Result<Option<Tag>, Box<dyn std::error::Error>> {
+pub fn load_aiff_id3(path: impl AsRef<Path>) -> crate::Result<Tag> {
     let mut file = File::open(path)?;
     loop {
         // Read chunk ID
@@ -27,17 +28,17 @@ pub fn load_aiff_id3(path: impl AsRef<Path>) -> Result<Option<Tag>, Box<dyn std:
         }
 
         if &chunk_id[0..3] == b"ID3" {
-            return Ok(Some(Tag::read_from(file.take(chunk_size as u64))?));
+            return Ok(Tag::read_from(file.take(chunk_size as u64))?);
         }
 
         file.seek(SeekFrom::Current(chunk_size as i64))?;
     }
 
-    Ok(None)
+    Err(Error::new(ErrorKind::NoTag, "No tag chunk found!"))
 }
 
 // Wrapper to delete temp file
-pub fn overwrite_aiff_id3(path: impl AsRef<Path>, tag: &Tag, version: Version) -> Result<(), Box<dyn std::error::Error>> {
+pub fn overwrite_aiff_id3(path: impl AsRef<Path>, tag: &Tag, version: Version) -> crate::Result<()> {
     let res = overwrite_aiff_id3_raw(&path, tag, version);
     if res.is_err() {
         let new_path = format!("{}.ID3TMP", path.as_ref().to_str().unwrap());
@@ -49,7 +50,7 @@ pub fn overwrite_aiff_id3(path: impl AsRef<Path>, tag: &Tag, version: Version) -
     Ok(())
 }
 
-fn overwrite_aiff_id3_raw(path: impl AsRef<Path>, tag: &Tag, version: Version) -> Result<(), Box<dyn std::error::Error>> {
+fn overwrite_aiff_id3_raw(path: impl AsRef<Path>, tag: &Tag, version: Version) -> crate::Result<()> {
     let mut in_file = File::open(&path)?;
     let new_path = format!("{}.ID3TMP", &path.as_ref().to_str().unwrap());
     let mut out_file = File::create(&new_path)?;

@@ -6,7 +6,6 @@ use crate::frame::{
 use crate::storage::{self, PlainStorage, Storage};
 use crate::stream;
 use crate::v1;
-use crate::{Error, ErrorKind};
 use crate::aiff;
 use std::fs::{self, File};
 use std::io::{self, BufReader, Write};
@@ -1363,23 +1362,12 @@ impl<'a> Tag {
 
     /// Reads AIFF file and returns ID3 Tag from it
     pub fn read_from_aiff(path: impl AsRef<Path>) -> crate::Result<Tag> {
-        match aiff::load_aiff_id3(path) {
-            Ok(t) => {
-                match t {
-                    Some(tag) => Ok(tag),
-                    None => Err(Error::new(ErrorKind::NoTag, "Missing ID3 tag!"))
-                }
-            },
-            Err(_) => Err(Error::new(ErrorKind::Parsing, "Failed loading AIFF file!"))
-        }
+        aiff::load_aiff_id3(path)
     }
 
     /// Overwrite AIFF file ID3 chunk
     pub fn write_to_aiff(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
-        match aiff::overwrite_aiff_id3(path, &self, version) {
-            Ok(_) => Ok(()),
-            Err(_) => Err(Error::new(ErrorKind::Parsing, "Failed writting to AIFF file!"))
-        }
+        aiff::overwrite_aiff_id3(path, &self, version)
     }
 }
 
@@ -1450,7 +1438,7 @@ mod tests {
     }
 
     #[test]
-    fn aiff() {
+    fn aiff_read_and_write() {
         // Sample AIFF file (testdata/aiff.aiff):
         // FORM Chunk: 46 4f 52 4d
         // Size (should be entire file size - 8): 00 00 70 2a
