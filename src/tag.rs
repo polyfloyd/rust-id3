@@ -1,3 +1,4 @@
+use crate::aiff;
 use crate::frame::Content;
 use crate::frame::{
     Comment, ExtendedLink, ExtendedText, Frame, Lyrics, Picture, PictureType, SynchronisedLyrics,
@@ -6,7 +7,6 @@ use crate::frame::{
 use crate::storage::{self, PlainStorage, Storage};
 use crate::stream;
 use crate::v1;
-use crate::aiff;
 use std::fs::{self, File};
 use std::io::{self, BufReader, Write};
 use std::iter::Iterator;
@@ -1460,7 +1460,8 @@ mod tests {
         tag.set_album("NewAlbum");
 
         //Write
-        tag.write_to_aiff("testdata/tmp.aiff", Version::Id3v24).unwrap();
+        tag.write_to_aiff("testdata/tmp.aiff", Version::Id3v24)
+            .unwrap();
 
         //Check written data
         tag = Tag::read_from_aiff("testdata/tmp.aiff").unwrap();

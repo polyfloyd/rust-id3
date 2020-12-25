@@ -1,10 +1,10 @@
+use crate::{Error, ErrorKind};
+use crate::{Tag, Version};
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::{SeekFrom, BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, SeekFrom};
 use std::path::Path;
-use crate::{Error, ErrorKind};
-use crate::{Tag, Version};
 
 pub fn load_aiff_id3(path: impl AsRef<Path>) -> crate::Result<Tag> {
     let file = File::open(path)?;
@@ -39,7 +39,11 @@ pub fn load_aiff_id3(path: impl AsRef<Path>) -> crate::Result<Tag> {
 }
 
 // Wrapper to delete temp file
-pub fn overwrite_aiff_id3(path: impl AsRef<Path>, tag: &Tag, version: Version) -> crate::Result<()> {
+pub fn overwrite_aiff_id3(
+    path: impl AsRef<Path>,
+    tag: &Tag,
+    version: Version,
+) -> crate::Result<()> {
     let res = overwrite_aiff_id3_raw(&path, tag, version);
     if res.is_err() {
         let new_path = path.as_ref().with_extension("ID3TMP");
@@ -51,7 +55,11 @@ pub fn overwrite_aiff_id3(path: impl AsRef<Path>, tag: &Tag, version: Version) -
     Ok(())
 }
 
-fn overwrite_aiff_id3_raw(path: impl AsRef<Path>, tag: &Tag, version: Version) -> crate::Result<()> {
+fn overwrite_aiff_id3_raw(
+    path: impl AsRef<Path>,
+    tag: &Tag,
+    version: Version,
+) -> crate::Result<()> {
     let new_path = path.as_ref().with_extension("ID3TMP");
     let mut in_reader = BufReader::new(File::open(&path)?);
     let mut out_writer = BufWriter::new(File::create(&new_path)?);
@@ -105,7 +113,7 @@ fn overwrite_aiff_id3_raw(path: impl AsRef<Path>, tag: &Tag, version: Version) -
         out_writer.write_all(&chunk_size_raw)?;
         out_writer.write_all(&buffer)?;
     }
-    
+
     fs::remove_file(&path)?;
     fs::rename(&new_path, &path)?;
 
