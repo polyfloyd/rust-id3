@@ -1,37 +1,38 @@
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::SeekFrom;
+use std::io::{SeekFrom, BufReader, BufWriter};
 use std::path::Path;
 use crate::{Error, ErrorKind};
 use crate::{Tag, Version};
 
 pub fn load_aiff_id3(path: impl AsRef<Path>) -> crate::Result<Tag> {
-    let mut file = File::open(path)?;
+    let file = File::open(path)?;
+    let mut reader = BufReader::new(file);
     loop {
         // Read chunk ID
         let mut chunk_id: [u8; 4] = [0; 4];
         // EOF
-        if file.read(&mut chunk_id)? == 0 {
+        if reader.read(&mut chunk_id)? == 0 {
             break;
         }
 
         // Read chunk size
         let mut chunk_size_raw: [u8; 4] = [0; 4];
-        file.read(&mut chunk_size_raw)?;
+        reader.read_exact(&mut chunk_size_raw)?;
         let chunk_size = u32::from_be_bytes(chunk_size_raw);
 
         // Skip FORM chunk type, get its chunks
         if &chunk_id == b"FORM" {
-            file.seek(SeekFrom::Current(4))?;
+            reader.seek(SeekFrom::Current(4))?;
             continue;
         }
 
         if &chunk_id[0..3] == b"ID3" {
-            return Ok(Tag::read_from(file.take(chunk_size as u64))?);
+            return Ok(Tag::read_from(reader.take(chunk_size as u64))?);
         }
 
-        file.seek(SeekFrom::Current(chunk_size as i64))?;
+        reader.seek(SeekFrom::Current(chunk_size as i64))?;
     }
 
     Err(Error::new(ErrorKind::NoTag, "No tag chunk found!"))
@@ -51,30 +52,30 @@ pub fn overwrite_aiff_id3(path: impl AsRef<Path>, tag: &Tag, version: Version) -
 }
 
 fn overwrite_aiff_id3_raw(path: impl AsRef<Path>, tag: &Tag, version: Version) -> crate::Result<()> {
-    let mut in_file = File::open(&path)?;
     let new_path = path.as_ref().with_extension("ID3TMP");
-    let mut out_file = File::create(&new_path)?;
+    let mut in_reader = BufReader::new(File::open(&path)?);
+    let mut out_writer = BufWriter::new(File::create(&new_path)?);
 
     loop {
         // Read chunk ID
         let mut chunk_id: [u8; 4] = [0; 4];
         // EOF
-        if in_file.read(&mut chunk_id)? < 4 {
+        if in_reader.read(&mut chunk_id)? < 4 {
             break;
         }
-        out_file.write_all(&chunk_id)?;
+        out_writer.write_all(&chunk_id)?;
 
         // Skip FORM chunk size & type
         if &chunk_id == b"FORM" {
             let mut buffer: [u8; 8] = [0; 8];
-            in_file.read(&mut buffer)?;
-            out_file.write_all(&buffer)?;
+            in_reader.read_exact(&mut buffer)?;
+            out_writer.write_all(&buffer)?;
             continue;
         }
 
         // Read chunk size
         let mut chunk_size_raw: [u8; 4] = [0; 4];
-        if in_file.read(&mut chunk_size_raw)? < 4 {
+        if in_reader.read(&mut chunk_size_raw)? < 4 {
             break;
         }
         let chunk_size = u32::from_be_bytes(chunk_size_raw);
@@ -91,18 +92,18 @@ fn overwrite_aiff_id3_raw(path: impl AsRef<Path>, tag: &Tag, version: Version) -
             // ID3 Data
             buffer.extend(id3_buffer);
             // Write
-            out_file.write_all(&buffer)?;
+            out_writer.write_all(&buffer)?;
 
             // Seek main file
-            in_file.seek(SeekFrom::Current(chunk_size as i64))?;
+            in_reader.seek(SeekFrom::Current(chunk_size as i64))?;
             continue;
         }
 
         // Pass thru
         let mut buffer = vec![0; chunk_size as usize];
-        in_file.read(&mut buffer)?;
-        out_file.write_all(&chunk_size_raw)?;
-        out_file.write_all(&buffer)?;
+        in_reader.read_exact(&mut buffer)?;
+        out_writer.write_all(&chunk_size_raw)?;
+        out_writer.write_all(&buffer)?;
     }
     
     fs::remove_file(&path)?;
