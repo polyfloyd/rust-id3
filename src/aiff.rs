@@ -41,7 +41,7 @@ pub fn load_aiff_id3(path: impl AsRef<Path>) -> crate::Result<Tag> {
 pub fn overwrite_aiff_id3(path: impl AsRef<Path>, tag: &Tag, version: Version) -> crate::Result<()> {
     let res = overwrite_aiff_id3_raw(&path, tag, version);
     if res.is_err() {
-        let new_path = format!("{}.ID3TMP", path.as_ref().to_str().unwrap());
+        let new_path = path.as_ref().with_extension("ID3TMP");
         // Ignore error as the file might be missing / not important.
         fs::remove_file(new_path).ok();
         return res;
@@ -52,7 +52,7 @@ pub fn overwrite_aiff_id3(path: impl AsRef<Path>, tag: &Tag, version: Version) -
 
 fn overwrite_aiff_id3_raw(path: impl AsRef<Path>, tag: &Tag, version: Version) -> crate::Result<()> {
     let mut in_file = File::open(&path)?;
-    let new_path = format!("{}.ID3TMP", &path.as_ref().to_str().unwrap());
+    let new_path = path.as_ref().with_extension("ID3TMP");
     let mut out_file = File::create(&new_path)?;
 
     loop {
@@ -62,13 +62,13 @@ fn overwrite_aiff_id3_raw(path: impl AsRef<Path>, tag: &Tag, version: Version) -
         if in_file.read(&mut chunk_id)? < 4 {
             break;
         }
-        out_file.write(&chunk_id)?;
+        out_file.write_all(&chunk_id)?;
 
         // Skip FORM chunk size & type
         if &chunk_id == b"FORM" {
             let mut buffer: [u8; 8] = [0; 8];
             in_file.read(&mut buffer)?;
-            out_file.write(&buffer)?;
+            out_file.write_all(&buffer)?;
             continue;
         }
 
@@ -91,7 +91,7 @@ fn overwrite_aiff_id3_raw(path: impl AsRef<Path>, tag: &Tag, version: Version) -
             // ID3 Data
             buffer.extend(id3_buffer);
             // Write
-            out_file.write(&buffer)?;
+            out_file.write_all(&buffer)?;
 
             // Seek main file
             in_file.seek(SeekFrom::Current(chunk_size as i64))?;
@@ -101,8 +101,8 @@ fn overwrite_aiff_id3_raw(path: impl AsRef<Path>, tag: &Tag, version: Version) -
         // Pass thru
         let mut buffer = vec![0; chunk_size as usize];
         in_file.read(&mut buffer)?;
-        out_file.write(&chunk_size_raw)?;
-        out_file.write(&buffer)?;
+        out_file.write_all(&chunk_size_raw)?;
+        out_file.write_all(&buffer)?;
     }
     
     fs::remove_file(&path)?;
