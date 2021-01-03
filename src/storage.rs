@@ -5,9 +5,6 @@
 //! metadata. For example, MP3 uses a header for ID3v2, a trailer for ID3v1 while WAV has a special
 //! "RIFF-chunk" which stores an ID3 tag.
 
-use crate::stream::unsynch;
-use crate::{Error, ErrorKind};
-use byteorder::{BigEndian, ByteOrder};
 use std::cmp;
 use std::fs;
 use std::io::{self, Write};
@@ -315,33 +312,6 @@ where
     }
 }
 
-pub fn locate_id3v2(
-    mut reader: impl io::Read + io::Seek,
-) -> crate::Result<Option<ops::Range<u64>>> {
-    let mut header = [0u8; 10];
-    let nread = reader.read(&mut header)?;
-    if nread < header.len() || &header[..3] != b"ID3" {
-        return Ok(None);
-    }
-    match header[3] {
-        2 | 3 | 4 => (),
-        _ => {
-            return Err(Error::new(
-                ErrorKind::UnsupportedVersion(header[4], header[3]),
-                "unsupported id3 tag version",
-            ));
-        }
-    };
-
-    let size = unsynch::decode_u32(BigEndian::read_u32(&header[6..10]));
-    reader.seek(io::SeekFrom::Start(u64::from(size)))?;
-    let num_padding = reader
-        .bytes()
-        .take_while(|rs| rs.as_ref().map(|b| *b == 0x00).unwrap_or(false))
-        .count();
-    Ok(Some(0..u64::from(size) + num_padding as u64))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -510,40 +480,5 @@ mod tests {
             .bytes()
             .skip(9_000)
             .all(|b| b.unwrap() == 0x00));
-    }
-
-    #[test]
-    fn test_locate_id3v22() {
-        let file = fs::File::open("testdata/id3v22.id3").unwrap();
-        let location = locate_id3v2(file).unwrap();
-        assert_eq!(Some(0..0x0000c3ea), location);
-    }
-
-    #[test]
-    fn test_locate_id3v23() {
-        let file = fs::File::open("testdata/id3v23.id3").unwrap();
-        let location = locate_id3v2(file).unwrap();
-        assert_eq!(Some(0..0x00006c0a), location);
-    }
-
-    #[test]
-    fn test_locate_id3v24() {
-        let file = fs::File::open("testdata/id3v24.id3").unwrap();
-        let location = locate_id3v2(file).unwrap();
-        assert_eq!(Some(0..0x00006c0a), location);
-    }
-
-    #[test]
-    fn test_locate_id3v24_ext() {
-        let file = fs::File::open("testdata/id3v24_ext.id3").unwrap();
-        let location = locate_id3v2(file).unwrap();
-        assert_eq!(Some(0..0x0000018d), location);
-    }
-
-    #[test]
-    fn test_locate_no_tag() {
-        let file = fs::File::open("testdata/mpeg-header").unwrap();
-        let location = locate_id3v2(file).unwrap();
-        assert_eq!(None, location);
     }
 }
