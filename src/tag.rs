@@ -3,7 +3,7 @@ use crate::frame::{
     Comment, ExtendedLink, ExtendedText, Frame, Lyrics, Picture, PictureType, SynchronisedLyrics,
     Timestamp,
 };
-use crate::storage::{self, PlainStorage, Storage};
+use crate::storage::{PlainStorage, Storage};
 use crate::stream;
 use crate::v1;
 use std::fs::{self, File};
@@ -1262,7 +1262,7 @@ impl<'a> Tag {
     /// reset back to the previous position before returning.
     pub fn is_candidate(mut reader: impl io::Read + io::Seek) -> crate::Result<bool> {
         let initial_position = reader.seek(io::SeekFrom::Current(0))?;
-        let rs = storage::locate_id3v2(&mut reader);
+        let rs = stream::tag::locate_id3v2(&mut reader);
         reader.seek(io::SeekFrom::Start(initial_position))?;
         Ok(rs?.is_some())
     }
@@ -1271,7 +1271,7 @@ impl<'a> Tag {
     /// it if found. Returns true if a tag was found.
     pub fn skip(mut reader: impl io::Read + io::Seek) -> crate::Result<bool> {
         let initial_position = reader.seek(io::SeekFrom::Current(0))?;
-        let range = storage::locate_id3v2(&mut reader)?;
+        let range = stream::tag::locate_id3v2(&mut reader)?;
         let end = range.as_ref().map(|r| r.end).unwrap_or(0);
         reader.seek(io::SeekFrom::Start(initial_position + end))?;
         Ok(range.is_some())
@@ -1301,7 +1301,7 @@ impl<'a> Tag {
     pub fn write_to_path(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
         let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
         #[allow(clippy::reversed_empty_ranges)]
-        let location = storage::locate_id3v2(&mut file)?.unwrap_or(0..0); // Create a new tag if none could be located.
+        let location = stream::tag::locate_id3v2(&mut file)?.unwrap_or(0..0); // Create a new tag if none could be located.
 
         let mut storage = PlainStorage::new(file, location);
         let mut w = storage.writer()?;
@@ -1314,7 +1314,7 @@ impl<'a> Tag {
     ///
     /// Returns true if the file initially contained a tag.
     pub fn remove_from(mut file: &mut fs::File) -> crate::Result<bool> {
-        let location = match storage::locate_id3v2(&mut file)? {
+        let location = match stream::tag::locate_id3v2(&mut file)? {
             Some(l) => l,
             None => return Ok(false),
         };

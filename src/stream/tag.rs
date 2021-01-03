@@ -1,6 +1,5 @@
-use crate::storage::{self, PlainStorage, Storage};
-use crate::stream::frame;
-use crate::stream::unsynch;
+use crate::storage::{PlainStorage, Storage};
+use crate::stream::{frame, unsynch};
 use crate::tag::{Tag, Version};
 use crate::{Error, ErrorKind};
 use bitflags::bitflags;
@@ -8,6 +7,7 @@ use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
 use std::cmp;
 use std::fs;
 use std::io::{self, Read, Write};
+use std::ops::Range;
 use std::path::Path;
 
 static DEFAULT_FILE_DISCARD: &[&str] = &[
@@ -24,91 +24,123 @@ bitflags! {
     }
 }
 
+struct Header {
+    version: Version,
+    flags: Flags,
+    tag_size: u32,
+    // TODO: Extended header.
+}
+
+impl Header {
+    fn size(&self) -> u64 {
+        10 // Raw header.
+    }
+
+    fn frame_bytes(&self) -> u64 {
+        u64::from(self.tag_size)
+    }
+
+    fn tag_size(&self) -> u64 {
+        self.size() + self.frame_bytes()
+    }
+}
+
+impl Header {
+    fn decode(mut reader: impl io::Read) -> crate::Result<Header> {
+        let mut header = [0; 10];
+        let nread = reader.read(&mut header)?;
+        if nread < header.len() || &header[0..3] != b"ID3" {
+            return Err(Error::new(
+                ErrorKind::NoTag,
+                "reader does not contain an id3 tag",
+            ));
+        }
+
+        let (ver_major, ver_minor) = (header[3], header[4]);
+        let version = match (ver_major, ver_minor) {
+            (2, _) => Version::Id3v22,
+            (3, _) => Version::Id3v23,
+            (4, _) => Version::Id3v24,
+            (_, _) => {
+                return Err(Error::new(
+                    ErrorKind::UnsupportedVersion(ver_major, ver_minor),
+                    "unsupported id3 tag version",
+                ));
+            }
+        };
+        let flags = Flags::from_bits(header[5])
+            .ok_or_else(|| Error::new(ErrorKind::Parsing, "unknown tag header flags are set"))?;
+        let tag_size = unsynch::decode_u32(BigEndian::read_u32(&header[6..10]));
+
+        // compression only exists on 2.2 and conflicts with 2.3+'s extended header
+        if version == Version::Id3v22 && flags.contains(Flags::COMPRESSION) {
+            return Err(Error::new(
+                ErrorKind::UnsupportedFeature,
+                "id3v2.2 compression is not supported",
+            ));
+        }
+
+        // TODO: actually use the extended header data.
+        if flags.contains(Flags::EXTENDED_HEADER) {
+            let ext_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?) as usize;
+            // the extended header size includes itself
+            if ext_size < 6 {
+                return Err(Error::new(
+                    ErrorKind::Parsing,
+                    "Extended header has a minimum size of 6",
+                ));
+            }
+            let ext_remaining_size = ext_size - 4;
+            let mut ext_header = Vec::with_capacity(cmp::min(ext_remaining_size, 0xffff));
+            reader
+                .by_ref()
+                .take(ext_remaining_size as u64)
+                .read_to_end(&mut ext_header)?;
+            if flags.contains(Flags::UNSYNCHRONISATION) {
+                unsynch::decode_vec(&mut ext_header);
+            }
+        }
+
+        Ok(Header {
+            version,
+            flags,
+            tag_size,
+        })
+    }
+}
+
 pub fn decode(mut reader: impl io::Read) -> crate::Result<Tag> {
-    let mut tag_header = [0; 10];
-    let nread = reader.read(&mut tag_header)?;
-    if nread < tag_header.len() || &tag_header[0..3] != b"ID3" {
-        return Err(Error::new(
-            ErrorKind::NoTag,
-            "reader does not contain an id3 tag",
-        ));
-    }
-    let (ver_major, ver_minor) = (tag_header[4], tag_header[3]);
-    let version = match (ver_major, ver_minor) {
-        (_, 2) => Version::Id3v22,
-        (_, 3) => Version::Id3v23,
-        (_, 4) => Version::Id3v24,
-        (_, _) => {
-            return Err(Error::new(
-                ErrorKind::UnsupportedVersion(ver_major, ver_minor),
-                "unsupported id3 tag version",
-            ));
-        }
-    };
-    let flags = Flags::from_bits(tag_header[5])
-        .ok_or_else(|| Error::new(ErrorKind::Parsing, "unknown tag header flags are set"))?;
-    let tag_size = unsynch::decode_u32(BigEndian::read_u32(&tag_header[6..10])) as usize;
+    let header = Header::decode(&mut reader)?;
 
-    // compression only exists on 2.2 and conflicts with 2.3+'s extended header
-    if version == Version::Id3v22 && flags.contains(Flags::COMPRESSION) {
-        return Err(Error::new(
-            ErrorKind::UnsupportedFeature,
-            "id3v2.2 compression is not supported",
-        ));
-    }
+    if header.version == Version::Id3v22 {
+        // Limit the reader only to the given tag_size, don't return any more bytes after that.
+        let v2_reader = reader.take(header.frame_bytes());
 
-    let mut offset = tag_header.len();
-
-    // TODO: actually use the extended header data.
-    if flags.contains(Flags::EXTENDED_HEADER) {
-        let ext_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?) as usize;
-        // the extended header size includes itself
-        if ext_size < 6 {
-            return Err(Error::new(
-                ErrorKind::Parsing,
-                "Extended header has a minimum size of 6",
-            ));
-        }
-        offset += ext_size;
-        let ext_remaining_size = ext_size - 4;
-        let mut ext_header = Vec::with_capacity(cmp::min(ext_remaining_size, 0xffff));
-        reader
-            .by_ref()
-            .take(ext_remaining_size as u64)
-            .read_to_end(&mut ext_header)?;
-        if flags.contains(Flags::UNSYNCHRONISATION) {
-            unsynch::decode_vec(&mut ext_header);
-        }
-    }
-
-    if version == Version::Id3v22 {
-        //limit the reader only to the given tag_size, don't return any more bytes after that.
-        let v2_reader = reader.take(tag_size as u64);
-
-        if flags.contains(Flags::UNSYNCHRONISATION) {
-            //unwrap all 'unsynchronized' bytes in the tag before parsing frames
+        if header.flags.contains(Flags::UNSYNCHRONISATION) {
+            // Unwrap all 'unsynchronized' bytes in the tag before parsing frames.
             decode_v2_frames(unsynch::Reader::new(v2_reader))
         } else {
             decode_v2_frames(v2_reader)
         }
     } else {
+        let mut offset = 0;
         let mut tag = Tag::new();
-        while offset < tag_size + tag_header.len() {
+        while offset < header.frame_bytes() {
             let rs = frame::decode(
                 &mut reader,
-                version,
-                flags.contains(Flags::UNSYNCHRONISATION),
+                header.version,
+                header.flags.contains(Flags::UNSYNCHRONISATION),
             );
             let v = match rs {
                 Ok(v) => v,
                 Err(err) => return Err(err.with_tag(tag)),
             };
             let (bytes_read, frame) = match v {
-                Some(frame) => frame,
+                Some(v) => v,
                 None => break, // Padding.
             };
             tag.add_frame(frame);
-            offset += bytes_read;
+            offset += bytes_read as u64;
         }
         Ok(tag)
     }
@@ -237,7 +269,7 @@ impl Encoder {
     pub fn encode_to_path(&self, tag: &Tag, path: impl AsRef<Path>) -> crate::Result<()> {
         let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
         #[allow(clippy::reversed_empty_ranges)]
-        let location = storage::locate_id3v2(&mut file)?.unwrap_or(0..0); // Create a new tag if none could be located.
+        let location = locate_id3v2(&mut file)?.unwrap_or(0..0); // Create a new tag if none could be located.
 
         let mut storage = PlainStorage::new(file, location);
         let mut w = storage.writer()?;
@@ -251,6 +283,28 @@ impl Default for Encoder {
     fn default() -> Self {
         Self::new()
     }
+}
+
+pub fn locate_id3v2(mut reader: impl io::Read + io::Seek) -> crate::Result<Option<Range<u64>>> {
+    let header = match Header::decode(&mut reader) {
+        Ok(v) => v,
+        Err(err) => match err.kind {
+            ErrorKind::NoTag => return Ok(None),
+            _ => return Err(err),
+        },
+    };
+
+    let tag_size = header.tag_size();
+    reader.seek(io::SeekFrom::Start(tag_size))?;
+    let num_padding = reader
+        .bytes()
+        .take_while(|rs| rs.as_ref().map(|b| *b == 0x00).unwrap_or(false))
+        .count();
+    eprintln!(
+        "location: size=0x{:x} padding=0x{:x}",
+        tag_size, num_padding
+    );
+    Ok(Some(0..tag_size + num_padding as u64))
 }
 
 #[cfg(all(test, feature = "unstable"))]
@@ -291,7 +345,7 @@ mod tests {
         TimestampFormat,
     };
     use std::fs;
-    use std::io;
+    use std::io::{self, Read};
 
     fn make_tag() -> Tag {
         let mut tag = Tag::new();
@@ -508,5 +562,40 @@ mod tests {
 
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert!(tag_read.get("TLEN").is_none());
+    }
+
+    #[test]
+    fn test_locate_id3v22() {
+        let file = fs::File::open("testdata/id3v22.id3").unwrap();
+        let location = locate_id3v2(file).unwrap();
+        assert_eq!(Some(0..0x0000c3ea), location);
+    }
+
+    #[test]
+    fn test_locate_id3v23() {
+        let file = fs::File::open("testdata/id3v23.id3").unwrap();
+        let location = locate_id3v2(file).unwrap();
+        assert_eq!(Some(0..0x00006c0a), location);
+    }
+
+    #[test]
+    fn test_locate_id3v24() {
+        let file = fs::File::open("testdata/id3v24.id3").unwrap();
+        let location = locate_id3v2(file).unwrap();
+        assert_eq!(Some(0..0x00006c0a), location);
+    }
+
+    #[test]
+    fn test_locate_id3v24_ext() {
+        let file = fs::File::open("testdata/id3v24_ext.id3").unwrap();
+        let location = locate_id3v2(file).unwrap();
+        assert_eq!(Some(0..0x0000018d), location);
+    }
+
+    #[test]
+    fn test_locate_no_tag() {
+        let file = fs::File::open("testdata/mpeg-header").unwrap();
+        let location = locate_id3v2(file).unwrap();
+        assert_eq!(None, location);
     }
 }
