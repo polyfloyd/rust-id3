@@ -100,7 +100,12 @@ impl Parser<'_> {
         Ok(timestamp)
     }
 
+    fn skip_leading_whitespace(&mut self) {
+        self.0 = self.0.trim_start();
+    }
+
     fn expect(&mut self, ch: u8) -> Result<(), ()> {
+        self.skip_leading_whitespace();
         if self.0.starts_with(ch as char) {
             self.0 = &self.0[1..];
             Ok(())
@@ -110,11 +115,13 @@ impl Parser<'_> {
     }
 
     fn parse_year(&mut self) -> Result<i32, ()> {
+        self.skip_leading_whitespace();
         self.parse_number()
             .and_then(|n| i32::try_from(n).map_err(|_| ()))
     }
 
     fn parse_other(&mut self) -> Result<u8, ()> {
+        self.skip_leading_whitespace();
         self.parse_number()
             .and_then(|n| if n < 100 { Ok(n as u8) } else { Err(()) })
     }
@@ -191,7 +198,29 @@ fn test_parse_timestamp() {
         }
     );
     assert_eq!(
+        "\t1989".parse::<Timestamp>().unwrap(),
+        Timestamp {
+            year: 1989,
+            month: None,
+            day: None,
+            hour: None,
+            minute: None,
+            second: None
+        }
+    );
+    assert_eq!(
         "1989-01".parse::<Timestamp>().unwrap(),
+        Timestamp {
+            year: 1989,
+            month: Some(1),
+            day: None,
+            hour: None,
+            minute: None,
+            second: None
+        }
+    );
+    assert_eq!(
+        "1989 - 1".parse::<Timestamp>().unwrap(),
         Timestamp {
             year: 1989,
             month: Some(1),
@@ -214,6 +243,28 @@ fn test_parse_timestamp() {
     );
     assert_eq!(
         "1989-01-02".parse::<Timestamp>().unwrap(),
+        Timestamp {
+            year: 1989,
+            month: Some(1),
+            day: Some(2),
+            hour: None,
+            minute: None,
+            second: None
+        }
+    );
+    assert_eq!(
+        "1989-01-02".parse::<Timestamp>().unwrap(),
+        Timestamp {
+            year: 1989,
+            month: Some(1),
+            day: Some(2),
+            hour: None,
+            minute: None,
+            second: None
+        }
+    );
+    assert_eq!(
+        "1989- 1- 2".parse::<Timestamp>().unwrap(),
         Timestamp {
             year: 1989,
             month: Some(1),
@@ -257,6 +308,17 @@ fn test_parse_timestamp() {
         }
     );
     assert_eq!(
+        "1989-12-27T 9:15".parse::<Timestamp>().unwrap(),
+        Timestamp {
+            year: 1989,
+            month: Some(12),
+            day: Some(27),
+            hour: Some(9),
+            minute: Some(15),
+            second: None
+        }
+    );
+    assert_eq!(
         "1989-12-27T09:15:30".parse::<Timestamp>().unwrap(),
         Timestamp {
             year: 1989,
@@ -269,6 +331,17 @@ fn test_parse_timestamp() {
     );
     assert_eq!(
         "19890-1-2T9:7:2".parse::<Timestamp>().unwrap(),
+        Timestamp {
+            year: 19890,
+            month: Some(1),
+            day: Some(2),
+            hour: Some(9),
+            minute: Some(7),
+            second: Some(2)
+        }
+    );
+    assert_eq!(
+        "19890- 1- 2T 9: 7: 2".parse::<Timestamp>().unwrap(),
         Timestamp {
             year: 19890,
             month: Some(1),
