@@ -1,7 +1,7 @@
 use crate::frame::Content;
 use crate::frame::{
-    Comment, ExtendedLink, ExtendedText, Frame, Lyrics, Picture, PictureType, SynchronisedLyrics,
-    Timestamp,
+    Comment, EncapsulatedObject, ExtendedLink, ExtendedText, Frame, Lyrics, Picture, PictureType,
+    SynchronisedLyrics, Timestamp,
 };
 use crate::storage::{PlainStorage, Storage};
 use crate::stream;
@@ -83,6 +83,11 @@ impl<'a> Tag {
             .filter_map(|frame| frame.content().extended_link())
     }
 
+    /// Returns an iterator over the [General Encapsulated Object (GEOB)](https://id3.org/id3v2.3.0#General_encapsulated_object) frames in the tag.
+    pub fn encapsulated_objects(&'a self) -> impl Iterator<Item = &'a EncapsulatedObject> + 'a {
+        self.frames()
+            .filter_map(|frame| frame.content().encapsulated_object())
+    }
     /// Returns an iterator over the comments in the tag.
     ///
     /// # Example

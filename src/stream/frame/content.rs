@@ -1,6 +1,6 @@
 use crate::frame::{
-    Content, ExtendedLink, Picture, PictureType, SynchronisedLyrics, SynchronisedLyricsType,
-    TimestampFormat,
+    Content, EncapsulatedObject, ExtendedLink, Picture, PictureType, SynchronisedLyrics,
+    SynchronisedLyricsType, TimestampFormat,
 };
 use crate::stream::encoding::Encoding;
 use crate::tag;
@@ -36,6 +36,7 @@ pub fn encode(
         Content::ExtendedText(_) => extended_text_to_bytes(request),
         Content::Link(_) => weblink_to_bytes(request),
         Content::ExtendedLink(_) => extended_weblink_to_bytes(request),
+        Content::EncapsulatedObject(_) => encapsulated_object_to_bytes(request),
         Content::Lyrics(_) => lyrics_to_bytes(request),
         Content::SynchronisedLyrics(_) => synchronised_lyrics_to_bytes(request),
         Content::Comment(_) => comment_to_bytes(request),
@@ -58,6 +59,7 @@ pub fn decode(id: &str, mut reader: impl io::Read) -> crate::Result<Content> {
         "COMM" | "COM" => parse_comm(data.as_slice()),
         "USLT" | "ULT" => parse_uslt(data.as_slice()),
         "SYLT" | "SLT" => parse_sylt(data.as_slice()),
+        "GEOB" | "GEO" => parse_geob(data.as_slice()),
         id if id.starts_with('T') => parse_text(data.as_slice()),
         id if id.starts_with('W') => parse_weblink(data.as_slice()),
         _ => Ok(Content::Unknown(data)),
@@ -140,6 +142,20 @@ fn extended_text_to_bytes(request: EncoderRequest) -> Vec<u8> {
 
 fn weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
     request.content.link().unwrap().as_bytes().to_vec()
+}
+
+fn encapsulated_object_to_bytes(request: EncoderRequest) -> Vec<u8> {
+    let content = request.content.encapsulated_object().unwrap();
+    encode!(
+        encoding(request.encoding),
+        string(content.mime_type),
+        delim(0),
+        string(content.filename),
+        delim(0),
+        string(content.description),
+        delim(0),
+        bytes(content.data)
+    )
 }
 
 fn extended_weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
@@ -546,6 +562,32 @@ fn parse_txxx(data: &[u8]) -> crate::Result<Content> {
 /// Returns a `Content::Link`.
 fn parse_weblink(data: &[u8]) -> crate::Result<Content> {
     Ok(Content::Link(String::from_utf8(data.to_vec())?))
+}
+
+/// Attempts to parse the data as a general encapsulated object.
+/// Returns an `Content::EncapsulatedObject`.
+fn parse_geob(data: &[u8]) -> crate::Result<Content> {
+    assert_data!(data);
+
+    let encoding = encoding_from_byte(data[0])?;
+
+    let uparams = DecodingParams::for_encoding(Encoding::Latin1);
+    let (mime_type, next) = decode_part!(&data[1..], uparams, string(true));
+
+    let params = DecodingParams::for_encoding(encoding);
+    let (filename, next) = decode_part!(next, params, string(true));
+
+    let (description, next) = decode_part!(next, params, string(true));
+
+    let data = next.to_vec();
+
+    let obj = EncapsulatedObject {
+        mime_type,
+        filename,
+        description,
+        data,
+    };
+    Ok(Content::EncapsulatedObject(obj))
 }
 
 /// Attempts to parse the data as a user defined web link frame.
