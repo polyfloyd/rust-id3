@@ -21,6 +21,8 @@ pub enum Content {
     SynchronisedLyrics(SynchronisedLyrics),
     /// A value containing the parsed contents of a picture frame (APIC).
     Picture(Picture),
+    /// A value containing the parsed contents of a general encapsulated object frame (GEOB).
+    EncapsulatedObject(EncapsulatedObject),
     /// A value containing the bytes of a unknown frame.
     Unknown(Vec<u8>),
 }
@@ -54,6 +56,14 @@ impl Content {
     pub fn extended_link(&self) -> Option<&ExtendedLink> {
         match *self {
             Content::ExtendedLink(ref content) => Some(content),
+            _ => None,
+        }
+    }
+
+    /// Returns the `ExtendedLink` or None if the value is not `ExtendedLink`.
+    pub fn encapsulated_object(&self) -> Option<&EncapsulatedObject> {
+        match *self {
+            Content::EncapsulatedObject(ref content) => Some(content),
             _ => None,
         }
     }
@@ -104,6 +114,7 @@ impl fmt::Display for Content {
         match self {
             Content::Text(s) => write!(f, "{}", s),
             Content::Link(s) => write!(f, "{}", s),
+            Content::EncapsulatedObject(enc_obj) => write!(f, "{}", enc_obj),
             Content::ExtendedText(ext_text) => write!(f, "{}", ext_text),
             Content::ExtendedLink(ext_link) => write!(f, "{}", ext_link),
             Content::Comment(comment) => write!(f, "{}", comment),
@@ -172,6 +183,50 @@ impl fmt::Display for ExtendedLink {
         } else {
             write!(f, "{}: {}", self.description, self.link)
         }
+    }
+}
+
+/// The parsed contents of an general encapsulated object frame.
+#[derive(Clone, Debug, Eq)]
+#[allow(missing_docs)]
+pub struct EncapsulatedObject {
+    pub mime_type: String,
+    pub filename: String,
+    pub description: String,
+    pub data: Vec<u8>,
+}
+
+impl PartialEq for EncapsulatedObject {
+    fn eq(&self, other: &Self) -> bool {
+        self.mime_type == other.mime_type
+            && self.filename == other.filename
+            && self.description == other.description
+    }
+}
+
+impl Hash for EncapsulatedObject {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.mime_type.hash(state);
+        self.filename.hash(state);
+        self.description.hash(state);
+    }
+}
+
+impl fmt::Display for EncapsulatedObject {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let desc = if self.description.is_empty() {
+            "Unknown GEOB"
+        } else {
+            &self.description
+        };
+        write!(
+            f,
+            "{} (\"{}\", \"{}\"), {} bytes",
+            desc,
+            self.filename,
+            self.mime_type,
+            self.data.len()
+        )
     }
 }
 

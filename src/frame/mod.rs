@@ -5,8 +5,8 @@ use std::hash::{Hash, Hasher};
 use std::str;
 
 pub use self::content::{
-    Comment, Content, ExtendedLink, ExtendedText, Lyrics, Picture, PictureType, SynchronisedLyrics,
-    SynchronisedLyricsType, TimestampFormat,
+    Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics, Picture, PictureType,
+    SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat,
 };
 pub use self::timestamp::Timestamp;
 
