@@ -70,11 +70,7 @@ impl Parser<'_> {
     fn parse_timestamp(&mut self, source: &str) -> Result<Timestamp, ()> {
         let mut parser = Parser(source);
         let mut timestamp = Timestamp {
-            year: if let Ok(year) = parser.parse_year() {
-                year as i32
-            } else {
-                return Err(());
-            },
+            year: parser.parse_year()?,
             month: None,
             day: None,
             hour: None,
