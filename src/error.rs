@@ -111,10 +111,10 @@ impl From<str::Utf8Error> for Error {
 
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.description != "" {
-            write!(f, "{:?}: {}", self.kind, self.description)
-        } else {
+        if self.description.is_empty() {
             write!(f, "{:?}", self.kind)
+        } else {
+            write!(f, "{:?}: {}", self.kind, self.description)
         }
     }
 }
