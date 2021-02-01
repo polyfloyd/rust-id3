@@ -60,7 +60,7 @@ impl Content {
         }
     }
 
-    /// Returns the `ExtendedLink` or None if the value is not `ExtendedLink`.
+    /// Returns the `EncapsulatedObject` or None if the value is not `EncapsulatedObject`.
     pub fn encapsulated_object(&self) -> Option<&EncapsulatedObject> {
         match *self {
             Content::EncapsulatedObject(ref content) => Some(content),
