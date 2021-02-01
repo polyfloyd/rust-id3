@@ -148,8 +148,8 @@ fn encapsulated_object_to_bytes(request: EncoderRequest) -> Vec<u8> {
     let content = request.content.encapsulated_object().unwrap();
     encode!(
         encoding(request.encoding),
-        string(content.mime_type),
-        delim(0),
+        bytes(content.mime_type.as_bytes()),
+        byte(0),
         string(content.filename),
         delim(0),
         string(content.description),

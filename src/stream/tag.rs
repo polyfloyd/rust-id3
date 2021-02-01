@@ -353,6 +353,12 @@ mod tests {
         tag.set_artist("Artist");
         tag.set_genre("Genre");
         tag.set_duration(1337);
+        tag.add_encapsulated_object(
+            "Some Object",
+            "application/octet-stream",
+            "",
+            &b"\xC0\xFF\xEE\x00"[..],
+        );
         let mut image_data = Vec::new();
         fs::File::open("testdata/image.jpg")
             .unwrap()
