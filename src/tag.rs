@@ -227,6 +227,110 @@ impl<'a> Tag {
         self.frames.retain(|frame| frame.id() != id.as_ref());
     }
 
+    /// Adds an encapsulated object frame (GEOB).
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    ///
+    /// let mut tag = Tag::new();
+    ///
+    /// tag.add_encapsulated_object("key1", "application/octet-stream", "", &b"\x00\x01\xAB"[..]);
+    /// tag.add_encapsulated_object("key2", "application/json", "foo.json", &b"{ \"value\" }"[..]);
+    ///
+    /// assert_eq!(tag.encapsulated_objects().count(), 2);
+    /// assert!(tag.encapsulated_objects().any(|t| t.description == "key1" && t.mime_type == "application/octet-stream" && t.filename == "" && t.data == b"\x00\x01\xAB"));
+    /// assert!(tag.encapsulated_objects().any(|t| t.description == "key2" && t.mime_type == "application/json" && t.filename == "foo.json" && t.data == b"{ \"value\" }"));
+    /// ```
+    pub fn add_encapsulated_object(
+        &mut self,
+        description: impl Into<String>,
+        mime_type: impl Into<String>,
+        filename: impl Into<String>,
+        data: impl Into<Vec<u8>>,
+    ) {
+        let frame = Frame::with_content(
+            "GEOB",
+            Content::EncapsulatedObject(EncapsulatedObject {
+                description: description.into(),
+                mime_type: mime_type.into(),
+                filename: filename.into(),
+                data: data.into(),
+            }),
+        );
+        self.add_frame(frame);
+    }
+
+    /// Removes the encapsulated object frame (GEOB) with the specified key, MIME type, filename
+    /// and
+    /// data.
+    ///
+    /// A key or value may be `None` to specify a wildcard value.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    ///
+    /// let mut tag = Tag::new();
+    ///
+    /// tag.add_encapsulated_object("key1", "application/octet-stream", "filename1", &b"value1"[..]);
+    /// tag.add_encapsulated_object("key2", "text/plain", "filename2", &b"value2"[..]);
+    /// tag.add_encapsulated_object("key3", "text/plain", "filename3", &b"value2"[..]);
+    /// tag.add_encapsulated_object("key4", "application/octet-stream", "filename4", &b"value3"[..]);
+    /// tag.add_encapsulated_object("key5", "application/octet-stream", "filename4", &b"value4"[..]);
+    /// tag.add_encapsulated_object("key6", "application/octet-stream", "filename5", &b"value5"[..]);
+    /// tag.add_encapsulated_object("key7", "application/octet-stream", "filename6", &b"value6"[..]);
+    /// tag.add_encapsulated_object("key8", "application/octet-stream", "filename7", &b"value7"[..]);
+    /// assert_eq!(tag.encapsulated_objects().count(), 8);
+    ///
+    /// tag.remove_encapsulated_object(Some("key1"), None, None, None);
+    /// assert_eq!(tag.encapsulated_objects().count(), 7);
+    ///
+    /// tag.remove_encapsulated_object(None, Some("text/plain"), None, None);
+    /// assert_eq!(tag.encapsulated_objects().count(), 5);
+    ///
+    /// tag.remove_encapsulated_object(None, None, Some("filename4"), None);
+    /// assert_eq!(tag.encapsulated_objects().count(), 3);
+    ///
+    /// tag.remove_encapsulated_object(None, None, None, Some(&b"value5"[..]));
+    /// assert_eq!(tag.encapsulated_objects().count(), 2);
+    ///
+    /// tag.remove_encapsulated_object(Some("key7"), None, Some("filename6"), None);
+    /// assert_eq!(tag.encapsulated_objects().count(), 1);
+    ///
+    /// tag.remove_encapsulated_object(None, None, None, None);
+    /// assert_eq!(tag.encapsulated_objects().count(), 0);
+    /// ```
+    pub fn remove_encapsulated_object(
+        &mut self,
+        description: Option<&str>,
+        mime_type: Option<&str>,
+        filename: Option<&str>,
+        data: Option<&[u8]>,
+    ) {
+        self.frames.retain(|frame| {
+            if frame.id() == "GEOB" {
+                match *frame.content() {
+                    Content::EncapsulatedObject(ref ext) => {
+                        let descr_match = description.map(|v| v == ext.description).unwrap_or(true);
+                        let mime_match = mime_type.map(|v| v == ext.mime_type).unwrap_or(true);
+                        let filename_match = filename.map(|v| v == ext.filename).unwrap_or(true);
+                        let data_match = data.map(|v| v == ext.data).unwrap_or(true);
+                        // True if we want to keep the frame.
+                        !(descr_match && mime_match && filename_match && data_match)
+                    }
+                    _ => {
+                        // A GEOB frame must always have content of the EncapsulatedObject type.
+                        // Remove frames that do not fit this requirement.
+                        false
+                    }
+                }
+            } else {
+                true
+            }
+        });
+    }
+
     /// Adds a user defined text frame (TXXX).
     ///
     /// # Example
