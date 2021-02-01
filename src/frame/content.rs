@@ -198,16 +198,12 @@ pub struct EncapsulatedObject {
 
 impl PartialEq for EncapsulatedObject {
     fn eq(&self, other: &Self) -> bool {
-        self.mime_type == other.mime_type
-            && self.filename == other.filename
-            && self.description == other.description
+        self.description == other.description
     }
 }
 
 impl Hash for EncapsulatedObject {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.mime_type.hash(state);
-        self.filename.hash(state);
         self.description.hash(state);
     }
 }
