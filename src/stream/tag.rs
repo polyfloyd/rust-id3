@@ -415,6 +415,55 @@ mod tests {
     }
 
     #[test]
+    fn read_id3v23_geob() {
+        let mut file = fs::File::open("testdata/id3v23_geob.id3").unwrap();
+        let tag = decode(&mut file).unwrap();
+        assert_eq!(tag.encapsulated_objects().count(), 7);
+
+        let geob = tag.encapsulated_objects().nth(0).unwrap();
+        assert_eq!(geob.description, "Serato Overview");
+        assert_eq!(geob.mime_type, "application/octet-stream");
+        assert_eq!(geob.filename, "");
+        assert_eq!(geob.data.len(), 3842);
+
+        let geob = tag.encapsulated_objects().nth(1).unwrap();
+        assert_eq!(geob.description, "Serato Analysis");
+        assert_eq!(geob.mime_type, "application/octet-stream");
+        assert_eq!(geob.filename, "");
+        assert_eq!(geob.data.len(), 2);
+
+        let geob = tag.encapsulated_objects().nth(2).unwrap();
+        assert_eq!(geob.description, "Serato Autotags");
+        assert_eq!(geob.mime_type, "application/octet-stream");
+        assert_eq!(geob.filename, "");
+        assert_eq!(geob.data.len(), 21);
+
+        let geob = tag.encapsulated_objects().nth(3).unwrap();
+        assert_eq!(geob.description, "Serato Markers_");
+        assert_eq!(geob.mime_type, "application/octet-stream");
+        assert_eq!(geob.filename, "");
+        assert_eq!(geob.data.len(), 318);
+
+        let geob = tag.encapsulated_objects().nth(4).unwrap();
+        assert_eq!(geob.description, "Serato Markers2");
+        assert_eq!(geob.mime_type, "application/octet-stream");
+        assert_eq!(geob.filename, "");
+        assert_eq!(geob.data.len(), 470);
+
+        let geob = tag.encapsulated_objects().nth(5).unwrap();
+        assert_eq!(geob.description, "Serato BeatGrid");
+        assert_eq!(geob.mime_type, "application/octet-stream");
+        assert_eq!(geob.filename, "");
+        assert_eq!(geob.data.len(), 39);
+
+        let geob = tag.encapsulated_objects().nth(6).unwrap();
+        assert_eq!(geob.description, "Serato Offsets_");
+        assert_eq!(geob.mime_type, "application/octet-stream");
+        assert_eq!(geob.filename, "");
+        assert_eq!(geob.data.len(), 29829);
+    }
+
+    #[test]
     fn read_id3v24() {
         let mut file = fs::File::open("testdata/id3v24.id3").unwrap();
         let tag = decode(&mut file).unwrap();
