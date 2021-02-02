@@ -171,6 +171,7 @@ pub struct Encoder {
     unsynchronisation: bool,
     compression: bool,
     file_altered: bool,
+    padding: Option<usize>,
 }
 
 impl Encoder {
@@ -186,7 +187,17 @@ impl Encoder {
             unsynchronisation: false,
             compression: false,
             file_altered: false,
+            padding: None,
         }
+    }
+
+    /// Sets the padding
+    ///
+    /// For fixing issue #39 https://github.com/polyfloyd/rust-id3/issues/39
+    /// Should be only used when writing to a MP3 file
+    pub fn padding(mut self, padding: usize) -> Self {
+        self.padding = Some(padding);
+        self
     }
 
     /// Sets the ID3 version.
@@ -255,7 +266,7 @@ impl Encoder {
         if self.version == Version::Id3v22 && self.unsynchronisation {
             unsynch::encode_vec(&mut frame_data)
         }
-        let tag_size = 10 + frame_data.len() + 1;
+        let tag_size = frame_data.len() + self.padding.unwrap_or(0);
         writer.write_all(b"ID3")?;
         writer.write_all(&[self.version.minor() as u8, 0])?;
         writer.write_u8(flags.bits())?;
