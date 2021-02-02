@@ -83,9 +83,9 @@ impl<F> PlainStorage<F>
 where
     F: StorageFile,
 {
-    /// Creates a new storage with a default padding of 2048 bytes and no shrinkage.
+    /// Creates a new storage with no default padding
     pub fn new(file: F, region: ops::Range<u64>) -> PlainStorage<F> {
-        PlainStorage::with_padding(file, region, 2048, None)
+        PlainStorage::with_padding(file, region, 0, Some(0))
     }
 
     /// Creates a new storage with the specified amount of padding.
