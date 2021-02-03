@@ -1292,7 +1292,7 @@ impl<'a> Tag {
     pub fn write_to(&self, writer: impl io::Write, version: Version) -> crate::Result<()> {
         stream::tag::Encoder::new()
             .version(version)
-            .encode(self, writer)
+            .encode(self, writer, None)
     }
 
     /// Attempts to write the ID3 tag from the file at the indicated path. If the specified path is
@@ -1305,7 +1305,10 @@ impl<'a> Tag {
 
         let mut storage = PlainStorage::new(file, location);
         let mut w = storage.writer()?;
-        self.write_to(&mut w, version)?;
+        stream::tag::Encoder::new()
+            .version(version)
+            .encode(self, &mut w, Some(1024))?;
+        // self.write_to(&mut w, version)?;
         w.flush()?;
         Ok(())
     }
@@ -1424,5 +1427,13 @@ mod tests {
         assert!(Tag::remove_from(&mut tag_file).unwrap());
         tag_file.seek(io::SeekFrom::Start(0)).unwrap();
         assert!(!Tag::remove_from(&mut tag_file).unwrap());
+    }
+
+    #[test]
+    fn test_junk_data() {
+        let mut tag = Tag::new();
+        tag.set_title("Title");
+        tag.set_artist("Artist");
+        tag.write_to_path("testdata/quiet.mp3", Version::Id3v24).unwrap();
     }
 }
