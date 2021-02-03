@@ -85,7 +85,7 @@ where
 {
     /// Creates a new storage with 1024 padding, has to be -1 because there is 1 extra byte somehow
     pub fn new(file: F, region: ops::Range<u64>) -> PlainStorage<F> {
-        PlainStorage::with_padding(file, region, 1023, None)
+        PlainStorage::with_padding(file, region, 1023, Some(1023))
     }
 
     /// Creates a new storage with the specified amount of padding.
@@ -260,7 +260,7 @@ where
                 for i in 0.. {
                     let from = old_region_end + i * rwbuf.len() as u64;
                     let to = new_region_end + i * rwbuf.len() as u64;
-                    assert!(from > to);
+                    assert!(from >= to);
 
                     let part = (to + rwbuf_len as u64).saturating_sub(new_file_end);
                     let rwbuf_part = &mut rwbuf[part as usize..];
