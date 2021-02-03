@@ -171,6 +171,7 @@ pub struct Encoder {
     unsynchronisation: bool,
     compression: bool,
     file_altered: bool,
+    padding: Option<usize>,
 }
 
 impl Encoder {
@@ -186,7 +187,17 @@ impl Encoder {
             unsynchronisation: false,
             compression: false,
             file_altered: false,
+            padding: None,
         }
+    }
+
+    /// Sets the padding
+    ///
+    /// For fixing issue #39 https://github.com/polyfloyd/rust-id3/issues/39
+    /// Should be only used when writing to a MP3 file
+    pub fn padding(mut self, padding: usize) -> Self {
+        self.padding = Some(padding);
+        self
     }
 
     /// Sets the ID3 version.
@@ -226,7 +237,7 @@ impl Encoder {
     ///
     /// Note that the plain tag is written, regardless of the original contents. To safely encode a
     /// tag to an MP3 file, use `Encoder::encode_to_path`.
-    pub fn encode(&self, tag: &Tag, mut writer: impl io::Write, padding: Option<usize>) -> crate::Result<()> {
+    pub fn encode(&self, tag: &Tag, mut writer: impl io::Write) -> crate::Result<()> {
         // remove frames which have the flags indicating they should be removed
         let saved_frames = tag
             .frames()
@@ -255,7 +266,7 @@ impl Encoder {
         if self.version == Version::Id3v22 && self.unsynchronisation {
             unsynch::encode_vec(&mut frame_data)
         }
-        let tag_size = frame_data.len() + padding.unwrap_or(0);
+        let tag_size = frame_data.len() + self.padding.unwrap_or(0);
         writer.write_all(b"ID3")?;
         writer.write_all(&[self.version.minor() as u8, 0])?;
         writer.write_u8(flags.bits())?;
@@ -273,7 +284,7 @@ impl Encoder {
 
         let mut storage = PlainStorage::new(file, location);
         let mut w = storage.writer()?;
-        self.encode(tag, &mut w, Some(1024))?;
+        self.encode(tag, &mut w)?;
         w.flush()?;
         Ok(())
     }
@@ -438,7 +449,7 @@ mod tests {
         let mut buffer = Vec::new();
         Encoder::new()
             .version(Version::Id3v22)
-            .encode(&tag, &mut buffer, None)
+            .encode(&tag, &mut buffer)
             .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
@@ -451,7 +462,7 @@ mod tests {
         Encoder::new()
             .unsynchronisation(true)
             .version(Version::Id3v22)
-            .encode(&tag, &mut buffer, None)
+            .encode(&tag, &mut buffer)
             .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
@@ -466,7 +477,7 @@ mod tests {
         let mut buffer = Vec::new();
         Encoder::new()
             .version(Version::Id3v22)
-            .encode(&tag, &mut buffer, None)
+            .encode(&tag, &mut buffer)
             .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
@@ -478,7 +489,7 @@ mod tests {
         let mut buffer = Vec::new();
         Encoder::new()
             .version(Version::Id3v23)
-            .encode(&tag, &mut buffer, None)
+            .encode(&tag, &mut buffer)
             .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
@@ -491,7 +502,7 @@ mod tests {
         Encoder::new()
             .compression(true)
             .version(Version::Id3v23)
-            .encode(&tag, &mut buffer, None)
+            .encode(&tag, &mut buffer)
             .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
@@ -504,7 +515,7 @@ mod tests {
         Encoder::new()
             .unsynchronisation(true)
             .version(Version::Id3v23)
-            .encode(&tag, &mut buffer, None)
+            .encode(&tag, &mut buffer)
             .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
@@ -516,7 +527,7 @@ mod tests {
         let mut buffer = Vec::new();
         Encoder::new()
             .version(Version::Id3v24)
-            .encode(&tag, &mut buffer, None)
+            .encode(&tag, &mut buffer)
             .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
@@ -529,7 +540,7 @@ mod tests {
         Encoder::new()
             .compression(true)
             .version(Version::Id3v24)
-            .encode(&tag, &mut buffer, None)
+            .encode(&tag, &mut buffer)
             .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
@@ -542,7 +553,7 @@ mod tests {
         Encoder::new()
             .unsynchronisation(true)
             .version(Version::Id3v24)
-            .encode(&tag, &mut buffer, None)
+            .encode(&tag, &mut buffer)
             .unwrap();
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
         assert_eq!(tag, tag_read);
@@ -557,7 +568,7 @@ mod tests {
         Encoder::new()
             .version(Version::Id3v24)
             .file_altered(true)
-            .encode(&tag, &mut buffer, None)
+            .encode(&tag, &mut buffer)
             .unwrap();
 
         let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();

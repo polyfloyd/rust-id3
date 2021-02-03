@@ -1292,7 +1292,7 @@ impl<'a> Tag {
     pub fn write_to(&self, writer: impl io::Write, version: Version) -> crate::Result<()> {
         stream::tag::Encoder::new()
             .version(version)
-            .encode(self, writer, None)
+            .encode(self, writer)
     }
 
     /// Attempts to write the ID3 tag from the file at the indicated path. If the specified path is
@@ -1307,7 +1307,8 @@ impl<'a> Tag {
         let mut w = storage.writer()?;
         stream::tag::Encoder::new()
             .version(version)
-            .encode(self, &mut w, Some(1024))?;
+            .padding(1024)
+            .encode(self, &mut w)?;
         // self.write_to(&mut w, version)?;
         w.flush()?;
         Ok(())
@@ -1429,11 +1430,29 @@ mod tests {
         assert!(!Tag::remove_from(&mut tag_file).unwrap());
     }
 
+    // https://github.com/polyfloyd/rust-id3/issues/39
     #[test]
-    fn test_junk_data() {
+    fn test_issue_39() {
+        // Create temp file
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        fs::copy("testdata/quiet.mp3", &tmp).unwrap();
+        // Generate sample tag
         let mut tag = Tag::new();
         tag.set_title("Title");
         tag.set_artist("Artist");
-        tag.write_to_path("testdata/quiet.mp3", Version::Id3v24).unwrap();
+        tag.write_to_path(&tmp, Version::Id3v24).unwrap();
+        // Check with ffprobe
+        use std::process::Command;
+        let command = Command::new("ffprobe")
+            .arg(tmp.path().to_str().unwrap())
+            .output()
+            .unwrap();
+        assert!(command.status.success());
+        let output = String::from_utf8(command.stderr).unwrap();
+        // This bug shows as different messages in ffprobe
+        assert!(!output.contains("Estimating duration from bitrate, this may be inaccurate"));
+        assert!(!output.contains("bytes of junk at"));
+        // Also show in console too for manual double check
+        println!("{}", output);
     }
 }
