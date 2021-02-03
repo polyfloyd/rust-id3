@@ -17,6 +17,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+    - run: apt install ffmpeg -y # Install ffmpeg for ffprobe, so issue #39 test can pass
     - run: rustup default ${{ matrix.toolchain }}
     - run: rustup update
     - run: cargo build
