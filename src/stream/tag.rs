@@ -191,9 +191,8 @@ impl Encoder {
         }
     }
 
-    /// Sets the padding
+    /// Sets the padding that is written after the tag.
     ///
-    /// For fixing issue #39 https://github.com/polyfloyd/rust-id3/issues/39
     /// Should be only used when writing to a MP3 file
     pub fn padding(mut self, padding: usize) -> Self {
         self.padding = Some(padding);
@@ -272,7 +271,10 @@ impl Encoder {
         writer.write_u8(flags.bits())?;
         writer.write_u32::<BigEndian>(unsynch::encode_u32(tag_size as u32))?;
         writer.write_all(&frame_data[..])?;
-        writer.write_u8(0)?;
+
+        if let Some(padding) = self.padding {
+            writer.write_all(&vec![0; padding])?;
+        }
         Ok(())
     }
 
@@ -311,10 +313,6 @@ pub fn locate_id3v2(mut reader: impl io::Read + io::Seek) -> crate::Result<Optio
         .bytes()
         .take_while(|rs| rs.as_ref().map(|b| *b == 0x00).unwrap_or(false))
         .count();
-    eprintln!(
-        "location: size=0x{:x} padding=0x{:x}",
-        tag_size, num_padding
-    );
     Ok(Some(0..tag_size + num_padding as u64))
 }
 

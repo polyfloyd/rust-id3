@@ -26,11 +26,7 @@ pub trait Storage<'a> {
 }
 
 /// `PlainStorage` keeps track of a writeable region in a file and prevents accidental overwrites
-/// of unrelated data.
-///
-/// If the writeable region becomes too small when writing, the data following the region is moved.
-/// When the write has been completed and data was moved, a zero padding is inserted to optimize
-/// future writes.
+/// of unrelated data. Any data following after the region is moved left and right as needed.
 ///
 /// Padding is included from the reader.
 #[derive(Debug)]
@@ -42,15 +38,6 @@ where
     file: F,
     /// The region that may be writen to including any padding.
     region: ops::Range<u64>,
-    /// Controls how many bytes of padding are need to be reserved when data is moved.
-    preferred_padding: u32,
-    /// When newly written data is smaller than the writeable region, it is possible to shrink the
-    /// region by configuring the maximum amount of padding to retain before moving data to free up
-    /// space.
-    ///
-    /// Resizes will leave `preferred_padding` amount of bytes of padding.
-    /// Setting this to `None` will disable shrinkage.
-    max_padding: Option<u32>,
 }
 
 pub trait StorageFile: io::Read + io::Write + io::Seek {
@@ -83,30 +70,9 @@ impl<F> PlainStorage<F>
 where
     F: StorageFile,
 {
-    /// Creates a new storage with 1024 padding, has to be -1 because there is 1 extra byte somehow
+    /// Creates a new storage.
     pub fn new(file: F, region: ops::Range<u64>) -> PlainStorage<F> {
-        PlainStorage::with_padding(file, region, 1023, Some(1023))
-    }
-
-    /// Creates a new storage with the specified amount of padding.
-    ///
-    /// # Panics
-    /// If `max_padding` is set and smaller than `preferred_padding`.
-    pub fn with_padding(
-        file: F,
-        region: ops::Range<u64>,
-        preferred_padding: u32,
-        max_padding: Option<u32>,
-    ) -> PlainStorage<F> {
-        if let Some(max) = max_padding {
-            assert!(preferred_padding <= max);
-        }
-        PlainStorage {
-            file,
-            region,
-            preferred_padding,
-            max_padding,
-        }
+        PlainStorage { file, region }
     }
 }
 
@@ -213,16 +179,14 @@ where
         fn range_len(r: &ops::Range<u64>) -> u64 {
             r.end - r.start
         }
-        let pref_pad = u64::from(self.storage.preferred_padding);
 
         if buf_len > range_len(&self.storage.region) {
             // The region is not able to store the contents of the buffer. Grow it by moving the
             // following data to the end.
             let old_file_end = self.storage.file.seek(io::SeekFrom::End(0))?;
-            let new_file_end =
-                old_file_end + (buf_len - range_len(&self.storage.region)) + pref_pad;
+            let new_file_end = old_file_end + (buf_len - range_len(&self.storage.region));
             let old_region_end = self.storage.region.end;
-            let new_region_end = self.storage.region.start + buf_len + pref_pad;
+            let new_region_end = self.storage.region.start + buf_len;
 
             self.storage.file.set_len(new_file_end)?;
             let mut rwbuf = [0; 8192];
@@ -246,36 +210,33 @@ where
             }
 
             self.storage.region.end = new_region_end;
-        } else if let Some(max) = self.storage.max_padding {
-            if (range_len(&self.storage.region) - buf_len) + pref_pad > u64::from(max) {
-                // There is more padding than allowed by max_padding, shrink the file by moving the
-                // following data closer to the start.
-                let old_file_end = self.storage.file.seek(io::SeekFrom::End(0))?;
-                let old_region_end = self.storage.region.end;
-                let new_region_end = self.storage.region.start + buf_len + pref_pad;
-                let new_file_end = old_file_end - (old_region_end - new_region_end);
+        } else if buf_len < range_len(&self.storage.region) {
+            // Shrink the file by moving the following data closer to the start.
+            let old_file_end = self.storage.file.seek(io::SeekFrom::End(0))?;
+            let old_region_end = self.storage.region.end;
+            let new_region_end = self.storage.region.start + buf_len;
+            let new_file_end = old_file_end - (old_region_end - new_region_end);
 
-                let mut rwbuf = [0; 1000];
-                let rwbuf_len = rwbuf.len();
-                for i in 0.. {
-                    let from = old_region_end + i * rwbuf.len() as u64;
-                    let to = new_region_end + i * rwbuf.len() as u64;
-                    assert!(from >= to);
+            let mut rwbuf = [0; 1000];
+            let rwbuf_len = rwbuf.len();
+            for i in 0.. {
+                let from = old_region_end + i * rwbuf.len() as u64;
+                let to = new_region_end + i * rwbuf.len() as u64;
+                assert!(from >= to);
 
-                    let part = (to + rwbuf_len as u64).saturating_sub(new_file_end);
-                    let rwbuf_part = &mut rwbuf[part as usize..];
-                    self.storage.file.seek(io::SeekFrom::Start(from))?;
-                    self.storage.file.read_exact(rwbuf_part)?;
-                    self.storage.file.seek(io::SeekFrom::Start(to))?;
-                    self.storage.file.write_all(rwbuf_part)?;
-                    if rwbuf_part.len() < rwbuf_len {
-                        break;
-                    }
+                let part = (to + rwbuf_len as u64).saturating_sub(new_file_end);
+                let rwbuf_part = &mut rwbuf[part as usize..];
+                self.storage.file.seek(io::SeekFrom::Start(from))?;
+                self.storage.file.read_exact(rwbuf_part)?;
+                self.storage.file.seek(io::SeekFrom::Start(to))?;
+                self.storage.file.write_all(rwbuf_part)?;
+                if rwbuf_part.len() < rwbuf_len {
+                    break;
                 }
-
-                self.storage.file.set_len(new_file_end)?;
-                self.storage.region.end = new_region_end;
             }
+
+            self.storage.file.set_len(new_file_end)?;
+            self.storage.region.end = new_region_end;
         }
 
         assert!(buf_len <= range_len(&self.storage.region));
@@ -284,10 +245,6 @@ where
             .file
             .seek(io::SeekFrom::Start(self.storage.region.start))?;
         self.storage.file.write_all(&self.buffer.get_ref()[..])?;
-        // Write padding to erase any old data.
-        for _ in 0..range_len(&self.storage.region) - buf_len {
-            self.storage.file.write_all(&[0x00])?;
-        }
         self.storage.file.flush()?;
         self.buffer_changed = false;
         Ok(())
@@ -354,7 +311,7 @@ mod tests {
     fn plain_write_to_padding() {
         let buf: Vec<u8> = (0..128).collect();
         let buf_reference = buf.clone();
-        let mut store = PlainStorage::with_padding(io::Cursor::new(buf), 32..64, 32, Some(32));
+        let mut store = PlainStorage::new(io::Cursor::new(buf), 32..64);
         {
             let mut w = store.writer().unwrap();
             w.write_all(&[0xff; 32]).unwrap();
@@ -389,7 +346,7 @@ mod tests {
     fn plain_writer_grow() {
         let buf: Vec<u8> = (0..128).collect();
         let buf_reference = buf.clone();
-        let mut store = PlainStorage::with_padding(io::Cursor::new(buf), 64..64, 0, None);
+        let mut store = PlainStorage::new(io::Cursor::new(buf), 64..64);
         {
             let mut w = store.writer().unwrap();
             w.write_all(&[0xff; 64]).unwrap();
@@ -413,17 +370,17 @@ mod tests {
     fn plain_writer_grow_large() {
         let buf: Vec<u8> = (0..40_000).map(|i| (i & 0xff) as u8).collect();
         let buf_reference = buf.clone();
-        let mut store = PlainStorage::with_padding(io::Cursor::new(buf), 2_000..22_000, 1000, None);
+        let mut store = PlainStorage::new(io::Cursor::new(buf), 2_000..22_000);
         {
             let mut w = store.writer().unwrap();
             w.write_all(&[0xff; 40_000]).unwrap();
             w.flush().unwrap();
         }
-        assert_eq!(2_000..43_000, store.region);
-        assert_eq!(61_000, store.file.get_ref().len());
+        assert_eq!(2_000..42_000, store.region);
+        assert_eq!(60_000, store.file.get_ref().len());
         assert!(buf_reference[..2_000] == store.file.get_ref()[..store.region.start as usize]);
         assert!(buf_reference[22_000..] == store.file.get_ref()[store.region.end as usize..]);
-        assert_eq!(41_000, store.reader().unwrap().bytes().count());
+        assert_eq!(40_000, store.reader().unwrap().bytes().count());
         assert!(store
             .reader()
             .unwrap()
@@ -441,7 +398,7 @@ mod tests {
     #[test]
     fn plain_writer_shrink() {
         let buf: Vec<u8> = (0..128).collect();
-        let mut store = PlainStorage::with_padding(io::Cursor::new(buf), 32..96, 0, Some(0));
+        let mut store = PlainStorage::new(io::Cursor::new(buf), 32..96);
         {
             let mut w = store.writer().unwrap();
             w.write_all(&[0xff; 32]).unwrap();
@@ -457,17 +414,16 @@ mod tests {
     fn plain_writer_shrink_large() {
         let buf: Vec<u8> = (0..40_000).map(|i| (i & 0xff) as u8).collect();
         let buf_reference = buf.clone();
-        let mut store =
-            PlainStorage::with_padding(io::Cursor::new(buf), 2_000..22_000, 1000, Some(1000));
+        let mut store = PlainStorage::new(io::Cursor::new(buf), 2_000..22_000);
         {
             let mut w = store.writer().unwrap();
             w.write_all(&[0xff; 9_000]).unwrap();
             w.flush().unwrap();
         }
-        assert_eq!(2_000..12_000, store.region);
-        assert_eq!(30_000, store.file.get_ref().len());
+        assert_eq!(2_000..11_000, store.region);
+        assert_eq!(29_000, store.file.get_ref().len());
         assert!(buf_reference[22_000..] == store.file.get_ref()[store.region.end as usize..]);
-        assert_eq!(10_000, store.reader().unwrap().bytes().count());
+        assert_eq!(9_000, store.reader().unwrap().bytes().count());
         assert!(store
             .reader()
             .unwrap()

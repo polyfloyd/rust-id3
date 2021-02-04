@@ -1416,9 +1416,7 @@ impl<'a> Tag {
         let mut w = storage.writer()?;
         stream::tag::Encoder::new()
             .version(version)
-            .padding(1024)
             .encode(self, &mut w)?;
-        // self.write_to(&mut w, version)?;
         w.flush()?;
         Ok(())
     }
@@ -1431,9 +1429,9 @@ impl<'a> Tag {
             Some(l) => l,
             None => return Ok(false),
         };
-        // Open the ID3 region for writing with write nothing. With the padding set to zero, this
-        // removes the region in its entirety.
-        let mut storage = PlainStorage::with_padding(file, location, 0, Some(0));
+        // Open the ID3 region for writing and write nothing. This removes the region in its
+        // entirety.
+        let mut storage = PlainStorage::new(file, location);
         storage.writer()?.flush()?;
         Ok(true)
     }
