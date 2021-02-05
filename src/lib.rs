@@ -79,6 +79,7 @@ pub mod frame;
 /// Utilities for working with ID3v1 tags.
 pub mod v1;
 
+mod aiff;
 mod error;
 mod storage;
 mod stream;
