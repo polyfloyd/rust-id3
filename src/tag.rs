@@ -1,3 +1,4 @@
+use crate::aiff;
 use crate::frame::Content;
 use crate::frame::{
     Comment, EncapsulatedObject, ExtendedLink, ExtendedText, Frame, Lyrics, Picture, PictureType,
@@ -1469,6 +1470,16 @@ impl<'a> Tag {
                 }
             })
     }
+
+    /// Reads AIFF file and returns ID3 Tag from it
+    pub fn read_from_aiff(path: impl AsRef<Path>) -> crate::Result<Tag> {
+        aiff::load_aiff_id3(path)
+    }
+
+    /// Overwrite AIFF file ID3 chunk
+    pub fn write_to_aiff(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
+        aiff::overwrite_aiff_id3(path, &self, version)
+    }
 }
 
 impl PartialEq for Tag {
@@ -1561,5 +1572,40 @@ mod tests {
         assert!(!output.contains("bytes of junk at"));
         // Also show in console too for manual double check
         println!("{}", output);
+    }
+
+    #[test]
+    fn aiff_read_and_write() {
+        // Sample AIFF file (testdata/aiff.aiff):
+        // FORM Chunk: 46 4f 52 4d
+        // Size (should be entire file size - 8): 00 00 70 2a
+        // Form type (AIFF): 41 49 46 46
+        // ID3 Chunk (ID3 + 0x20): 49 44 33 20
+        // Size of ID3 chunk (should be same as testdata/id3v24.id3): 00 00 70 1e
+        // Rest is contents of testdata/id3v24.id3
+
+        //Copy
+        std::fs::copy("testdata/aiff.aiff", "testdata/tmp.aiff").unwrap();
+
+        //Read
+        let mut tag = Tag::read_from_aiff("testdata/tmp.aiff").unwrap();
+        assert_eq!(tag.title(), Some("Title"));
+        assert_eq!(tag.album(), Some("Album"));
+
+        //Edit
+        tag.set_title("NewTitle");
+        tag.set_album("NewAlbum");
+
+        //Write
+        tag.write_to_aiff("testdata/tmp.aiff", Version::Id3v24)
+            .unwrap();
+
+        //Check written data
+        tag = Tag::read_from_aiff("testdata/tmp.aiff").unwrap();
+        assert_eq!(tag.title(), Some("NewTitle"));
+        assert_eq!(tag.album(), Some("NewAlbum"));
+
+        //Delete temp file
+        std::fs::remove_file("testdata/tmp.aiff").unwrap();
     }
 }
