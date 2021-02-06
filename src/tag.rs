@@ -1585,10 +1585,11 @@ mod tests {
         // Rest is contents of testdata/id3v24.id3
 
         //Copy
-        std::fs::copy("testdata/aiff.aiff", "testdata/tmp.aiff").unwrap();
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::copy("testdata/aiff.aiff", &tmp).unwrap();
 
         //Read
-        let mut tag = Tag::read_from_aiff("testdata/tmp.aiff").unwrap();
+        let mut tag = Tag::read_from_aiff(&tmp).unwrap();
         assert_eq!(tag.title(), Some("Title"));
         assert_eq!(tag.album(), Some("Album"));
 
@@ -1597,15 +1598,11 @@ mod tests {
         tag.set_album("NewAlbum");
 
         //Write
-        tag.write_to_aiff("testdata/tmp.aiff", Version::Id3v24)
-            .unwrap();
+        tag.write_to_aiff(&tmp, Version::Id3v24).unwrap();
 
         //Check written data
-        tag = Tag::read_from_aiff("testdata/tmp.aiff").unwrap();
+        tag = Tag::read_from_aiff(&tmp).unwrap();
         assert_eq!(tag.title(), Some("NewTitle"));
         assert_eq!(tag.album(), Some("NewAlbum"));
-
-        //Delete temp file
-        std::fs::remove_file("testdata/tmp.aiff").unwrap();
     }
 }

@@ -63,6 +63,9 @@ fn overwrite_aiff_id3_raw(
     let new_path = path.as_ref().with_extension("ID3TMP");
     let mut in_reader = BufReader::new(File::open(&path)?);
     let mut out_writer = BufWriter::new(File::create(&new_path)?);
+    // Position of "FORM" chunk
+    let mut form_pos = None;
+    let mut form_size = 0;
 
     loop {
         // Read chunk ID
@@ -73,14 +76,6 @@ fn overwrite_aiff_id3_raw(
         }
         out_writer.write_all(&chunk_id)?;
 
-        // Skip FORM chunk size & type
-        if &chunk_id == b"FORM" {
-            let mut buffer: [u8; 8] = [0; 8];
-            in_reader.read_exact(&mut buffer)?;
-            out_writer.write_all(&buffer)?;
-            continue;
-        }
-
         // Read chunk size
         let mut chunk_size_raw: [u8; 4] = [0; 4];
         if in_reader.read(&mut chunk_size_raw)? < 4 {
@@ -88,11 +83,34 @@ fn overwrite_aiff_id3_raw(
         }
         let chunk_size = u32::from_be_bytes(chunk_size_raw);
 
+        // Skip FORM chunk size & type
+        if &chunk_id == b"FORM" {
+            // Save position of FORM block
+            form_pos = Some(in_reader.seek(SeekFrom::Current(0))? - 4);
+            form_size = chunk_size;
+            // Skip FORM header
+            out_writer.write_all(&chunk_size_raw)?;
+            let mut buffer: [u8; 4] = [0; 4];
+            in_reader.read_exact(&mut buffer)?;
+            out_writer.write_all(&buffer)?;
+            continue;
+        }
+
         // ID3 Chunk
         if &chunk_id[0..3] == b"ID3" {
             // Get ID3 bytes
             let mut id3_buffer = vec![];
             tag.write_to(&mut id3_buffer, version)?;
+
+            // Calculate size difference between ID3 tags
+            let diff = id3_buffer.len() as i32 - chunk_size as i32;
+            // Write updated size to FORM header
+            if let Some(offset) = form_pos {
+                out_writer.seek(SeekFrom::Start(offset))?;
+                out_writer.write_all(&((form_size as i32 + diff) as i32).to_be_bytes())?;
+                // Seek back
+                out_writer.seek(SeekFrom::End(0))?;
+            };
 
             let mut buffer = vec![];
             // Size
@@ -108,9 +126,9 @@ fn overwrite_aiff_id3_raw(
         }
 
         // Pass thru
+        out_writer.write_all(&chunk_size_raw)?;
         let mut buffer = vec![0; chunk_size as usize];
         in_reader.read_exact(&mut buffer)?;
-        out_writer.write_all(&chunk_size_raw)?;
         out_writer.write_all(&buffer)?;
     }
 
