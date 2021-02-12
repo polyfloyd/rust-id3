@@ -1472,8 +1472,15 @@ impl<'a> Tag {
     }
 
     /// Reads AIFF file and returns ID3 Tag from it
-    pub fn read_from_aiff(path: impl AsRef<Path>) -> crate::Result<Tag> {
-        aiff::load_aiff_id3(path)
+    pub fn read_from_aiff_file(path: impl AsRef<Path>) -> crate::Result<Tag> {
+        let file = File::open(path)?;
+        let mut reader = BufReader::new(file);
+        aiff::load_aiff_id3(&mut reader)
+    }
+
+    /// Read ID3 tag from AIFF data in reader
+    pub fn read_from_aiff(reader: &mut (impl io::Read + io::Seek)) -> crate::Result<Tag> {
+        aiff::load_aiff_id3(reader)
     }
 
     /// Overwrite AIFF file ID3 chunk
@@ -1576,32 +1583,36 @@ mod tests {
 
     #[test]
     fn aiff_read_and_write() {
-        // Sample AIFF file (testdata/aiff.aiff):
-        // FORM Chunk: 46 4f 52 4d
-        // Size (should be entire file size - 8): 00 00 70 2a
-        // Form type (AIFF): 41 49 46 46
-        // ID3 Chunk (ID3 + 0x20): 49 44 33 20
-        // Size of ID3 chunk (should be same as testdata/id3v24.id3): 00 00 70 1e
-        // Rest is contents of testdata/id3v24.id3
-
-        //Copy
+        // Copy
         let tmp = tempfile::NamedTempFile::new().unwrap();
-        std::fs::copy("testdata/aiff.aiff", &tmp).unwrap();
+        std::fs::copy("testdata/quiet.aiff", &tmp).unwrap();
 
-        //Read
-        let mut tag = Tag::read_from_aiff(&tmp).unwrap();
+        // Read
+        let mut tag = Tag::read_from_aiff_file(&tmp).unwrap();
         assert_eq!(tag.title(), Some("Title"));
         assert_eq!(tag.album(), Some("Album"));
 
-        //Edit
+        // Edit
         tag.set_title("NewTitle");
         tag.set_album("NewAlbum");
 
-        //Write
+        // Write
         tag.write_to_aiff(&tmp, Version::Id3v24).unwrap();
 
-        //Check written data
-        tag = Tag::read_from_aiff(&tmp).unwrap();
+        // Check if not corrupted with ffprobe
+        use std::process::Command;
+        let command = Command::new("ffprobe")
+            .arg(tmp.path().to_str().unwrap())
+            .output()
+            .unwrap();
+        assert!(command.status.success());
+        let output = String::from_utf8(command.stderr).unwrap();
+        assert!(!output.contains("Input/output error"));
+        // Also show in console too for manual double check
+        println!("{}", output);
+
+        // Check written data
+        tag = Tag::read_from_aiff_file(&tmp).unwrap();
         assert_eq!(tag.title(), Some("NewTitle"));
         assert_eq!(tag.album(), Some("NewAlbum"));
     }

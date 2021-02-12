@@ -2,13 +2,13 @@ use crate::{Error, ErrorKind};
 use crate::{Tag, Version};
 use std::fs;
 use std::fs::File;
+use std::io;
 use std::io::prelude::*;
 use std::io::{BufReader, BufWriter, SeekFrom};
 use std::path::Path;
 
-pub fn load_aiff_id3(path: impl AsRef<Path>) -> crate::Result<Tag> {
-    let file = File::open(path)?;
-    let mut reader = BufReader::new(file);
+// Load ID3 tag from AIFF file from reader
+pub fn load_aiff_id3(reader: &mut (impl io::Read + io::Seek)) -> crate::Result<Tag> {
     loop {
         // Read chunk ID
         let mut chunk_id: [u8; 4] = [0; 4];
@@ -34,7 +34,6 @@ pub fn load_aiff_id3(path: impl AsRef<Path>) -> crate::Result<Tag> {
 
         reader.seek(SeekFrom::Current(chunk_size as i64))?;
     }
-
     Err(Error::new(ErrorKind::NoTag, "No tag chunk found!"))
 }
 
