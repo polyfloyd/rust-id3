@@ -1588,7 +1588,7 @@ mod tests {
         std::fs::copy("testdata/quiet.aiff", &tmp).unwrap();
 
         // Read
-        let mut tag = Tag::read_from_aiff_file(&tmp).unwrap();
+        let mut tag = Tag::read_from_aiff(&tmp).unwrap();
         assert_eq!(tag.title(), Some("Title"));
         assert_eq!(tag.album(), Some("Album"));
 
@@ -1612,7 +1612,7 @@ mod tests {
         println!("{}", output);
 
         // Check written data
-        tag = Tag::read_from_aiff_file(&tmp).unwrap();
+        tag = Tag::read_from_aiff(&tmp).unwrap();
         assert_eq!(tag.title(), Some("NewTitle"));
         assert_eq!(tag.album(), Some("NewAlbum"));
     }
