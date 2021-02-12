@@ -1472,14 +1472,14 @@ impl<'a> Tag {
     }
 
     /// Reads AIFF file and returns ID3 Tag from it
-    pub fn read_from_aiff_file(path: impl AsRef<Path>) -> crate::Result<Tag> {
+    pub fn read_from_aiff(path: impl AsRef<Path>) -> crate::Result<Tag> {
         let file = File::open(path)?;
         let mut reader = BufReader::new(file);
         aiff::load_aiff_id3(&mut reader)
     }
 
     /// Read ID3 tag from AIFF data in reader
-    pub fn read_from_aiff(reader: &mut (impl io::Read + io::Seek)) -> crate::Result<Tag> {
+    pub fn read_from_aiff_reader(reader: &mut (impl io::Read + io::Seek)) -> crate::Result<Tag> {
         aiff::load_aiff_id3(reader)
     }
 
