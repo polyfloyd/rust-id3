@@ -8,7 +8,7 @@ use std::io::{BufReader, BufWriter, SeekFrom};
 use std::path::Path;
 
 // Load ID3 tag from AIFF file from reader
-pub fn load_aiff_id3(reader: &mut (impl io::Read + io::Seek)) -> crate::Result<Tag> {
+pub fn load_aiff_id3(mut reader: impl io::Read + io::Seek) -> crate::Result<Tag> {
     loop {
         // Read chunk ID
         let mut chunk_id: [u8; 4] = [0; 4];

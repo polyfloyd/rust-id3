@@ -1479,7 +1479,7 @@ impl<'a> Tag {
     }
 
     /// Read ID3 tag from AIFF data in reader
-    pub fn read_from_aiff_reader(reader: &mut (impl io::Read + io::Seek)) -> crate::Result<Tag> {
+    pub fn read_from_aiff_reader(reader: impl io::Read + io::Seek) -> crate::Result<Tag> {
         aiff::load_aiff_id3(reader)
     }
 
