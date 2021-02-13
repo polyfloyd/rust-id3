@@ -1,6 +1,6 @@
 [package]
 name = "id3"
-version = "0.6.1"
+version = "0.6.2"
 edition = "2018"
 authors = [
     "polyfloyd <floyd@polyfloyd.net>",
