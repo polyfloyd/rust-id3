@@ -662,4 +662,11 @@ mod tests {
         let location = locate_id3v2(file).unwrap();
         assert_eq!(None, location);
     }
+
+    #[test]
+    fn read_github_issue_60() {
+        let mut file = fs::File::open("testdata/github-issue-60.id3").unwrap();
+        let err = decode(&mut file).err().unwrap();
+        err.partial_tag.unwrap();
+    }
 }
