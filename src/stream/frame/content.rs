@@ -62,6 +62,7 @@ pub fn decode(id: &str, mut reader: impl io::Read) -> crate::Result<Content> {
         "GEOB" | "GEO" => parse_geob(data.as_slice()),
         id if id.starts_with('T') => parse_text(data.as_slice()),
         id if id.starts_with('W') => parse_weblink(data.as_slice()),
+        "GRP1" => parse_text(data.as_slice()),
         _ => Ok(Content::Unknown(data)),
     }
 }
