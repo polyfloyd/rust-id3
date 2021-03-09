@@ -2,15 +2,10 @@ use crate::stream::encoding::Encoding;
 use crate::{Error, ErrorKind};
 use std::convert::TryInto;
 
-/// Returns a string created from the vector using Latin1 encoding, removing any trailing null
-/// bytes.
+/// Returns a string created from the vector using Latin1 encoding.
 /// Can never return None because all sequences of u8s are valid Latin1 strings.
 pub fn string_from_latin1(data: &[u8]) -> crate::Result<String> {
-    let value: String = data
-        .iter()
-        .take_while(|c| **c != 0)
-        .map(|b| *b as char)
-        .collect();
+    let value: String = data.iter().map(|b| *b as char).collect();
     Ok(value)
 }
 
@@ -105,6 +100,35 @@ pub fn string_to_utf16le(text: &str) -> Vec<u8> {
         out.extend_from_slice(&encoded_char.to_le_bytes());
     }
     out
+}
+
+/// Returns the index of the last delimiter for the specified encoding.
+pub fn find_last_delim(encoding: Encoding, data: &[u8], index: usize) -> Option<usize> {
+    let mut i = index;
+    if i >= data.len() {
+        return None;
+    }
+    match encoding {
+        Encoding::Latin1 | Encoding::UTF8 => {
+            while i > 0 {
+                if data[i] == 0 {
+                    return Some(i);
+                }
+                i -= 1;
+            }
+            None
+        }
+        Encoding::UTF16 | Encoding::UTF16BE => {
+            i -= i % 2; // align to 2-byte boundary
+            while i > 1 {
+                if data[i] == 0 && data[i + 1] == 0 {
+                    return Some(i);
+                }
+                i -= 2;
+            }
+            None
+        }
+    }
 }
 
 /// Returns the index of the first delimiter for the specified encoding.

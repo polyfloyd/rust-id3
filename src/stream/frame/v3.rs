@@ -56,6 +56,7 @@ pub fn decode(
     };
     let content = super::decode_content(
         reader.take(read_size as u64),
+        tag::Id3v23,
         id,
         flags.contains(Flags::COMPRESSION),
         unsynchronisation,

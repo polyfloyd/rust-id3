@@ -55,6 +55,7 @@ pub fn decode(mut reader: impl io::Read) -> crate::Result<Option<(usize, Frame)>
 
     let content = super::decode_content(
         reader.take(read_size as u64),
+        tag::Id3v24,
         id,
         flags.contains(Flags::COMPRESSION),
         flags.contains(Flags::UNSYNCHRONISATION),
