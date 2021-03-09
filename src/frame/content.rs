@@ -36,6 +36,14 @@ impl Content {
         }
     }
 
+    /// Returns split values of the `Text` frame or None if the value is not `Text`.
+    pub fn text_values(&self) -> Option<Vec<&str>> {
+        match *self {
+            Content::Text(ref content) => Some(content.split('\0').collect()),
+            _ => None,
+        }
+    }
+
     /// Returns the `ExtendedText` or None if the value is not `ExtendedText`.
     pub fn extended_text(&self) -> Option<&ExtendedText> {
         match *self {
