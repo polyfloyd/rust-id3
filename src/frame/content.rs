@@ -36,12 +36,11 @@ impl Content {
         }
     }
 
-    /// Returns split values of the `Text` frame or None if the value is not `Text`.
-    pub fn text_values(&self) -> Option<Vec<&str>> {
-        match *self {
-            Content::Text(ref content) => Some(content.split('\0').collect()),
-            _ => None,
-        }
+    /// Returns split values of the `Text` frame or None if the value is not `Text`. This is only
+    /// useful for ID3v2.4 tags, which support text frames containing multiple values separated by
+    /// null bytes. This method returns an iterator over the separated values.
+    pub fn text_values(&self) -> Option<impl Iterator<Item = &str>> {
+        self.text().map(|content| content.split('\0'))
     }
 
     /// Returns the `ExtendedText` or None if the value is not `ExtendedText`.
