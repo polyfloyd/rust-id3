@@ -1006,7 +1006,40 @@ mod tests {
             let mut data = Vec::new();
             data.push(*encoding as u8);
             data.extend(bytes_for_encoding(text, *encoding).into_iter());
-            println!("bytes: {:?}", data);
+
+            assert_eq!(
+                decode("TALB", tag::Id3v24, &data[..])
+                    .unwrap()
+                    .text()
+                    .unwrap(),
+                "text\u{0}text"
+            );
+            let mut data_out = Vec::new();
+            encode(
+                &mut data_out,
+                &Content::Text(text.to_string()),
+                tag::Id3v24,
+                *encoding,
+            )
+            .unwrap();
+            assert_eq!(data, data_out);
+        }
+    }
+
+    #[test]
+    fn test_non_null_terminated_text_v4() {
+        assert!(decode("TRCK", tag::Id3v24, &[][..]).is_err());
+        let text = "text\u{0}text";
+        for encoding in &[
+            Encoding::Latin1,
+            Encoding::UTF8,
+            Encoding::UTF16,
+            Encoding::UTF16BE,
+        ] {
+            println!("`{}`, `{:?}`", text, encoding);
+            let mut data = Vec::new();
+            data.push(*encoding as u8);
+            data.extend(bytes_for_encoding(text, *encoding).into_iter());
 
             assert_eq!(
                 decode("TALB", tag::Id3v24, &data[..])
