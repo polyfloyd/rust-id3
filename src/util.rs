@@ -103,26 +103,33 @@ pub fn string_to_utf16le(text: &str) -> Vec<u8> {
 }
 
 /// Returns the index of the last delimiter for the specified encoding.
-pub fn find_last_delim(encoding: Encoding, data: &[u8], index: usize) -> Option<usize> {
-    let mut i = index;
-    if i >= data.len() {
-        return None;
-    }
+pub fn find_closing_delim(encoding: Encoding, data: &[u8]) -> Option<usize> {
+    let mut i = data.len();
     match encoding {
         Encoding::Latin1 | Encoding::UTF8 => {
+            i = i.checked_sub(1)?;
             while i > 0 {
-                if data[i] == 0 {
-                    return Some(i);
+                if data[i] != 0 {
+                    return if (i + 1) == data.len() {
+                        None
+                    } else {
+                        Some(i + 1)
+                    };
                 }
                 i -= 1;
             }
             None
         }
         Encoding::UTF16 | Encoding::UTF16BE => {
+            i = i.checked_sub(2)?;
             i -= i % 2; // align to 2-byte boundary
             while i > 1 {
-                if data[i] == 0 && data[i + 1] == 0 {
-                    return Some(i);
+                if data[i] != 0 || data[i + 1] != 0 {
+                    return if (i + 2) == data.len() {
+                        None
+                    } else {
+                        Some(i + 2)
+                    };
                 }
                 i -= 2;
             }

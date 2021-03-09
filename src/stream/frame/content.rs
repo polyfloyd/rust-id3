@@ -425,11 +425,10 @@ macro_rules! decode_part {
         }
     }};
     ($bytes:expr, $params:ident, text_v4()) => {{
-        let (end, with_delim) =
-            match crate::util::find_last_delim($params.encoding, $bytes, $bytes.len() - 1) {
-                Some(i) => (i, i + delim_len($params.encoding)),
-                None => ($bytes.len(), $bytes.len()),
-            };
+        let (end, with_delim) = match crate::util::find_closing_delim($params.encoding, $bytes) {
+            Some(i) => (i, i + delim_len($params.encoding)),
+            None => ($bytes.len(), $bytes.len()),
+        };
         if end == 0 {
             ("".to_string(), &$bytes[with_delim..])
         } else {
