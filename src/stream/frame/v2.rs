@@ -17,7 +17,7 @@ pub fn decode(mut reader: impl io::Read) -> crate::Result<Option<(usize, Frame)>
     let sizebytes = &frame_header[3..6];
     let read_size =
         (u32::from(sizebytes[0]) << 16) | (u32::from(sizebytes[1]) << 8) | u32::from(sizebytes[2]);
-    let content = super::content::decode(id, reader.take(u64::from(read_size)))?;
+    let content = super::content::decode(id, tag::Id3v22, reader.take(u64::from(read_size)))?;
     let frame = Frame::with_content(id, content);
     Ok(Some((6 + read_size as usize, frame)))
 }

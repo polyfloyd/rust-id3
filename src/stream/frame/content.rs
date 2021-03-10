@@ -48,7 +48,11 @@ pub fn encode(
 }
 
 /// Attempts to decode the request.
-pub fn decode(id: &str, mut reader: impl io::Read) -> crate::Result<Content> {
+pub fn decode(
+    id: &str,
+    version: tag::Version,
+    mut reader: impl io::Read,
+) -> crate::Result<Content> {
     let mut data = Vec::new();
     reader.read_to_end(&mut data)?;
     match id {
@@ -60,9 +64,9 @@ pub fn decode(id: &str, mut reader: impl io::Read) -> crate::Result<Content> {
         "USLT" | "ULT" => parse_uslt(data.as_slice()),
         "SYLT" | "SLT" => parse_sylt(data.as_slice()),
         "GEOB" | "GEO" => parse_geob(data.as_slice()),
-        id if id.starts_with('T') => parse_text(data.as_slice()),
+        id if id.starts_with('T') => parse_text(data.as_slice(), version),
         id if id.starts_with('W') => parse_weblink(data.as_slice()),
-        "GRP1" => parse_text(data.as_slice()),
+        "GRP1" => parse_text(data.as_slice(), version),
         _ => Ok(Content::Unknown(data)),
     }
 }
@@ -406,8 +410,22 @@ macro_rules! decode_part {
             )
         }
     }};
-    ($bytes:expr, $params:ident, text()) => {{
+    ($bytes:expr, $params:ident, text_v3()) => {{
         let (end, with_delim) = match crate::util::find_delim($params.encoding, $bytes, 0) {
+            Some(i) => (i, i + delim_len($params.encoding)),
+            None => ($bytes.len(), $bytes.len()),
+        };
+        if end == 0 {
+            ("".to_string(), &$bytes[with_delim..])
+        } else {
+            (
+                ($params.string_func)(&$bytes[..end])?,
+                &$bytes[with_delim..],
+            )
+        }
+    }};
+    ($bytes:expr, $params:ident, text_v4()) => {{
+        let (end, with_delim) = match crate::util::find_closing_delim($params.encoding, $bytes) {
             Some(i) => (i, i + delim_len($params.encoding)),
             None => ($bytes.len(), $bytes.len()),
         };
@@ -545,12 +563,15 @@ fn parse_comm(data: &[u8]) -> crate::Result<Content> {
 
 /// Attempts to parse the data as a text frame.
 /// Returns a `Content::Text`.
-fn parse_text(data: &[u8]) -> crate::Result<Content> {
+fn parse_text(data: &[u8], version: tag::Version) -> crate::Result<Content> {
     assert_data!(data);
     let encoding = encoding_from_byte(data[0])?;
 
     let params = DecodingParams::for_encoding(encoding);
-    Ok(Content::Text(decode_part!(&data[1..], params, text()).0))
+    match version {
+        tag::Version::Id3v24 => Ok(Content::Text(decode_part!(&data[1..], params, text_v4()).0)),
+        _ => Ok(Content::Text(decode_part!(&data[1..], params, text_v3()).0)),
+    }
 }
 
 /// Attempts to parse the data as a user defined text frame.
@@ -707,7 +728,7 @@ mod tests {
 
     #[test]
     fn test_apic_v2() {
-        assert!(decode("PIC", &[][..]).is_err());
+        assert!(decode("PIC", tag::Id3v22, &[][..]).is_err());
 
         let mut format_map = HashMap::new();
         format_map.insert("image/jpeg", "JPG");
@@ -735,7 +756,10 @@ mod tests {
                     data.extend(picture_data.iter().cloned());
 
                     assert_eq!(
-                        *decode("PIC", &data[..]).unwrap().picture().unwrap(),
+                        *decode("PIC", tag::Id3v22, &data[..])
+                            .unwrap()
+                            .picture()
+                            .unwrap(),
                         picture
                     );
                     let mut data_out = Vec::new();
@@ -754,7 +778,7 @@ mod tests {
 
     #[test]
     fn test_apic_v3() {
-        assert!(decode("APIC", &[][..]).is_err());
+        assert!(decode("APIC", tag::Id3v23, &[][..]).is_err());
 
         for mime_type in &["", "image/jpeg"] {
             for description in &["", "description"] {
@@ -784,7 +808,10 @@ mod tests {
                     data.extend(picture_data.iter().cloned());
 
                     assert_eq!(
-                        *decode("APIC", &data[..]).unwrap().picture().unwrap(),
+                        *decode("APIC", tag::Id3v23, &data[..])
+                            .unwrap()
+                            .picture()
+                            .unwrap(),
                         picture
                     );
                     let mut data_out = Vec::new();
@@ -803,7 +830,7 @@ mod tests {
 
     #[test]
     fn test_comm() {
-        assert!(decode("COMM", &[][..]).is_err());
+        assert!(decode("COMM", tag::Id3v23, &[][..]).is_err());
 
         println!("valid");
         for description in &["", "description"] {
@@ -828,7 +855,10 @@ mod tests {
                         text: comment.to_string(),
                     };
                     assert_eq!(
-                        *decode("COMM", &data[..]).unwrap().comment().unwrap(),
+                        *decode("COMM", tag::Id3v23, &data[..])
+                            .unwrap()
+                            .comment()
+                            .unwrap(),
                         content
                     );
                     let mut data_out = Vec::new();
@@ -859,7 +889,7 @@ mod tests {
             data.extend(b"eng".iter().cloned());
             data.extend(bytes_for_encoding(description, *encoding).into_iter());
             data.extend(bytes_for_encoding(comment, *encoding).into_iter());
-            assert!(decode("COMM", &data[..]).is_err());
+            assert!(decode("COMM", tag::Id3v23, &data[..]).is_err());
         }
         println!("Empty description");
         let comment = "comment";
@@ -883,7 +913,10 @@ mod tests {
             println!("data == {:?}", data);
             println!("content == {:?}", content);
             assert_eq!(
-                *decode("COMM", &data[..]).unwrap().comment().unwrap(),
+                *decode("COMM", tag::Id3v23, &data[..])
+                    .unwrap()
+                    .comment()
+                    .unwrap(),
                 content
             );
         }
@@ -891,7 +924,7 @@ mod tests {
 
     #[test]
     fn test_text() {
-        assert!(decode("TALB", &[][..]).is_err());
+        assert!(decode("TALB", tag::Id3v23, &[][..]).is_err());
 
         for text in &["", "text"] {
             for encoding in &[
@@ -905,7 +938,13 @@ mod tests {
                 data.push(*encoding as u8);
                 data.extend(bytes_for_encoding(text, *encoding).into_iter());
 
-                assert_eq!(decode("TALB", &data[..]).unwrap().text().unwrap(), *text);
+                assert_eq!(
+                    decode("TALB", tag::Id3v23, &data[..])
+                        .unwrap()
+                        .text()
+                        .unwrap(),
+                    *text
+                );
                 let mut data_out = Vec::new();
                 encode(
                     &mut data_out,
@@ -920,9 +959,9 @@ mod tests {
     }
 
     #[test]
-    fn test_null_terminated_text() {
-        assert!(decode("TRCK", &[][..]).is_err());
-        let text = "text\u{0}\u{0}";
+    fn test_null_terminated_text_v3() {
+        assert!(decode("TRCK", tag::Id3v23, &[][..]).is_err());
+        let text = "text\u{0}test\u{0}";
         for encoding in &[
             Encoding::Latin1,
             Encoding::UTF8,
@@ -934,7 +973,13 @@ mod tests {
             data.push(*encoding as u8);
             data.extend(bytes_for_encoding(text, *encoding).into_iter());
 
-            assert_eq!(decode("TALB", &data[..]).unwrap().text().unwrap(), "text");
+            assert_eq!(
+                decode("TALB", tag::Id3v23, &data[..])
+                    .unwrap()
+                    .text()
+                    .unwrap(),
+                "text"
+            );
             let mut data_out = Vec::new();
             encode(
                 &mut data_out,
@@ -948,8 +993,76 @@ mod tests {
     }
 
     #[test]
+    fn test_null_terminated_text_v4() {
+        assert!(decode("TRCK", tag::Id3v24, &[][..]).is_err());
+        let text = "text\u{0}text\u{0}";
+        for encoding in &[
+            Encoding::Latin1,
+            Encoding::UTF8,
+            Encoding::UTF16,
+            Encoding::UTF16BE,
+        ] {
+            println!("`{}`, `{:?}`", text, encoding);
+            let mut data = Vec::new();
+            data.push(*encoding as u8);
+            data.extend(bytes_for_encoding(text, *encoding).into_iter());
+
+            assert_eq!(
+                decode("TALB", tag::Id3v24, &data[..])
+                    .unwrap()
+                    .text()
+                    .unwrap(),
+                "text\u{0}text"
+            );
+            let mut data_out = Vec::new();
+            encode(
+                &mut data_out,
+                &Content::Text(text.to_string()),
+                tag::Id3v24,
+                *encoding,
+            )
+            .unwrap();
+            assert_eq!(data, data_out);
+        }
+    }
+
+    #[test]
+    fn test_non_null_terminated_text_v4() {
+        assert!(decode("TRCK", tag::Id3v24, &[][..]).is_err());
+        let text = "text\u{0}text";
+        for encoding in &[
+            Encoding::Latin1,
+            Encoding::UTF8,
+            Encoding::UTF16,
+            Encoding::UTF16BE,
+        ] {
+            println!("`{}`, `{:?}`", text, encoding);
+            let mut data = Vec::new();
+            data.push(*encoding as u8);
+            data.extend(bytes_for_encoding(text, *encoding).into_iter());
+
+            assert_eq!(
+                decode("TALB", tag::Id3v24, &data[..])
+                    .unwrap()
+                    .text()
+                    .unwrap(),
+                "text\u{0}text"
+            );
+            let mut data_out = Vec::new();
+            encode(
+                &mut data_out,
+                &Content::Text(text.to_string()),
+                tag::Id3v24,
+                *encoding,
+            )
+            .unwrap();
+            assert_eq!(data, data_out);
+        }
+    }
+
+    #[test]
     fn test_txxx() {
-        assert!(decode("TXXX", &[][..]).is_err());
+        assert!(decode("TXXX", tag::Id3v23, &[][..]).is_err());
 
         println!("valid");
         for key in &["", "key"] {
@@ -972,7 +1085,10 @@ mod tests {
                         value: value.to_string(),
                     };
                     assert_eq!(
-                        *decode("TXXX", &data[..]).unwrap().extended_text().unwrap(),
+                        *decode("TXXX", tag::Id3v23, &data[..])
+                            .unwrap()
+                            .extended_text()
+                            .unwrap(),
                         content
                     );
                     let mut data_out = Vec::new();
@@ -1002,7 +1118,7 @@ mod tests {
             data.push(*encoding as u8);
             data.extend(bytes_for_encoding(key, *encoding).into_iter());
             data.extend(bytes_for_encoding(value, *encoding).into_iter());
-            assert!(decode("TXXX", &data[..]).is_err());
+            assert!(decode("TXXX", tag::Id3v23, &data[..]).is_err());
         }
     }
 
@@ -1012,7 +1128,13 @@ mod tests {
             println!("`{:?}`", link);
             let data = link.as_bytes().to_vec();
 
-            assert_eq!(decode("WOAF", &data[..]).unwrap().link().unwrap(), *link);
+            assert_eq!(
+                decode("WOAF", tag::Id3v23, &data[..])
+                    .unwrap()
+                    .link()
+                    .unwrap(),
+                *link
+            );
             let mut data_out = Vec::new();
             encode(
                 &mut data_out,
@@ -1027,7 +1149,7 @@ mod tests {
 
     #[test]
     fn test_wxxx() {
-        assert!(decode("WXXX", &[][..]).is_err());
+        assert!(decode("WXXX", tag::Id3v23, &[][..]).is_err());
 
         println!("valid");
         for description in &["", "rust"] {
@@ -1050,7 +1172,10 @@ mod tests {
                         link: link.to_string(),
                     };
                     assert_eq!(
-                        *decode("WXXX", &data[..]).unwrap().extended_link().unwrap(),
+                        *decode("WXXX", tag::Id3v23, &data[..])
+                            .unwrap()
+                            .extended_link()
+                            .unwrap(),
                         content
                     );
                     let mut data_out = Vec::new();
@@ -1080,13 +1205,13 @@ mod tests {
             data.push(*encoding as u8);
             data.extend(bytes_for_encoding(description, *encoding).into_iter());
             data.extend(bytes_for_encoding(link, Encoding::Latin1).into_iter());
-            assert!(decode("WXXX", &data[..]).is_err());
+            assert!(decode("WXXX", tag::Id3v23, &data[..]).is_err());
         }
     }
 
     #[test]
     fn test_uslt() {
-        assert!(decode("USLT", &[][..]).is_err());
+        assert!(decode("USLT", tag::Id3v23, &[][..]).is_err());
 
         println!("valid");
         for description in &["", "description"] {
@@ -1111,7 +1236,10 @@ mod tests {
                         text: text.to_string(),
                     };
                     assert_eq!(
-                        *decode("USLT", &data[..]).unwrap().lyrics().unwrap(),
+                        *decode("USLT", tag::Id3v23, &data[..])
+                            .unwrap()
+                            .lyrics()
+                            .unwrap(),
                         content
                     );
                     let mut data_out = Vec::new();
@@ -1142,7 +1270,7 @@ mod tests {
             data.extend(b"eng".iter().cloned());
             data.extend(bytes_for_encoding(description, *encoding).into_iter());
             data.extend(bytes_for_encoding(lyrics, *encoding).into_iter());
-            assert!(decode("USLT", &data[..]).is_err());
+            assert!(decode("USLT", tag::Id3v23, &data[..]).is_err());
         }
     }
 }

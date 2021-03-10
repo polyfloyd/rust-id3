@@ -24,6 +24,7 @@ pub fn decode(
 
 pub fn decode_content(
     reader: impl io::Read,
+    version: tag::Version,
     id: &str,
     compression: bool,
     unsynchronisation: bool,
@@ -31,14 +32,14 @@ pub fn decode_content(
     let result = if unsynchronisation {
         let reader_unsynch = unsynch::Reader::new(reader);
         if compression {
-            content::decode(id, ZlibDecoder::new(reader_unsynch))
+            content::decode(id, version, ZlibDecoder::new(reader_unsynch))
         } else {
-            content::decode(id, reader_unsynch)
+            content::decode(id, version, reader_unsynch)
         }
     } else if compression {
-        content::decode(id, ZlibDecoder::new(reader))
+        content::decode(id, version, ZlibDecoder::new(reader))
     } else {
-        content::decode(id, reader)
+        content::decode(id, version, reader)
     };
     Ok(result?)
 }
@@ -109,7 +110,7 @@ mod tests {
         data.push(encoding as u8);
         data.extend(string_to_utf16(text).into_iter());
 
-        let content = decode_content(&data[..], id, false, false).unwrap();
+        let content = decode_content(&data[..], tag::Id3v22, id, false, false).unwrap();
         let frame = Frame::with_content(id, content);
 
         let mut bytes = Vec::new();
@@ -132,7 +133,7 @@ mod tests {
         data.push(encoding as u8);
         data.extend(string_to_utf16(text).into_iter());
 
-        let content = decode_content(&data[..], id, false, false).unwrap();
+        let content = decode_content(&data[..], tag::Id3v23, id, false, false).unwrap();
         let frame = Frame::with_content(id, content);
 
         let mut bytes = Vec::new();
@@ -156,7 +157,7 @@ mod tests {
         data.push(encoding as u8);
         data.extend(text.bytes());
 
-        let content = decode_content(&data[..], id, false, false).unwrap();
+        let content = decode_content(&data[..], tag::Id3v24, id, false, false).unwrap();
         let mut frame = Frame::with_content(id, content);
         frame.set_tag_alter_preservation(true);
         frame.set_file_alter_preservation(true);
