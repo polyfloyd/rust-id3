@@ -7,6 +7,7 @@ use crate::frame::{
 use crate::storage::{PlainStorage, Storage};
 use crate::stream;
 use crate::v1;
+use crate::wav;
 use std::fs::{self, File};
 use std::io::{self, BufReader, Write};
 use std::iter::Iterator;
@@ -1486,6 +1487,23 @@ impl<'a> Tag {
     /// Overwrite AIFF file ID3 chunk
     pub fn write_to_aiff(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
         aiff::overwrite_aiff_id3(path, &self, version)
+    }
+
+    /// Reads WAV file and returns ID3 Tag from it
+    pub fn read_from_wav(path: impl AsRef<Path>) -> crate::Result<Tag> {
+        let file = File::open(path)?;
+        let mut reader = BufReader::new(file);
+        wav::load_wav_id3(&mut reader)
+    }
+
+    /// Read ID3 tag from WAV data in reader
+    pub fn read_from_wav_reader(reader: impl io::Read + io::Seek) -> crate::Result<Tag> {
+        wav::load_wav_id3(reader)
+    }
+
+    /// Overwrite WAV file ID3 chunk
+    pub fn write_to_wav(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
+        wav::write_wav_id3(path, &self, version)
     }
 }
 
