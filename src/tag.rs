@@ -1489,7 +1489,7 @@ impl<'a> Tag {
         aiff::overwrite_aiff_id3(path, &self, version)
     }
 
-    /// Reads WAV file and returns ID3 Tag from it
+    /// Reads WAV file and returns ID3 Tag from the ID3 chunk, if present.
     pub fn read_from_wav(path: impl AsRef<Path>) -> crate::Result<Tag> {
         let file = File::open(path)?;
         let mut reader = BufReader::new(file);
@@ -1549,8 +1549,8 @@ impl From<v1::Tag> for Tag {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Seek;
-    use std::{fs, io::Read};
+    use std::fs;
+    use std::{io::Read, io::Seek};
     use tempfile::tempdir;
 
     #[test]

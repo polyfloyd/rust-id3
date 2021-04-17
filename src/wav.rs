@@ -98,7 +98,7 @@ pub fn write_wav_id3(path: impl AsRef<Path>, tag: &Tag, version: Version) -> cra
                 size: 0,
             };
 
-            chunk.write(&mut writer)?;
+            chunk.write_to(&mut writer)?;
 
             // Update the riff chunk size:
             riff_chunk.size = riff_chunk
@@ -138,7 +138,7 @@ pub fn write_wav_id3(path: impl AsRef<Path>, tag: &Tag, version: Version) -> cra
     // Update chunk sizes in the file:
 
     file.seek(id3_chunk_pos)?;
-    id3_chunk.write(&file)?;
+    id3_chunk.write_to(&file)?;
 
     riff_chunk.size = riff_chunk
         .size
@@ -146,7 +146,7 @@ pub fn write_wav_id3(path: impl AsRef<Path>, tag: &Tag, version: Version) -> cra
         .ok_or(Error::new(ErrorKind::InvalidInput, "RIFF max size reached"))?;
 
     file.seek(riff_chunk_pos)?;
-    riff_chunk.write(&file)?;
+    riff_chunk.write_to(&file)?;
 
     Ok(())
 }
@@ -293,8 +293,8 @@ impl ChunkHeader {
     where
         R: io::Read + io::Seek,
     {
-        const ID3: ChunkTag = ChunkTag(*b"ID3 ");
-        Self::find(&ID3, reader, end)?.ok_or(Error::new(ErrorKind::NoTag, "No tag chunk found!"))
+        Self::find(&ID3_TAG, reader, end)?
+            .ok_or(Error::new(ErrorKind::NoTag, "No tag chunk found!"))
     }
 
     /// Finds a chunk in a flat sequence of chunks. This won't search chunks recursively.
@@ -334,7 +334,7 @@ impl ChunkHeader {
     /// |-------+------+-------------------------------|
     /// | tag   |    4 | chunk type                    |
     /// | size  |    4 | 32 bits little endian integer |
-    pub fn write<W>(&self, mut writer: W) -> io::Result<()>
+    pub fn write_to<W>(&self, mut writer: W) -> io::Result<()>
     where
         W: io::Write,
     {
