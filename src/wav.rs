@@ -188,17 +188,19 @@ fn locate_relevant_chunks(
     Ok((riff_chunk, id3_chunk))
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Eq)]
 struct ChunkTag(pub [u8; 4]);
 
 impl ChunkTag {
-    /// Checks if two chunk tags match, case insensitive.
-    pub fn is(&self, tag: &ChunkTag) -> bool {
-        self.0.eq_ignore_ascii_case(&tag.0)
-    }
-
     pub const fn len(&self) -> u32 {
         self.0.len() as u32
+    }
+}
+
+/// Equality for chunk tags is case insensitive.
+impl PartialEq for ChunkTag {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq_ignore_ascii_case(&other.0)
     }
 }
 
@@ -211,7 +213,7 @@ impl TryFrom<&[u8]> for ChunkTag {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 struct ChunkHeader {
     tag: ChunkTag,
     size: u32,
@@ -245,7 +247,7 @@ impl ChunkHeader {
             .try_into()
             .expect("slice with incorrect length");
 
-        if !chunk_header.tag.is(&RIFF) {
+        if chunk_header.tag != RIFF {
             return Err(invalid_header_error);
         }
 
@@ -253,7 +255,7 @@ impl ChunkHeader {
             .try_into()
             .expect("slice with incorrect length");
 
-        if !wave_tag.is(&WAVE) {
+        if wave_tag != WAVE {
             return Err(invalid_header_error);
         }
 
@@ -315,7 +317,7 @@ impl ChunkHeader {
         while pos < end {
             let chunk = Self::read(&mut reader)?;
 
-            if chunk.tag.is(tag) {
+            if &chunk.tag == tag {
                 return Ok(Some(chunk));
             }
 
