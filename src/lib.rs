@@ -85,3 +85,4 @@ mod storage;
 mod stream;
 mod tag;
 mod util;
+mod wav;

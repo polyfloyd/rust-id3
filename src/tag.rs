@@ -7,6 +7,7 @@ use crate::frame::{
 use crate::storage::{PlainStorage, Storage};
 use crate::stream;
 use crate::v1;
+use crate::wav;
 use std::fs::{self, File};
 use std::io::{self, BufReader, Write};
 use std::iter::Iterator;
@@ -1487,6 +1488,23 @@ impl<'a> Tag {
     pub fn write_to_aiff(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
         aiff::overwrite_aiff_id3(path, &self, version)
     }
+
+    /// Reads WAV file and returns ID3 Tag from the ID3 chunk, if present.
+    pub fn read_from_wav(path: impl AsRef<Path>) -> crate::Result<Tag> {
+        let file = File::open(path)?;
+        let mut reader = BufReader::new(file);
+        wav::load_wav_id3(&mut reader)
+    }
+
+    /// Read ID3 tag from WAV data in reader
+    pub fn read_from_wav_reader(reader: impl io::Read + io::Seek) -> crate::Result<Tag> {
+        wav::load_wav_id3(reader)
+    }
+
+    /// Overwrite WAV file ID3 chunk
+    pub fn write_to_wav(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
+        wav::write_wav_id3(path, &self, version)
+    }
 }
 
 impl PartialEq for Tag {
@@ -1532,7 +1550,7 @@ impl From<v1::Tag> for Tag {
 mod tests {
     use super::*;
     use std::fs;
-    use std::io::Seek;
+    use std::{io::Read, io::Seek};
     use tempfile::tempdir;
 
     #[test]
@@ -1615,5 +1633,196 @@ mod tests {
         tag = Tag::read_from_aiff(&tmp).unwrap();
         assert_eq!(tag.title(), Some("NewTitle"));
         assert_eq!(tag.album(), Some("NewAlbum"));
+    }
+
+    #[test]
+    fn wav_read_tagless() {
+        use crate::ErrorKind;
+
+        let error = Tag::read_from_wav("testdata/wav/tagless.wav").unwrap_err();
+
+        assert!(
+            matches!(error.kind, ErrorKind::NoTag),
+            "unexpected error kind: {:?}",
+            error.kind
+        );
+    }
+
+    #[test]
+    fn wav_read_tag_mid() {
+        let tag = Tag::read_from_wav("testdata/wav/tagged-mid.wav").unwrap();
+
+        assert_eq!(tag.title(), Some("Some Great Song"));
+        assert_eq!(tag.artist(), Some("Some Great Band"));
+        assert!(tag.pictures().next().is_some())
+    }
+
+    #[test]
+    fn wav_read_tag_end() {
+        let tag = Tag::read_from_wav("testdata/wav/tagged-end.wav").unwrap();
+
+        assert_eq!(tag.title(), Some("Some Great Song"));
+        assert_eq!(tag.artist(), Some("Some Great Band"));
+        assert!(tag.pictures().next().is_some())
+    }
+
+    #[test]
+    fn wav_read_tagless_corrupted() {
+        use crate::ErrorKind;
+
+        let error = Tag::read_from_wav("testdata/wav/tagless-corrupted.wav").unwrap_err();
+
+        // With this file, we reach EOF before the expected chunk end.
+        assert!(
+            matches!(error.kind, ErrorKind::Io(ref error) if error.kind() == io::ErrorKind::UnexpectedEof),
+            "unexpected error kind: {:?}",
+            error.kind
+        );
+
+        let error = Tag::read_from_wav("testdata/wav/tagless-corrupted-2.wav").unwrap_err();
+
+        // With this file, the RIFF chunk size is zero.
+        assert!(
+            matches!(error.kind, ErrorKind::InvalidInput),
+            "unexpected error kind: {:?}",
+            error.kind
+        );
+    }
+
+    #[test]
+    fn wav_read_tag_corrupted() {
+        use crate::ErrorKind;
+
+        let error = Tag::read_from_wav("testdata/wav/tagged-mid-corrupted.wav").unwrap_err();
+
+        assert!(
+            matches!(error.kind, ErrorKind::NoTag),
+            "unexpected error kind: {:?}",
+            error.kind
+        );
+    }
+
+    #[test]
+    fn wav_read_trailing_data() {
+        use crate::ErrorKind;
+
+        let error = Tag::read_from_wav("testdata/wav/tagless-trailing-data.wav").unwrap_err();
+
+        assert!(
+            matches!(error.kind, ErrorKind::NoTag),
+            "unexpected error kind: {:?}",
+            error.kind
+        );
+    }
+
+    #[test]
+    fn wav_write_tagged_end() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::copy("testdata/wav/tagged-end.wav", &tmp).unwrap();
+
+        edit_and_check_wav_tag(&tmp, &tmp).unwrap();
+    }
+
+    #[test]
+    fn wav_write_tagged_mid() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::copy("testdata/wav/tagged-mid.wav", &tmp).unwrap();
+
+        edit_and_check_wav_tag(&tmp, &tmp).unwrap();
+
+        let mut file = File::open(&tmp).unwrap();
+
+        check_trailing_data(&mut file, b"data\x12\0\0\0here is some music");
+    }
+
+    #[test]
+    fn wav_write_tagless() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::copy("testdata/wav/tagless.wav", &tmp).unwrap();
+
+        edit_and_check_wav_tag("testdata/wav/tagged-mid.wav", &tmp).unwrap();
+    }
+
+    #[test]
+    fn wav_write_trailing_data() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::copy("testdata/wav/tagless-trailing-data.wav", &tmp).unwrap();
+
+        edit_and_check_wav_tag("testdata/wav/tagged-mid.wav", &tmp).unwrap();
+
+        let mut file = File::open(&tmp).unwrap();
+
+        check_trailing_data(
+            &mut file,
+            b", and here is some trailing data that should be preserved.",
+        );
+    }
+
+    #[test]
+    fn wav_write_corrupted() {
+        use crate::ErrorKind;
+
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::copy("testdata/wav/tagless-corrupted.wav", &tmp).unwrap();
+
+        let error = edit_and_check_wav_tag("testdata/wav/tagged-mid.wav", &tmp).unwrap_err();
+
+        // With this file, we reach EOF before the expected chunk end.
+        assert!(
+            matches!(error.kind, ErrorKind::Io(ref error) if error.kind() == io::ErrorKind::UnexpectedEof),
+            "unexpected error kind: {:?}",
+            error.kind
+        );
+
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::copy("testdata/wav/tagless-corrupted-2.wav", &tmp).unwrap();
+
+        let error = edit_and_check_wav_tag("testdata/wav/tagged-mid.wav", &tmp).unwrap_err();
+
+        // With this file, the RIFF chunk size is zero.
+        assert!(
+            matches!(error.kind, ErrorKind::InvalidInput),
+            "unexpected error kind: {:?}",
+            error.kind
+        );
+    }
+
+    fn edit_and_check_wav_tag(from: impl AsRef<Path>, to: impl AsRef<Path>) -> crate::Result<()> {
+        let from = from.as_ref();
+        let to = to.as_ref();
+
+        // Read
+        let mut tag = Tag::read_from_wav(from)?;
+
+        // Edit
+        tag.set_title("NewTitle");
+        tag.set_album("NewAlbum");
+        tag.set_genre("New Wave");
+        tag.set_disc(20);
+        tag.set_duration(500);
+        tag.set_year(2020);
+
+        // Write
+        tag.write_to_wav(to, Version::Id3v24)?;
+
+        // Check written data
+        tag = Tag::read_from_wav(to)?;
+        assert_eq!(tag.title(), Some("NewTitle"));
+        assert_eq!(tag.album(), Some("NewAlbum"));
+        assert_eq!(tag.genre(), Some("New Wave"));
+        assert_eq!(tag.disc(), Some(20));
+        assert_eq!(tag.duration(), Some(500));
+        assert_eq!(tag.year(), Some(2020));
+
+        Ok(())
+    }
+
+    fn check_trailing_data<const N: usize>(file: &mut File, data: &[u8; N]) {
+        let mut trailing_data = [0; N];
+        file.seek(io::SeekFrom::End(-(N as i64))).unwrap();
+
+        file.read_exact(&mut trailing_data).unwrap();
+
+        assert_eq!(&trailing_data, data)
     }
 }
