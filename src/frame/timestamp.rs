@@ -90,7 +90,7 @@ impl Parser<'_> {
             parser.expect(b':')?;
             timestamp.second = parser.parse_other().ok();
             Ok(())
-        };
+        }
         let _ = parse(parser, &mut timestamp);
 
         Ok(timestamp)
