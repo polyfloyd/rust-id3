@@ -1602,7 +1602,7 @@ mod tests {
     fn aiff_read_and_write() {
         // Copy
         let tmp = tempfile::NamedTempFile::new().unwrap();
-        std::fs::copy("testdata/quiet.aiff", &tmp).unwrap();
+        std::fs::copy("testdata/aiff/quiet.aiff", &tmp).unwrap();
 
         // Read
         let mut tag = Tag::read_from_aiff(&tmp).unwrap();
@@ -1632,6 +1632,14 @@ mod tests {
         tag = Tag::read_from_aiff(&tmp).unwrap();
         assert_eq!(tag.title(), Some("NewTitle"));
         assert_eq!(tag.album(), Some("NewAlbum"));
+    }
+
+    #[test]
+    fn aiff_read_padding() {
+        let tag = Tag::read_from_aiff("testdata/aiff/padding.aiff").unwrap();
+
+        assert_eq!(tag.title(), Some("TEST TITLE"));
+        assert_eq!(tag.artist(), Some("TEST ARTIST"));
     }
 
     #[test]
