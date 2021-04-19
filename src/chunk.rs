@@ -7,35 +7,48 @@ use std::io::prelude::*;
 use std::io::{BufReader, Seek, SeekFrom};
 use std::path::Path;
 use std::{convert::TryInto, io};
+use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
-const RIFF_TAG: ChunkTag = ChunkTag(*b"RIFF");
-const WAVE_TAG: ChunkTag = ChunkTag(*b"WAVE");
+const TAG_LEN: u32 = 4; // Size of a tag.
+const SIZE_LEN: u32 = 4; // Size of a 32 bits integer.
+const CHUNK_HEADER_LEN: u32 = TAG_LEN + SIZE_LEN;
+
 const ID3_TAG: ChunkTag = ChunkTag(*b"ID3 ");
 
-const SIZE_LEN: u32 = 4; // Size of a 32 bits integer.
-const CHUNK_HEADER_LEN: u32 = RIFF_TAG.len() + SIZE_LEN;
 
-/// Attempts to load a ID3 tag from the given WAV stream.
-pub fn load_wav_id3(mut reader: impl io::Read + io::Seek) -> crate::Result<Tag> {
-    let riff_header = ChunkHeader::read_riff_header(&mut reader)?;
+/// Attempts to load a ID3 tag from the given chunk stream.
+pub fn load_id3_chunk<F, R>(mut reader: R) -> crate::Result<Tag>
+where
+    F: ChunkFormat,
+    R: io::Read + io::Seek,
+{
+    let root_chunk = ChunkHeader::read_root_chunk_header::<F, _>(&mut reader)?;
 
-    // Prevent reading past the RIFF chunk, as there may be non-standard trailing data.
-    let eof = riff_header
+    // Prevent reading past the root chunk, as there may be non-standard trailing data.
+    let eof = root_chunk
         .size
-        .checked_sub(WAVE_TAG.len()) // We must disconsider the WAVE tag that was already read.
+        .checked_sub(TAG_LEN) // We must disconsider the format tag that was already read.
         .ok_or(Error::new(
             ErrorKind::InvalidInput,
-            "Invalid RIFF chunk size",
+            "Invalid root chunk size",
         ))?;
 
-    let tag_chunk = ChunkHeader::find_id3(&mut reader, eof.into())?;
+    let tag_chunk = ChunkHeader::find_id3::<F, _>(&mut reader, eof.into())?;
     let chunk_reader = reader.take(tag_chunk.size.into());
     Tag::read_from(chunk_reader)
 }
 
 /// Writes a tag to the given file. If the file contains no previous tag data, a new ID3
 /// chunk is created. Otherwise, the tag is overwritten in place.
-pub fn write_wav_id3(path: impl AsRef<Path>, tag: &Tag, version: Version) -> crate::Result<()> {
+pub fn write_id3_chunk<F: ChunkFormat, P>(
+    path: P,
+    tag: &Tag,
+    version: Version,
+) -> crate::Result<()>
+where
+    F: ChunkFormat,
+    P: AsRef<Path>,
+{
     // Open the file:
     let mut file = fs::OpenOptions::new()
         .read(true)
@@ -45,9 +58,9 @@ pub fn write_wav_id3(path: impl AsRef<Path>, tag: &Tag, version: Version) -> cra
         .open(path)?;
 
     // Locate relevant chunks:
-    let (mut riff_chunk, id3_chunk_option) = locate_relevant_chunks(&file)?;
+    let (mut root_chunk, id3_chunk_option) = locate_relevant_chunks::<F, _>(&file)?;
 
-    let riff_chunk_pos = SeekFrom::Start(0);
+    let root_chunk_pos = SeekFrom::Start(0);
     let id3_chunk_pos;
     let mut id3_chunk;
 
@@ -78,9 +91,9 @@ pub fn write_wav_id3(path: impl AsRef<Path>, tag: &Tag, version: Version) -> cra
 
             // As we'll overwrite the existing tag, we must subtract it's size and sum the
             // new size later.
-            riff_chunk.size = riff_chunk.size.checked_sub(chunk.size).ok_or(Error::new(
+            root_chunk.size = root_chunk.size.checked_sub(chunk.size).ok_or(Error::new(
                 ErrorKind::InvalidInput,
-                "Invalid RIFF chunk size",
+                "Invalid root chunk size",
             ))?;
 
             chunk
@@ -98,13 +111,13 @@ pub fn write_wav_id3(path: impl AsRef<Path>, tag: &Tag, version: Version) -> cra
                 size: 0,
             };
 
-            chunk.write_to(&mut writer)?;
+            chunk.write_to::<F, _>(&mut writer)?;
 
             // Update the riff chunk size:
-            riff_chunk.size = riff_chunk
+            root_chunk.size = root_chunk
                 .size
                 .checked_add(CHUNK_HEADER_LEN)
-                .ok_or(Error::new(ErrorKind::InvalidInput, "RIFF max size reached"))?;
+                .ok_or(Error::new(ErrorKind::InvalidInput, "root chunk max size reached"))?;
 
             chunk
         };
@@ -138,39 +151,42 @@ pub fn write_wav_id3(path: impl AsRef<Path>, tag: &Tag, version: Version) -> cra
     // Update chunk sizes in the file:
 
     file.seek(id3_chunk_pos)?;
-    id3_chunk.write_to(&file)?;
+    id3_chunk.write_to::<F, _>(&file)?;
 
-    riff_chunk.size = riff_chunk
+    root_chunk.size = root_chunk
         .size
         .checked_add(id3_chunk.size)
-        .ok_or(Error::new(ErrorKind::InvalidInput, "RIFF max size reached"))?;
+        .ok_or(Error::new(ErrorKind::InvalidInput, "root chunk max size reached"))?;
 
-    file.seek(riff_chunk_pos)?;
-    riff_chunk.write_to(&file)?;
+    file.seek(root_chunk_pos)?;
+    root_chunk.write_to::<F, _>(&file)?;
 
     Ok(())
 }
 
-/// Locates the RIFF and ID3 chunks, returning their headers. The ID3 chunk may not be
-/// present. Returns a pair of (RIFF header, ID3 header).
-fn locate_relevant_chunks(
-    mut input: impl Read + Seek,
-) -> crate::Result<(ChunkHeader, Option<ChunkHeader>)> {
-    // We must scope this reader to prevent conflict with the following writer.
+/// Locates the root and ID3 chunks, returning their headers. The ID3 chunk may not be
+/// present. Returns a pair of (root chunk header, ID3 header).
+fn locate_relevant_chunks<F, R>(
+    mut input: R,
+) -> crate::Result<(ChunkHeader, Option<ChunkHeader>)>
+where
+    F: ChunkFormat,
+    R: Read + Seek
+{
     let mut reader = BufReader::new(&mut input);
 
-    let riff_chunk = ChunkHeader::read_riff_header(&mut reader)?;
+    let root_chunk = ChunkHeader::read_root_chunk_header::<F, _>(&mut reader)?;
 
-    // Prevent reading past the RIFF chunk, as there may be non-standard trailing data.
-    let eof = riff_chunk
+    // Prevent reading past the root chunk, as there may be non-standard trailing data.
+    let eof = root_chunk
         .size
-        .checked_sub(WAVE_TAG.len()) // We must disconsider the WAVE tag that was already read.
+        .checked_sub(TAG_LEN) // We must disconsider the WAVE tag that was already read.
         .ok_or(Error::new(
             ErrorKind::InvalidInput,
-            "Invalid RIFF chunk size",
+            "Invalid root chunk size",
         ))?;
 
-    let id3_chunk = match ChunkHeader::find_id3(&mut reader, eof.into()) {
+    let id3_chunk = match ChunkHeader::find_id3::<F, _>(&mut reader, eof.into()) {
         Ok(chunk) => Some(chunk),
         Err(Error {
             kind: ErrorKind::NoTag,
@@ -185,17 +201,11 @@ fn locate_relevant_chunks(
     drop(reader);
     input.seek(SeekFrom::Start(pos))?;
 
-    Ok((riff_chunk, id3_chunk))
+    Ok((root_chunk, id3_chunk))
 }
 
 #[derive(Debug, Clone, Copy, Eq)]
-struct ChunkTag(pub [u8; 4]);
-
-impl ChunkTag {
-    pub const fn len(&self) -> u32 {
-        self.0.len() as u32
-    }
-}
+pub struct ChunkTag(pub [u8; TAG_LEN as usize]);
 
 /// Equality for chunk tags is case insensitive.
 impl PartialEq for ChunkTag {
@@ -213,6 +223,34 @@ impl TryFrom<&[u8]> for ChunkTag {
     }
 }
 
+pub trait ChunkFormat {
+    type Endianness: ByteOrder;
+    const ROOT_TAG: ChunkTag;
+    const ROOT_FORMAT: Option<ChunkTag>;
+}
+
+#[derive(Debug)]
+pub struct AiffFormat;
+
+impl ChunkFormat for AiffFormat {
+    type Endianness = BigEndian;
+
+    const ROOT_TAG: ChunkTag = ChunkTag(*b"FORM");
+    // AIFF may have many formats, beign AIFF and AIFC the most common. Technically, it
+    // can be anything, so we won't check those.
+    const ROOT_FORMAT: Option<ChunkTag> = None;
+}
+
+#[derive(Debug)]
+pub struct WavFormat;
+
+impl ChunkFormat for WavFormat {
+    type Endianness = LittleEndian;
+
+    const ROOT_TAG: ChunkTag = ChunkTag(*b"RIFF");
+    const ROOT_FORMAT: Option<ChunkTag> = Some(ChunkTag(*b"WAVE"));
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct ChunkHeader {
     tag: ChunkTag,
@@ -220,56 +258,59 @@ struct ChunkHeader {
 }
 
 impl ChunkHeader {
-    /// Reads a RIFF header from the input stream. Such header is composed of:
+    /// Reads a root chunk from the input stream. Such header is composed of:
     ///
-    /// | Field    | Size | Value                         |
-    /// |----------+------+-------------------------------|
-    /// | RIFF tag |    4 | "RIFF"                        |
-    /// | size     |    4 | 32 bits little endian integer |
-    /// | WAVE tag |    4 | "WAVE"                        |
-    pub fn read_riff_header<R>(mut reader: R) -> crate::Result<ChunkHeader>
+    /// | Field   | Size | Type            |
+    /// |---------+------+-----------------|
+    /// | tag     |    4 | ChunkTag        |
+    /// | size    |    4 | 32 bits integer |
+    /// | format  |    4 | ChunkTag        |
+    pub fn read_root_chunk_header<F, R>(mut reader: R) -> crate::Result<Self>
     where
+        F: ChunkFormat,
         R: io::Read,
     {
-        const RIFF: ChunkTag = ChunkTag(*b"RIFF");
-        const WAVE: ChunkTag = ChunkTag(*b"WAVE");
+        let invalid_header_error = Error::new(ErrorKind::InvalidInput, "invalid chunk header");
 
-        let invalid_header_error = Error::new(ErrorKind::InvalidInput, "invalid WAV/RIFF header");
-
-        const BUFFER_SIZE: usize = (CHUNK_HEADER_LEN + WAVE_TAG.len()) as usize;
+        const BUFFER_SIZE: usize = (CHUNK_HEADER_LEN + TAG_LEN) as usize;
 
         let mut buffer = [0; BUFFER_SIZE];
 
         // Use a single read call to improve performance on unbuffered readers.
         reader.read_exact(&mut buffer)?;
 
-        let chunk_header: ChunkHeader = buffer[0..8]
+        let tag = buffer[0..4]
             .try_into()
             .expect("slice with incorrect length");
 
-        if chunk_header.tag != RIFF {
+        let size = F::Endianness::read_u32(&buffer[4..8]);
+
+        if tag != F::ROOT_TAG {
             return Err(invalid_header_error);
         }
 
-        let wave_tag: ChunkTag = buffer[8..12]
+        let chunk_format: ChunkTag = buffer[8..12]
             .try_into()
             .expect("slice with incorrect length");
 
-        if wave_tag != WAVE {
-            return Err(invalid_header_error);
+        if let Some(format_tag) = F::ROOT_FORMAT {
+            if chunk_format != format_tag {
+                return Err(invalid_header_error);
+            }
         }
 
-        Ok(chunk_header)
+        Ok(Self { tag, size })
     }
 
     /// Reads a chunk header from the input stream. A header is composed of:
     ///
-    /// | Field | Size | Value                         |
-    /// |-------+------+-------------------------------|
-    /// | tag   |    4 | chunk type                    |
-    /// | size  |    4 | 32 bits little endian integer |
-    pub fn read<R>(mut reader: R) -> io::Result<Self>
+    /// | Field | Size | Value           |
+    /// |-------+------+-----------------|
+    /// | tag   |    4 | chunk type      |
+    /// | size  |    4 | 32 bits integer |
+    pub fn read<F, R>(mut reader: R) -> io::Result<Self>
     where
+        F: ChunkFormat,
         R: io::Read,
     {
         const BUFFER_SIZE: usize = CHUNK_HEADER_LEN as usize;
@@ -279,23 +320,30 @@ impl ChunkHeader {
         // Use a single read call to improve performance on unbuffered readers.
         reader.read_exact(&mut header)?;
 
-        Ok(header.into())
+        let tag = header[0..4]
+            .try_into()
+            .expect("slice with incorrect length");
+
+        let size = F::Endianness::read_u32(&header[4..8]);
+
+        Ok(Self { tag, size })
     }
 
     /// Finds an ID3 chunk in a flat sequence of chunks. This should be called after reading
-    /// the root RIFF chunk.
+    /// the root chunk.
     ///
     /// # Arguments
     ///
-    /// * `reader` - The input stream. The reader must be positioned right after the RIFF
+    /// * `reader` - The input stream. The reader must be positioned right after the root
     ///              chunk header.
     /// * `end` - The stream position where the chunk sequence ends. This is used to
     ///           prevent searching past the end.
-    pub fn find_id3<R>(reader: R, end: u64) -> crate::Result<Self>
+    pub fn find_id3<F, R>(reader: R, end: u64) -> crate::Result<Self>
     where
+        F: ChunkFormat,
         R: io::Read + io::Seek,
     {
-        Self::find(&ID3_TAG, reader, end)?
+        Self::find::<F, _>(&ID3_TAG, reader, end)?
             .ok_or(Error::new(ErrorKind::NoTag, "No tag chunk found!"))
     }
 
@@ -308,14 +356,15 @@ impl ChunkHeader {
     ///              sequence of chunks.
     /// * `end` - The stream position where the chunk sequence ends. This is used to
     ///           prevent searching past the end.
-    fn find<R>(tag: &ChunkTag, mut reader: R, end: u64) -> crate::Result<Option<Self>>
+    fn find<F, R>(tag: &ChunkTag, mut reader: R, end: u64) -> crate::Result<Option<Self>>
     where
+        F: ChunkFormat,
         R: io::Read + io::Seek,
     {
         let mut pos = 0;
 
         while pos < end {
-            let chunk = Self::read(&mut reader)?;
+            let chunk = Self::read::<F, _>(&mut reader)?;
 
             if &chunk.tag == tag {
                 return Ok(Some(chunk));
@@ -336,8 +385,9 @@ impl ChunkHeader {
     /// |-------+------+-------------------------------|
     /// | tag   |    4 | chunk type                    |
     /// | size  |    4 | 32 bits little endian integer |
-    pub fn write_to<W>(&self, mut writer: W) -> io::Result<()>
+    pub fn write_to<F, W>(&self, mut writer: W) -> io::Result<()>
     where
+        F: ChunkFormat,
         W: io::Write,
     {
         const BUFFER_SIZE: usize = CHUNK_HEADER_LEN as usize;
@@ -346,7 +396,7 @@ impl ChunkHeader {
 
         buffer[0..4].copy_from_slice(&self.tag.0);
 
-        buffer[4..8].copy_from_slice(&self.size.to_le_bytes());
+        F::Endianness::write_u32(&mut buffer[4..8], self.size);
 
         // Use a single write call to improve performance on unbuffered writers.
         writer.write_all(&buffer)
@@ -357,34 +407,9 @@ impl fmt::Debug for ChunkHeader {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let tag = String::from_utf8_lossy(&self.tag.0);
 
-        f.debug_struct("ChunkHeader")
+        f.debug_struct(std::any::type_name::<Self>())
             .field("tag", &tag)
             .field("size", &self.size)
             .finish()
-    }
-}
-
-impl From<[u8; 8]> for ChunkHeader {
-    fn from(buffer: [u8; 8]) -> Self {
-        let tag: ChunkTag = buffer[0..4]
-            .try_into()
-            .expect("slice with incorrect length");
-
-        let size = u32::from_le_bytes(
-            buffer[4..8]
-                .try_into()
-                .expect("slice with incorrect length"),
-        );
-
-        Self { tag, size }
-    }
-}
-
-impl TryFrom<&[u8]> for ChunkHeader {
-    type Error = std::array::TryFromSliceError;
-
-    fn try_from(buffer: &[u8]) -> Result<Self, Self::Error> {
-        let header: [u8; 8] = buffer.try_into()?;
-        Ok(header.into())
     }
 }
