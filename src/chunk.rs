@@ -1,5 +1,6 @@
 use crate::storage::{PlainStorage, Storage};
 use crate::{Error, ErrorKind, Tag, Version};
+use byteorder::{BigEndian, ByteOrder, LittleEndian};
 use std::convert::TryFrom;
 use std::fmt;
 use std::fs;
@@ -7,14 +8,12 @@ use std::io::prelude::*;
 use std::io::{BufReader, Seek, SeekFrom};
 use std::path::Path;
 use std::{convert::TryInto, io};
-use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
 const TAG_LEN: u32 = 4; // Size of a tag.
 const SIZE_LEN: u32 = 4; // Size of a 32 bits integer.
 const CHUNK_HEADER_LEN: u32 = TAG_LEN + SIZE_LEN;
 
 const ID3_TAG: ChunkTag = ChunkTag(*b"ID3 ");
-
 
 /// Attempts to load a ID3 tag from the given chunk stream.
 pub fn load_id3_chunk<F, R>(mut reader: R) -> crate::Result<Tag>
@@ -40,11 +39,7 @@ where
 
 /// Writes a tag to the given file. If the file contains no previous tag data, a new ID3
 /// chunk is created. Otherwise, the tag is overwritten in place.
-pub fn write_id3_chunk<F: ChunkFormat, P>(
-    path: P,
-    tag: &Tag,
-    version: Version,
-) -> crate::Result<()>
+pub fn write_id3_chunk<F: ChunkFormat, P>(path: P, tag: &Tag, version: Version) -> crate::Result<()>
 where
     F: ChunkFormat,
     P: AsRef<Path>,
@@ -117,7 +112,10 @@ where
             root_chunk.size = root_chunk
                 .size
                 .checked_add(CHUNK_HEADER_LEN)
-                .ok_or(Error::new(ErrorKind::InvalidInput, "root chunk max size reached"))?;
+                .ok_or(Error::new(
+                    ErrorKind::InvalidInput,
+                    "root chunk max size reached",
+                ))?;
 
             chunk
         };
@@ -156,7 +154,10 @@ where
     root_chunk.size = root_chunk
         .size
         .checked_add(id3_chunk.size)
-        .ok_or(Error::new(ErrorKind::InvalidInput, "root chunk max size reached"))?;
+        .ok_or(Error::new(
+            ErrorKind::InvalidInput,
+            "root chunk max size reached",
+        ))?;
 
     file.seek(root_chunk_pos)?;
     root_chunk.write_to::<F, _>(&file)?;
@@ -166,12 +167,10 @@ where
 
 /// Locates the root and ID3 chunks, returning their headers. The ID3 chunk may not be
 /// present. Returns a pair of (root chunk header, ID3 header).
-fn locate_relevant_chunks<F, R>(
-    mut input: R,
-) -> crate::Result<(ChunkHeader, Option<ChunkHeader>)>
+fn locate_relevant_chunks<F, R>(mut input: R) -> crate::Result<(ChunkHeader, Option<ChunkHeader>)>
 where
     F: ChunkFormat,
-    R: Read + Seek
+    R: Read + Seek,
 {
     let mut reader = BufReader::new(&mut input);
 
