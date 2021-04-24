@@ -124,7 +124,7 @@ pub fn decode(mut reader: impl io::Read) -> crate::Result<Tag> {
         }
     } else {
         let mut offset = 0;
-        let mut tag = Tag::new();
+        let mut tag = Tag::with_version(header.version);
         while offset < header.frame_bytes() {
             let rs = frame::decode(
                 &mut reader,
@@ -147,7 +147,7 @@ pub fn decode(mut reader: impl io::Read) -> crate::Result<Tag> {
 }
 
 pub fn decode_v2_frames(mut reader: impl io::Read) -> crate::Result<Tag> {
-    let mut tag = Tag::new();
+    let mut tag = Tag::with_version(Version::Id3v22);
     // Add all frames, until either an error is thrown or there are no more frames to parse
     // (because of EOF or a Padding).
     loop {

@@ -42,17 +42,37 @@ impl Version {
     }
 }
 
+impl Default for Version {
+    fn default() -> Self {
+        Version::Id3v24
+    }
+}
+
 /// An ID3 tag containing metadata frames.
 #[derive(Clone, Debug, Default, Eq)]
 pub struct Tag {
     /// A vector of frames included in the tag.
     frames: Vec<Frame>,
+    /// ID3 Tag version
+    version: Version,
 }
 
 impl<'a> Tag {
     /// Creates a new ID3v2.4 tag with no frames.
     pub fn new() -> Tag {
         Tag::default()
+    }
+
+    /// Used for creating new tag with version
+    pub fn with_version(version: Version) -> Tag {
+        let mut tag = Tag::default();
+        tag.version = version;
+        tag
+    }
+
+    /// Returns version of the read tag
+    pub fn version(&self) -> Version {
+        self.version
     }
 
     /// Returns an iterator over the all frames in the tag.
@@ -1831,5 +1851,27 @@ mod tests {
         file.read_exact(&mut trailing_data).unwrap();
 
         assert_eq!(&trailing_data, data)
+    }
+
+    #[test]
+    fn check_read_version() {
+        assert_eq!(
+            Tag::read_from_path("testdata/id3v22.id3")
+                .unwrap()
+                .version(),
+            Version::Id3v22
+        );
+        assert_eq!(
+            Tag::read_from_path("testdata/id3v23.id3")
+                .unwrap()
+                .version(),
+            Version::Id3v23
+        );
+        assert_eq!(
+            Tag::read_from_path("testdata/id3v24.id3")
+                .unwrap()
+                .version(),
+            Version::Id3v24
+        );
     }
 }
