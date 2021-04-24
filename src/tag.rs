@@ -1,4 +1,4 @@
-use crate::aiff;
+use crate::chunk;
 use crate::frame::Content;
 use crate::frame::{
     Comment, EncapsulatedObject, ExtendedLink, ExtendedText, Frame, Lyrics, Picture, PictureType,
@@ -7,7 +7,6 @@ use crate::frame::{
 use crate::storage::{PlainStorage, Storage};
 use crate::stream;
 use crate::v1;
-use crate::wav;
 use std::fs::{self, File};
 use std::io::{self, BufReader, Write};
 use std::iter::Iterator;
@@ -1476,34 +1475,34 @@ impl<'a> Tag {
     pub fn read_from_aiff(path: impl AsRef<Path>) -> crate::Result<Tag> {
         let file = File::open(path)?;
         let mut reader = BufReader::new(file);
-        aiff::load_aiff_id3(&mut reader)
+        chunk::load_id3_chunk::<chunk::AiffFormat, _>(&mut reader)
     }
 
     /// Read ID3 tag from AIFF data in reader
     pub fn read_from_aiff_reader(reader: impl io::Read + io::Seek) -> crate::Result<Tag> {
-        aiff::load_aiff_id3(reader)
+        chunk::load_id3_chunk::<chunk::AiffFormat, _>(reader)
     }
 
     /// Overwrite AIFF file ID3 chunk
     pub fn write_to_aiff(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
-        aiff::overwrite_aiff_id3(path, &self, version)
+        chunk::write_id3_chunk::<chunk::AiffFormat, _>(path, &self, version)
     }
 
     /// Reads WAV file and returns ID3 Tag from the ID3 chunk, if present.
     pub fn read_from_wav(path: impl AsRef<Path>) -> crate::Result<Tag> {
         let file = File::open(path)?;
         let mut reader = BufReader::new(file);
-        wav::load_wav_id3(&mut reader)
+        chunk::load_id3_chunk::<chunk::WavFormat, _>(&mut reader)
     }
 
     /// Read ID3 tag from WAV data in reader
     pub fn read_from_wav_reader(reader: impl io::Read + io::Seek) -> crate::Result<Tag> {
-        wav::load_wav_id3(reader)
+        chunk::load_id3_chunk::<chunk::WavFormat, _>(reader)
     }
 
     /// Overwrite WAV file ID3 chunk
     pub fn write_to_wav(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
-        wav::write_wav_id3(path, &self, version)
+        chunk::write_id3_chunk::<chunk::WavFormat, _>(path, &self, version)
     }
 }
 
@@ -1603,7 +1602,7 @@ mod tests {
     fn aiff_read_and_write() {
         // Copy
         let tmp = tempfile::NamedTempFile::new().unwrap();
-        std::fs::copy("testdata/quiet.aiff", &tmp).unwrap();
+        std::fs::copy("testdata/aiff/quiet.aiff", &tmp).unwrap();
 
         // Read
         let mut tag = Tag::read_from_aiff(&tmp).unwrap();
@@ -1633,6 +1632,14 @@ mod tests {
         tag = Tag::read_from_aiff(&tmp).unwrap();
         assert_eq!(tag.title(), Some("NewTitle"));
         assert_eq!(tag.album(), Some("NewAlbum"));
+    }
+
+    #[test]
+    fn aiff_read_padding() {
+        let tag = Tag::read_from_aiff("testdata/aiff/padding.aiff").unwrap();
+
+        assert_eq!(tag.title(), Some("TEST TITLE"));
+        assert_eq!(tag.artist(), Some("TEST ARTIST"));
     }
 
     #[test]
