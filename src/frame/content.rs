@@ -374,6 +374,7 @@ impl Hash for SynchronisedLyrics {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[allow(missing_docs)]
+#[allow(clippy::upper_case_acronyms)] // Breaking change, allow for now.
 pub enum TimestampFormat {
     // Absolute time, using MPEG frames as unit.
     MPEG,

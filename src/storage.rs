@@ -6,6 +6,7 @@
 //! "RIFF-chunk" which stores an ID3 tag.
 
 use std::cmp;
+use std::cmp::Ordering;
 use std::fs;
 use std::io::{self, Write};
 use std::ops;
@@ -180,63 +181,67 @@ where
             r.end - r.start
         }
 
-        if buf_len > range_len(&self.storage.region) {
-            // The region is not able to store the contents of the buffer. Grow it by moving the
-            // following data to the end.
-            let old_file_end = self.storage.file.seek(io::SeekFrom::End(0))?;
-            let new_file_end = old_file_end + (buf_len - range_len(&self.storage.region));
-            let old_region_end = self.storage.region.end;
-            let new_region_end = self.storage.region.start + buf_len;
+        match buf_len.cmp(&range_len(&self.storage.region)) {
+            Ordering::Greater => {
+                // The region is not able to store the contents of the buffer. Grow it by moving the
+                // following data to the end.
+                let old_file_end = self.storage.file.seek(io::SeekFrom::End(0))?;
+                let new_file_end = old_file_end + (buf_len - range_len(&self.storage.region));
+                let old_region_end = self.storage.region.end;
+                let new_region_end = self.storage.region.start + buf_len;
 
-            self.storage.file.set_len(new_file_end)?;
-            let mut rwbuf = [0; 8192];
-            let rwbuf_len = rwbuf.len();
-            for i in 1.. {
-                let raw_from = old_file_end as i64 - i as i64 * rwbuf.len() as i64;
-                let raw_to = new_file_end.saturating_sub(i * rwbuf.len() as u64);
-                let from = cmp::max(old_region_end as i64, raw_from) as u64;
-                let to = cmp::max(new_region_end, raw_to);
-                assert!(from < to);
+                self.storage.file.set_len(new_file_end)?;
+                let mut rwbuf = [0; 8192];
+                let rwbuf_len = rwbuf.len();
+                for i in 1.. {
+                    let raw_from = old_file_end as i64 - i as i64 * rwbuf.len() as i64;
+                    let raw_to = new_file_end.saturating_sub(i * rwbuf.len() as u64);
+                    let from = cmp::max(old_region_end as i64, raw_from) as u64;
+                    let to = cmp::max(new_region_end, raw_to);
+                    assert!(from < to);
 
-                let diff = cmp::max(old_region_end as i64 - raw_from, 0) as usize;
-                let rwbuf_part = &mut rwbuf[cmp::min(diff, rwbuf_len)..];
-                self.storage.file.seek(io::SeekFrom::Start(from))?;
-                self.storage.file.read_exact(rwbuf_part)?;
-                self.storage.file.seek(io::SeekFrom::Start(to))?;
-                self.storage.file.write_all(rwbuf_part)?;
-                if rwbuf_part.len() < rwbuf_len {
-                    break;
+                    let diff = cmp::max(old_region_end as i64 - raw_from, 0) as usize;
+                    let rwbuf_part = &mut rwbuf[cmp::min(diff, rwbuf_len)..];
+                    self.storage.file.seek(io::SeekFrom::Start(from))?;
+                    self.storage.file.read_exact(rwbuf_part)?;
+                    self.storage.file.seek(io::SeekFrom::Start(to))?;
+                    self.storage.file.write_all(rwbuf_part)?;
+                    if rwbuf_part.len() < rwbuf_len {
+                        break;
+                    }
                 }
+
+                self.storage.region.end = new_region_end;
             }
+            Ordering::Less => {
+                // Shrink the file by moving the following data closer to the start.
+                let old_file_end = self.storage.file.seek(io::SeekFrom::End(0))?;
+                let old_region_end = self.storage.region.end;
+                let new_region_end = self.storage.region.start + buf_len;
+                let new_file_end = old_file_end - (old_region_end - new_region_end);
 
-            self.storage.region.end = new_region_end;
-        } else if buf_len < range_len(&self.storage.region) {
-            // Shrink the file by moving the following data closer to the start.
-            let old_file_end = self.storage.file.seek(io::SeekFrom::End(0))?;
-            let old_region_end = self.storage.region.end;
-            let new_region_end = self.storage.region.start + buf_len;
-            let new_file_end = old_file_end - (old_region_end - new_region_end);
+                let mut rwbuf = [0; 1000];
+                let rwbuf_len = rwbuf.len();
+                for i in 0.. {
+                    let from = old_region_end + i * rwbuf.len() as u64;
+                    let to = new_region_end + i * rwbuf.len() as u64;
+                    assert!(from >= to);
 
-            let mut rwbuf = [0; 1000];
-            let rwbuf_len = rwbuf.len();
-            for i in 0.. {
-                let from = old_region_end + i * rwbuf.len() as u64;
-                let to = new_region_end + i * rwbuf.len() as u64;
-                assert!(from >= to);
-
-                let part = (to + rwbuf_len as u64).saturating_sub(new_file_end);
-                let rwbuf_part = &mut rwbuf[part as usize..];
-                self.storage.file.seek(io::SeekFrom::Start(from))?;
-                self.storage.file.read_exact(rwbuf_part)?;
-                self.storage.file.seek(io::SeekFrom::Start(to))?;
-                self.storage.file.write_all(rwbuf_part)?;
-                if rwbuf_part.len() < rwbuf_len {
-                    break;
+                    let part = (to + rwbuf_len as u64).saturating_sub(new_file_end);
+                    let rwbuf_part = &mut rwbuf[part as usize..];
+                    self.storage.file.seek(io::SeekFrom::Start(from))?;
+                    self.storage.file.read_exact(rwbuf_part)?;
+                    self.storage.file.seek(io::SeekFrom::Start(to))?;
+                    self.storage.file.write_all(rwbuf_part)?;
+                    if rwbuf_part.len() < rwbuf_len {
+                        break;
+                    }
                 }
-            }
 
-            self.storage.file.set_len(new_file_end)?;
-            self.storage.region.end = new_region_end;
+                self.storage.file.set_len(new_file_end)?;
+                self.storage.region.end = new_region_end;
+            }
+            Ordering::Equal => {}
         }
 
         assert!(buf_len <= range_len(&self.storage.region));
