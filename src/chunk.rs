@@ -27,10 +27,7 @@ where
     let eof = root_chunk
         .size
         .checked_sub(TAG_LEN) // We must disconsider the format tag that was already read.
-        .ok_or(Error::new(
-            ErrorKind::InvalidInput,
-            "Invalid root chunk size",
-        ))?;
+        .ok_or_else(|| Error::new(ErrorKind::InvalidInput, "Invalid root chunk size"))?;
 
     let tag_chunk = ChunkHeader::find_id3::<F, _>(&mut reader, eof.into())?;
     let chunk_reader = reader.take(tag_chunk.size.into());
@@ -70,10 +67,7 @@ where
             let id3_tag_pos = file.stream_position()?;
             let id3_tag_end_pos = id3_tag_pos
                 .checked_add(chunk.size.into())
-                .ok_or(Error::new(
-                    ErrorKind::InvalidInput,
-                    "Invalid ID3 chunk size",
-                ))?;
+                .ok_or_else(|| Error::new(ErrorKind::InvalidInput, "Invalid ID3 chunk size"))?;
 
             id3_chunk_pos = SeekFrom::Start(
                 id3_tag_pos
@@ -86,10 +80,10 @@ where
 
             // As we'll overwrite the existing tag, we must subtract it's size and sum the
             // new size later.
-            root_chunk.size = root_chunk.size.checked_sub(chunk.size).ok_or(Error::new(
-                ErrorKind::InvalidInput,
-                "Invalid root chunk size",
-            ))?;
+            root_chunk.size = root_chunk
+                .size
+                .checked_sub(chunk.size)
+                .ok_or_else(|| Error::new(ErrorKind::InvalidInput, "Invalid root chunk size"))?;
 
             chunk
         } else {
@@ -112,10 +106,9 @@ where
             root_chunk.size = root_chunk
                 .size
                 .checked_add(CHUNK_HEADER_LEN)
-                .ok_or(Error::new(
-                    ErrorKind::InvalidInput,
-                    "root chunk max size reached",
-                ))?;
+                .ok_or_else(|| {
+                    Error::new(ErrorKind::InvalidInput, "root chunk max size reached")
+                })?;
 
             chunk
         };
@@ -136,10 +129,7 @@ where
             id3_chunk.size = id3_chunk
                 .size
                 .checked_add(padding.len() as u32)
-                .ok_or(Error::new(
-                    ErrorKind::InvalidInput,
-                    "ID3 chunk max size reached",
-                ))?;
+                .ok_or_else(|| Error::new(ErrorKind::InvalidInput, "ID3 chunk max size reached"))?;
         }
 
         // We must flush manually to prevent silecing write errors.
@@ -154,10 +144,7 @@ where
     root_chunk.size = root_chunk
         .size
         .checked_add(id3_chunk.size)
-        .ok_or(Error::new(
-            ErrorKind::InvalidInput,
-            "root chunk max size reached",
-        ))?;
+        .ok_or_else(|| Error::new(ErrorKind::InvalidInput, "root chunk max size reached"))?;
 
     file.seek(root_chunk_pos)?;
     root_chunk.write_to::<F, _>(&file)?;
@@ -180,10 +167,7 @@ where
     let eof = root_chunk
         .size
         .checked_sub(TAG_LEN) // We must disconsider the WAVE tag that was already read.
-        .ok_or(Error::new(
-            ErrorKind::InvalidInput,
-            "Invalid root chunk size",
-        ))?;
+        .ok_or_else(|| Error::new(ErrorKind::InvalidInput, "Invalid root chunk size"))?;
 
     let id3_chunk = match ChunkHeader::find_id3::<F, _>(&mut reader, eof.into()) {
         Ok(chunk) => Some(chunk),
@@ -343,7 +327,7 @@ impl ChunkHeader {
         R: io::Read + io::Seek,
     {
         Self::find::<F, _>(&ID3_TAG, reader, end)?
-            .ok_or(Error::new(ErrorKind::NoTag, "No tag chunk found!"))
+            .ok_or_else(|| Error::new(ErrorKind::NoTag, "No tag chunk found!"))
     }
 
     /// Finds a chunk in a flat sequence of chunks. This won't search chunks recursively.

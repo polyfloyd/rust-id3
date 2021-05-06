@@ -1,3 +1,6 @@
+// This lint is not really fixable without a lot of effort due to all the macros being used here.
+#![allow(clippy::vec_init_then_push)]
+
 use crate::frame::{
     Content, EncapsulatedObject, ExtendedLink, Picture, PictureType, SynchronisedLyrics,
     SynchronisedLyricsType, TimestampFormat,
@@ -131,6 +134,7 @@ macro_rules! encode {
 }
 
 fn text_to_bytes(request: EncoderRequest) -> Vec<u8> {
+    #![allow(clippy::redundant_slicing)]
     let content = request.content.text().unwrap();
     encode!(encoding(request.encoding), string(content))
 }

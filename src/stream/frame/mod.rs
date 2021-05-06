@@ -29,7 +29,7 @@ pub fn decode_content(
     compression: bool,
     unsynchronisation: bool,
 ) -> crate::Result<Content> {
-    let result = if unsynchronisation {
+    if unsynchronisation {
         let reader_unsynch = unsynch::Reader::new(reader);
         if compression {
             content::decode(id, version, ZlibDecoder::new(reader_unsynch))
@@ -40,8 +40,7 @@ pub fn decode_content(
         content::decode(id, version, ZlibDecoder::new(reader))
     } else {
         content::decode(id, version, reader)
-    };
-    Ok(result?)
+    }
 }
 
 pub fn encode<W>(
