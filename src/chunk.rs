@@ -3,10 +3,9 @@ use crate::{Error, ErrorKind, Tag, Version};
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
 use std::convert::TryFrom;
 use std::fmt;
-use std::fs;
+use std::fs::File;
 use std::io::prelude::*;
 use std::io::{BufReader, Seek, SeekFrom};
-use std::path::Path;
 use std::{convert::TryInto, io};
 
 const TAG_LEN: u32 = 4; // Size of a tag.
@@ -36,19 +35,14 @@ where
 
 /// Writes a tag to the given file. If the file contains no previous tag data, a new ID3
 /// chunk is created. Otherwise, the tag is overwritten in place.
-pub fn write_id3_chunk<F: ChunkFormat, P>(path: P, tag: &Tag, version: Version) -> crate::Result<()>
+pub fn write_id3_chunk<F: ChunkFormat>(
+    mut file: File,
+    tag: &Tag,
+    version: Version,
+) -> crate::Result<()>
 where
     F: ChunkFormat,
-    P: AsRef<Path>,
 {
-    // Open the file:
-    let mut file = fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(false)
-        .truncate(false)
-        .open(path)?;
-
     // Locate relevant chunks:
     let (mut root_chunk, id3_chunk_option) = locate_relevant_chunks::<F, _>(&file)?;
 
@@ -132,7 +126,7 @@ where
                 .ok_or_else(|| Error::new(ErrorKind::InvalidInput, "ID3 chunk max size reached"))?;
         }
 
-        // We must flush manually to prevent silecing write errors.
+        // We must flush manually to prevent silencing write errors.
         writer.flush()?;
     }
 

@@ -1504,8 +1504,19 @@ impl<'a> Tag {
     }
 
     /// Overwrite AIFF file ID3 chunk
-    pub fn write_to_aiff(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
-        chunk::write_id3_chunk::<chunk::AiffFormat, _>(path, &self, version)
+    pub fn write_to_aiff_path(
+        &self,
+        path: impl AsRef<Path>,
+        version: Version,
+    ) -> crate::Result<()> {
+        let file = fs::OpenOptions::new().read(true).write(true).open(path)?;
+
+        self.write_to_aiff(file, version)
+    }
+
+    /// Overwrite AIFF file ID3 chunk
+    pub fn write_to_aiff(&self, file: File, version: Version) -> crate::Result<()> {
+        chunk::write_id3_chunk::<chunk::AiffFormat>(file, &self, version)
     }
 
     /// Reads WAV file and returns ID3 Tag from the ID3 chunk, if present.
@@ -1521,8 +1532,15 @@ impl<'a> Tag {
     }
 
     /// Overwrite WAV file ID3 chunk
-    pub fn write_to_wav(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
-        chunk::write_id3_chunk::<chunk::WavFormat, _>(path, &self, version)
+    pub fn write_to_wav_path(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
+        let file = fs::OpenOptions::new().read(true).write(true).open(path)?;
+
+        self.write_to_wav(file, version)
+    }
+
+    /// Overwrite WAV file ID3 chunk
+    pub fn write_to_wav(&self, file: File, version: Version) -> crate::Result<()> {
+        chunk::write_id3_chunk::<chunk::WavFormat>(file, &self, version)
     }
 }
 
@@ -1634,7 +1652,7 @@ mod tests {
         tag.set_album("NewAlbum");
 
         // Write
-        tag.write_to_aiff(&tmp, Version::Id3v24).unwrap();
+        tag.write_to_aiff_path(&tmp, Version::Id3v24).unwrap();
 
         // Check if not corrupted with ffprobe
         use std::process::Command;
@@ -1830,7 +1848,7 @@ mod tests {
         tag.set_year(2020);
 
         // Write
-        tag.write_to_wav(to, Version::Id3v24)?;
+        tag.write_to_wav_path(to, Version::Id3v24)?;
 
         // Check written data
         tag = Tag::read_from_wav(to)?;
