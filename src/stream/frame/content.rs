@@ -203,7 +203,7 @@ fn synchronised_lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
     };
     let text_delim: &[u8] = match encoding {
         Encoding::Latin1 => &[0],
-        Encoding::UTF8 => &[0, 0],
+        Encoding::UTF8 => &[0],
         _ => unreachable!(),
     };
 
@@ -216,7 +216,7 @@ fn synchronised_lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
         },
         Encoding::UTF8 => EncodingParams {
             // UTF-8
-            delim_len: 2,
+            delim_len: 1,
             string_func: Box::new(|buf: &mut Vec<u8>, string: &str| buf.extend(string.bytes())),
         },
         _ => unreachable!(),
@@ -248,8 +248,8 @@ fn synchronised_lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
         buf,
         params,
         byte(match content.timestamp_format {
-            TimestampFormat::MPEG => 0,
-            TimestampFormat::MS => 1,
+            TimestampFormat::MPEG => 1,
+            TimestampFormat::MS => 2,
         })
     );
     encode_part!(
