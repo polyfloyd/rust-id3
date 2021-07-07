@@ -228,7 +228,7 @@ fn synchronised_lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
         params,
         byte(match encoding {
             Encoding::Latin1 => 0,
-            Encoding::UTF8 => 1,
+            Encoding::UTF8 => 3,
             _ => unreachable!(),
         })
     );
