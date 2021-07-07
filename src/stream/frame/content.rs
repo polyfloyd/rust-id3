@@ -265,6 +265,10 @@ fn synchronised_lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
             SynchronisedLyricsType::Trivia => 6,
         })
     );
+    // TODO: content descriptor would go here
+    // instead we write an empty descriptor
+    encode_part!(buf, params, bytes(text_delim));
+
     for (timestamp, text) in &content.content {
         encode_part!(buf, params, string(text));
         encode_part!(buf, params, bytes(text_delim));
