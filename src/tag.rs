@@ -65,9 +65,10 @@ impl<'a> Tag {
 
     /// Used for creating new tag with version
     pub fn with_version(version: Version) -> Tag {
-        let mut tag = Tag::default();
-        tag.version = version;
-        tag
+        Tag {
+            version,
+            ..Tag::default()
+        }
     }
 
     /// Returns version of the read tag
@@ -1505,7 +1506,7 @@ impl<'a> Tag {
 
     /// Overwrite AIFF file ID3 chunk
     pub fn write_to_aiff(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
-        chunk::write_id3_chunk::<chunk::AiffFormat, _>(path, &self, version)
+        chunk::write_id3_chunk::<chunk::AiffFormat, _>(path, self, version)
     }
 
     /// Reads WAV file and returns ID3 Tag from the ID3 chunk, if present.
@@ -1522,7 +1523,7 @@ impl<'a> Tag {
 
     /// Overwrite WAV file ID3 chunk
     pub fn write_to_wav(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
-        chunk::write_id3_chunk::<chunk::WavFormat, _>(path, &self, version)
+        chunk::write_id3_chunk::<chunk::WavFormat, _>(path, self, version)
     }
 }
 

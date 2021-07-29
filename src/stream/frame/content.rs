@@ -653,7 +653,7 @@ fn parse_sylt(data: &[u8]) -> crate::Result<Content> {
     };
     let next = &data[1..];
 
-    let (lang, next) = decode_part!(&next, params, fixed_string(3));
+    let (lang, next) = decode_part!(next, params, fixed_string(3));
     let timestamp_format = match next[0] {
         0 => TimestampFormat::MPEG,
         1 => TimestampFormat::MS,
