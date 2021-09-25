@@ -226,6 +226,27 @@ impl<'a> Tag {
         self.add_frame(Frame::with_content(id, Content::Text(text.into())));
     }
 
+    // Adds a new text frame with multiple string values.
+    //
+    /// # Panics
+    /// If any of the strings contain a null byte.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_text_values("TCON", ["Synthwave", "Cyber Punk", "Electronic"]);
+    /// assert_eq!(tag.get("TCON").unwrap().content().text().unwrap(), "Synthwave\u{0}Cyber Punk\u{0}Electronic");
+    /// ```
+    pub fn set_text_values(
+        &mut self,
+        id: impl AsRef<str>,
+        texts: impl IntoIterator<Item = impl Into<String>>,
+    ) {
+        self.add_frame(Frame::with_content(id, Content::new_text_values(texts)));
+    }
+
     /// Removes all frames with the specified identifier.
     ///
     /// # Example
