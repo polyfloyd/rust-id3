@@ -28,6 +28,28 @@ pub enum Content {
 }
 
 impl Content {
+    /// Constructs a new `Text` Content from the specified set of strings.
+    ///
+    /// # Panics
+    /// If any of the strings contain a null byte.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::frame::Content;
+    ///
+    /// let c = Content::new_text_values(["foo", "bar", "baz"]);
+    /// assert_eq!(c, Content::Text("foo\u{0}bar\u{0}baz".to_string()))
+    /// ```
+    pub fn new_text_values(texts: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        let text = texts
+            .into_iter()
+            .map(|t| t.into())
+            .inspect(|s| assert!(!s.contains('\u{0}')))
+            .collect::<Vec<String>>()
+            .join("\u{0}");
+        Self::Text(text)
+    }
+
     /// Returns the `Text` or None if the value is not `Text`.
     pub fn text(&self) -> Option<&str> {
         match *self {
