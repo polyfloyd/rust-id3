@@ -1501,16 +1501,14 @@ impl<'a> Tag {
     ///
     /// Internally used by track and disc getters and setters.
     fn text_pair(&self, id: &str) -> Option<(u32, Option<u32>)> {
-        self.get(id)
-            .and_then(|frame| frame.content().text())
-            .and_then(|text| {
-                let mut split = text.splitn(2, '/');
-                if let Ok(num) = split.next().unwrap().parse() {
-                    Some((num, split.next().and_then(|s| s.parse().ok())))
-                } else {
-                    None
-                }
-            })
+        // The '/' is the preferred character to separate these fields, but the ID3 spec states
+        // that frames may separate multple values on zero bytes.
+        // Therefore, we try to to split on both '/' and '\0'.
+        let text = self.get(id)?.content().text()?;
+        let mut split = text.splitn(2, &['\0', '/'][..]);
+        let a = split.next()?.parse().ok()?;
+        let b = split.next().and_then(|s| s.parse().ok());
+        Some((a, b))
     }
 
     /// Reads AIFF file and returns ID3 Tag from it

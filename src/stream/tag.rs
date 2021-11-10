@@ -669,4 +669,15 @@ mod tests {
         let err = decode(&mut file).err().unwrap();
         err.partial_tag.unwrap();
     }
+
+    #[test]
+    fn read_github_issue_73() {
+        let mut file = fs::File::open("testdata/github-issue-73.id3").unwrap();
+        let mut tag = decode(&mut file).unwrap();
+        assert_eq!(tag.track(), Some(9));
+
+        tag.set_total_tracks(16);
+        assert_eq!(tag.track(), Some(9));
+        assert_eq!(tag.total_tracks(), Some(16));
+    }
 }
