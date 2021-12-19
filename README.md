@@ -11,7 +11,7 @@ A library for reading and writing ID3 metadata.
 
 ### Reading tag frames
 ```rust
-use id3::{Tag, Version};
+use id3::Tag;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tag = Tag::read_from_path("testdata/id3v24.id3")?;
