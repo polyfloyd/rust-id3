@@ -1,5 +1,5 @@
+use std::borrow::Cow;
 use std::fmt;
-use std::hash::{Hash, Hasher};
 use std::io;
 
 /// The decoded contents of a frame.
@@ -28,6 +28,32 @@ pub enum Content {
 }
 
 impl Content {
+    pub(crate) fn unique(&self) -> impl Eq + '_ {
+        match self {
+            Self::Text(_) => Vec::new(),
+            Self::ExtendedText(extended_text) => vec![Cow::Borrowed(&extended_text.description)],
+            Self::Link(_) => Vec::new(),
+            Self::ExtendedLink(extended_link) => vec![Cow::Borrowed(&extended_link.description)],
+            Self::Comment(comment) => vec![
+                Cow::Borrowed(&comment.lang),
+                Cow::Borrowed(&comment.description),
+            ],
+            Self::Lyrics(lyrics) => vec![
+                Cow::Borrowed(&lyrics.lang),
+                Cow::Borrowed(&lyrics.description),
+            ],
+            Self::SynchronisedLyrics(synchronised_lyrics) => vec![
+                Cow::Borrowed(&synchronised_lyrics.lang),
+                Cow::Owned(synchronised_lyrics.content_type.to_string()),
+            ],
+            Self::Picture(picture) => vec![Cow::Owned(picture.picture_type.to_string())],
+            Self::EncapsulatedObject(encapsulated_object) => {
+                vec![Cow::Borrowed(&encapsulated_object.description)]
+            }
+            Self::Unknown(_) => Vec::new(),
+        }
+    }
+
     /// Constructs a new `Text` Content from the specified set of strings.
     ///
     /// # Panics
@@ -156,23 +182,11 @@ impl fmt::Display for Content {
 }
 
 /// The parsed contents of an extended text frame.
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(missing_docs)]
 pub struct ExtendedText {
     pub description: String,
     pub value: String,
-}
-
-impl PartialEq for ExtendedText {
-    fn eq(&self, other: &Self) -> bool {
-        self.description == other.description
-    }
-}
-
-impl Hash for ExtendedText {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.description.hash(state);
-    }
 }
 
 impl fmt::Display for ExtendedText {
@@ -186,23 +200,11 @@ impl fmt::Display for ExtendedText {
 }
 
 /// The parsed contents of an extended link frame.
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(missing_docs)]
 pub struct ExtendedLink {
     pub description: String,
     pub link: String,
-}
-
-impl PartialEq for ExtendedLink {
-    fn eq(&self, other: &Self) -> bool {
-        self.description == other.description
-    }
-}
-
-impl Hash for ExtendedLink {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.description.hash(state);
-    }
 }
 
 impl fmt::Display for ExtendedLink {
@@ -216,25 +218,13 @@ impl fmt::Display for ExtendedLink {
 }
 
 /// The parsed contents of an general encapsulated object frame.
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(missing_docs)]
 pub struct EncapsulatedObject {
     pub mime_type: String,
     pub filename: String,
     pub description: String,
     pub data: Vec<u8>,
-}
-
-impl PartialEq for EncapsulatedObject {
-    fn eq(&self, other: &Self) -> bool {
-        self.description == other.description
-    }
-}
-
-impl Hash for EncapsulatedObject {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.description.hash(state);
-    }
 }
 
 impl fmt::Display for EncapsulatedObject {
@@ -256,25 +246,12 @@ impl fmt::Display for EncapsulatedObject {
 }
 
 /// The parsed contents of a comment frame.
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(missing_docs)]
 pub struct Comment {
     pub lang: String,
     pub description: String,
     pub text: String,
-}
-
-impl PartialEq for Comment {
-    fn eq(&self, other: &Self) -> bool {
-        self.lang == other.lang && self.description == other.description
-    }
-}
-
-impl Hash for Comment {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.lang.hash(state);
-        self.description.hash(state);
-    }
 }
 
 impl fmt::Display for Comment {
@@ -288,25 +265,12 @@ impl fmt::Display for Comment {
 }
 
 /// The parsed contents of an unsynchronized lyrics frame.
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(missing_docs)]
 pub struct Lyrics {
     pub lang: String,
     pub description: String,
     pub text: String,
-}
-
-impl PartialEq for Lyrics {
-    fn eq(&self, other: &Self) -> bool {
-        self.lang == other.lang && self.description == other.description
-    }
-}
-
-impl Hash for Lyrics {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.lang.hash(state);
-        self.description.hash(state);
-    }
 }
 
 impl fmt::Display for Lyrics {
@@ -320,7 +284,7 @@ impl fmt::Display for Lyrics {
 }
 
 /// The parsed contents of an unsynchronized lyrics frame.
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(missing_docs)]
 pub struct SynchronisedLyrics {
     pub lang: String,
@@ -381,20 +345,7 @@ impl SynchronisedLyrics {
     }
 }
 
-impl PartialEq for SynchronisedLyrics {
-    fn eq(&self, other: &Self) -> bool {
-        self.lang == other.lang && self.content_type == other.content_type
-    }
-}
-
-impl Hash for SynchronisedLyrics {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.lang.hash(state);
-        self.content_type.hash(state);
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(missing_docs)]
 #[allow(clippy::upper_case_acronyms)] // Breaking change, allow for now.
 pub enum TimestampFormat {
@@ -533,7 +484,7 @@ impl fmt::Display for PictureType {
 }
 
 /// A structure representing an ID3 picture frame's contents.
-#[derive(Clone, Eq, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Picture {
     /// The picture's MIME type.
     pub mime_type: String,
@@ -543,18 +494,6 @@ pub struct Picture {
     pub description: String,
     /// The image data.
     pub data: Vec<u8>,
-}
-
-impl PartialEq for Picture {
-    fn eq(&self, other: &Self) -> bool {
-        self.picture_type == other.picture_type
-    }
-}
-
-impl Hash for Picture {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.picture_type.hash(state);
-    }
 }
 
 impl fmt::Display for Picture {
