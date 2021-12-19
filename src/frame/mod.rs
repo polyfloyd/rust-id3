@@ -1,7 +1,6 @@
 use crate::tag::Version;
 use crate::util::{convert_id_2_to_3, convert_id_3_to_2};
 use std::fmt;
-use std::hash::{Hash, Hasher};
 use std::str;
 
 pub use self::content::{
@@ -27,7 +26,7 @@ enum ID {
 /// It is imporant to note that the (Partial)Eq and Hash implementations are based on the ID3 spec.
 /// This means that text frames with equal ID's are equal but picture frames with both "APIC" as ID
 /// are not because their uniqueness is also defined by their content.
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Frame {
     id: ID,
     content: Content,
@@ -35,28 +34,11 @@ pub struct Frame {
     file_alter_preservation: bool,
 }
 
-impl PartialEq for Frame {
-    fn eq(&self, other: &Frame) -> bool {
-        match self.content {
-            Content::Text(_) => self.id == other.id,
-            _ => self.id == other.id && self.content == other.content,
-        }
-    }
-}
-
-impl Hash for Frame {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match self.content {
-            Content::Text(_) => self.id.hash(state),
-            _ => {
-                self.id.hash(state);
-                self.content.hash(state);
-            }
-        }
-    }
-}
-
 impl Frame {
+    pub(crate) fn unique(&self) -> impl Eq + '_ {
+        (&self.id, self.content.unique())
+    }
+
     /// Creates a frame with the specified ID and content.
     ///
     /// Both ID3v2.2 and >ID3v2.3 IDs are accepted, although they will be converted to ID3v2.3

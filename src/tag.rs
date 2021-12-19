@@ -198,15 +198,16 @@ impl<'a> Tag {
     /// use id3::{Tag, Frame, Content};
     ///
     /// let mut tag = Tag::new();
-    /// tag.add_frame(Frame::with_content("TALB", Content::Text("".to_string())));
-    /// tag.add_frame(Frame::with_content("TALB", Content::Text("".to_string())));
+    /// tag.add_frame(Frame::with_content("TALB", Content::Text("Foo".to_string())));
+    /// let removed = tag.add_frame(Frame::with_content("TALB", Content::Text("Foo".to_string())));
+    /// assert!(removed.is_some());
     /// assert_eq!(tag.frames().nth(0).unwrap().id(), "TALB");
     /// ```
     pub fn add_frame(&mut self, new_frame: Frame) -> Option<Frame> {
         let removed = self
             .frames
             .iter()
-            .position(|frame| *frame == new_frame)
+            .position(|frame| frame.unique() == new_frame.unique())
             .map(|conflict_index| self.frames.remove(conflict_index));
         self.frames.push(new_frame);
         removed
