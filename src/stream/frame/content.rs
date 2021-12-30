@@ -248,8 +248,8 @@ fn synchronised_lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
         buf,
         params,
         byte(match content.timestamp_format {
-            TimestampFormat::MPEG => 0,
-            TimestampFormat::MS => 1,
+            TimestampFormat::MPEG => 1,
+            TimestampFormat::MS => 2,
         })
     );
     encode_part!(
@@ -655,8 +655,8 @@ fn parse_sylt(data: &[u8]) -> crate::Result<Content> {
 
     let (lang, next) = decode_part!(next, params, fixed_string(3));
     let timestamp_format = match next[0] {
-        0 => TimestampFormat::MPEG,
-        1 => TimestampFormat::MS,
+        1 => TimestampFormat::MPEG,
+        2 => TimestampFormat::MS,
         _ => {
             return Err(Error::new(
                 ErrorKind::Parsing,
