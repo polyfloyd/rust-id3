@@ -12,10 +12,6 @@ description = "A library for reading and writing ID3 metadata"
 keywords = ["id3", "audio", "parser", "metadata"]
 include = ["src/*", "Cargo.toml", "LICENSE", "README.md"]
 
-[features]
-default = []
-unstable = []
-
 [dependencies]
 bitflags = "1"
 byteorder = "1"

@@ -316,36 +316,6 @@ pub fn locate_id3v2(mut reader: impl io::Read + io::Seek) -> crate::Result<Optio
     Ok(Some(0..tag_size + num_padding as u64))
 }
 
-#[cfg(all(test, feature = "unstable"))]
-mod benchmarks {
-    use super::*;
-    use std::fs;
-
-    #[bench]
-    fn read_id3v23(b: &mut test::Bencher) {
-        let mut buf = Vec::new();
-        fs::File::open("testdata/id3v23.id3")
-            .unwrap()
-            .read_to_end(&mut buf)
-            .unwrap();
-        b.iter(|| {
-            decode(&mut io::Cursor::new(buf.as_slice())).unwrap();
-        });
-    }
-
-    #[bench]
-    fn read_id3v24(b: &mut test::Bencher) {
-        let mut buf = Vec::new();
-        fs::File::open("testdata/id3v24.id3")
-            .unwrap()
-            .read_to_end(&mut buf)
-            .unwrap();
-        b.iter(|| {
-            decode(&mut io::Cursor::new(buf.as_slice())).unwrap();
-        });
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
