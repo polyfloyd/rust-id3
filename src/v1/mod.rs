@@ -354,26 +354,6 @@ impl Tag {
     }
 }
 
-#[cfg(all(test, feature = "unstable"))]
-mod benchmarks {
-    extern crate test;
-    use super::*;
-    use std::fs;
-    use std::io::Read;
-
-    #[bench]
-    fn read_id3v1(b: &mut test::Bencher) {
-        let mut buf = Vec::new();
-        fs::File::open("testdata/id3v1.id3")
-            .unwrap()
-            .read_to_end(&mut buf)
-            .unwrap();
-        b.iter(|| {
-            Tag::read_from(io::Cursor::new(buf.as_slice())).unwrap();
-        });
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
