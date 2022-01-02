@@ -34,17 +34,17 @@ pub struct Error {
     /// The kind of error.
     pub kind: ErrorKind,
     /// A human readable string describing the error.
-    pub description: &'static str,
+    pub description: String,
     /// If any, the part of the tag that was able to be decoded before the error occurred.
     pub partial_tag: Option<Tag>,
 }
 
 impl Error {
     /// Creates a new `Error` using the error kind and description.
-    pub fn new(kind: ErrorKind, description: &'static str) -> Error {
+    pub fn new(kind: ErrorKind, description: impl Into<String>) -> Error {
         Error {
             kind,
-            description,
+            description: description.into(),
             partial_tag: None,
         }
     }
@@ -71,7 +71,7 @@ impl From<io::Error> for Error {
     fn from(err: io::Error) -> Error {
         Error {
             kind: ErrorKind::Io(err),
-            description: "",
+            description: "".to_string(),
             partial_tag: None,
         }
     }
@@ -81,7 +81,7 @@ impl From<string::FromUtf8Error> for Error {
     fn from(err: string::FromUtf8Error) -> Error {
         Error {
             kind: ErrorKind::StringDecoding(err.into_bytes()),
-            description: "data is not valid utf-8",
+            description: "data is not valid utf-8".to_string(),
             partial_tag: None,
         }
     }
@@ -91,7 +91,7 @@ impl From<str::Utf8Error> for Error {
     fn from(_: str::Utf8Error) -> Error {
         Error {
             kind: ErrorKind::StringDecoding(vec![]),
-            description: "data is not valid utf-8",
+            description: "data is not valid utf-8".to_string(),
             partial_tag: None,
         }
     }
@@ -99,10 +99,9 @@ impl From<str::Utf8Error> for Error {
 
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.description.is_empty() {
-            write!(f, "{:?}", self.kind)
-        } else {
-            write!(f, "{:?}: {}", self.kind, self.description)
+        match self.description.is_empty() {
+            true => write!(f, "{:?}", self.kind),
+            false => write!(f, "{:?}: {}", self.kind, self.description),
         }
     }
 }
