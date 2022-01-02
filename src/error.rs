@@ -59,18 +59,6 @@ impl Error {
 }
 
 impl error::Error for Error {
-    fn description(&self) -> &str {
-        #![allow(deprecated)]
-        if let Some(cause) = self.source() {
-            cause.description()
-        } else {
-            match self.kind {
-                ErrorKind::Io(ref err) => error::Error::description(err),
-                _ => self.description,
-            }
-        }
-    }
-
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self.kind {
             ErrorKind::Io(ref err) => Some(err),
