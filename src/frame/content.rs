@@ -316,14 +316,14 @@ impl SynchronisedLyrics {
     /// This function will return any I/O error reported while formatting.
     pub fn fmt_table(&self, mut writer: impl io::Write) -> io::Result<()> {
         match self.timestamp_format {
-            TimestampFormat::MPEG => {
+            TimestampFormat::Mpeg => {
                 writeln!(writer, "Frame\t{}", self.content_type)?;
 
                 for (frame, lyric) in self.content.iter() {
                     writeln!(writer, "{}\t{}", frame, lyric)?;
                 }
             }
-            TimestampFormat::MS => {
+            TimestampFormat::Ms => {
                 writeln!(writer, "Timecode\t{}", self.content_type)?;
 
                 for (total_ms, lyric) in self.content.iter() {
@@ -347,19 +347,18 @@ impl SynchronisedLyrics {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(missing_docs)]
-#[allow(clippy::upper_case_acronyms)] // Breaking change, allow for now.
 pub enum TimestampFormat {
     // Absolute time, using MPEG frames as unit.
-    MPEG,
+    Mpeg,
     // Absolute time, using milliseconds as unit.
-    MS,
+    Ms,
 }
 
 impl fmt::Display for TimestampFormat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TimestampFormat::MPEG => f.write_str("MPEG frames"),
-            TimestampFormat::MS => f.write_str("Milliseconds"),
+            TimestampFormat::Mpeg => f.write_str("MPEG frames"),
+            TimestampFormat::Ms => f.write_str("Milliseconds"),
         }
     }
 }
@@ -571,7 +570,7 @@ mod tests {
     fn content_synchronised_lyrics_display() {
         let sync_lyrics = Content::SynchronisedLyrics(SynchronisedLyrics {
             lang: String::from("lang value"),
-            timestamp_format: TimestampFormat::MPEG,
+            timestamp_format: TimestampFormat::Mpeg,
             content_type: SynchronisedLyricsType::Lyrics,
             content: vec![
                 (1, String::from("first line")),
@@ -605,7 +604,7 @@ mod tests {
     fn synchronised_lyrics_format_table() {
         let sync_lyrics_mpeg_lyrics = SynchronisedLyrics {
             lang: String::from("lang value"),
-            timestamp_format: TimestampFormat::MPEG,
+            timestamp_format: TimestampFormat::Mpeg,
             content_type: SynchronisedLyricsType::Lyrics,
             content: vec![
                 (1, String::from("first line")),
@@ -621,7 +620,7 @@ mod tests {
 
         let sync_lyrics_ms_chord = SynchronisedLyrics {
             lang: String::from("lang value"),
-            timestamp_format: TimestampFormat::MS,
+            timestamp_format: TimestampFormat::Ms,
             content_type: SynchronisedLyricsType::Chord,
             content: vec![
                 (1000, String::from("A")),
