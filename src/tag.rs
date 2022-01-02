@@ -199,9 +199,9 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.add_frame(Frame::with_content("TALB", Content::Text("Foo".to_string())));
-    /// let removed = tag.add_frame(Frame::with_content("TALB", Content::Text("Foo".to_string())));
+    /// let removed = tag.add_frame(Frame::with_content("TALB", Content::Text("Bar".to_string())));
     /// assert!(removed.is_some());
-    /// assert_eq!(tag.frames().nth(0).unwrap().id(), "TALB");
+    /// assert!(tag.get("TALB").is_some());
     /// ```
     pub fn add_frame(&mut self, new_frame: Frame) -> Option<Frame> {
         let removed = self
@@ -219,9 +219,12 @@ impl<'a> Tag {
     /// ```
     /// use id3::Tag;
     ///
-    /// let mut tag = Tag::new();
-    /// tag.set_text("TRCK", "1/13");
-    /// assert_eq!(tag.get("TRCK").unwrap().content().text().unwrap(), "1/13");
+    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let mut tag = Tag::new();
+    ///     tag.set_text("TRCK", "1/13");
+    ///     assert_eq!(tag.get("TRCK").ok_or("no such frame")?.content().text(), Some("1/13"));
+    ///     Ok(())
+    /// }
     /// ```
     pub fn set_text(&mut self, id: impl AsRef<str>, text: impl Into<String>) {
         self.add_frame(Frame::with_content(id, Content::Text(text.into())));
@@ -236,9 +239,13 @@ impl<'a> Tag {
     /// ```
     /// use id3::Tag;
     ///
-    /// let mut tag = Tag::new();
-    /// tag.set_text_values("TCON", ["Synthwave", "Cyber Punk", "Electronic"]);
-    /// assert_eq!(tag.get("TCON").unwrap().content().text().unwrap(), "Synthwave\u{0}Cyber Punk\u{0}Electronic");
+    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let mut tag = Tag::new();
+    ///     tag.set_text_values("TCON", ["Synthwave", "Cyber Punk", "Electronic"]);
+    ///     let text = tag.get("TCON").ok_or("no such frame")?.content().text();
+    ///     assert_eq!(text, Some("Synthwave\u{0}Cyber Punk\u{0}Electronic"));
+    ///     Ok(())
+    /// }
     /// ```
     pub fn set_text_values(
         &mut self,
@@ -460,21 +467,24 @@ impl<'a> Tag {
     /// use id3::Tag;
     /// use id3::frame::{Picture, PictureType};
     ///
-    /// let mut tag = Tag::new();
-    /// tag.add_picture(Picture {
-    ///     mime_type: "image/jpeg".to_string(),
-    ///     picture_type: PictureType::Other,
-    ///     description: "some image".to_string(),
-    ///     data: vec![],
-    /// });
-    /// tag.add_picture(Picture {
-    ///     mime_type: "image/png".to_string(),
-    ///     picture_type: PictureType::Other,
-    ///     description: "some other image".to_string(),
-    ///     data: vec![],
-    /// });
-    /// assert_eq!(tag.pictures().count(), 1);
-    /// assert_eq!(&tag.pictures().nth(0).unwrap().mime_type[..], "image/png");
+    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let mut tag = Tag::new();
+    ///     tag.add_picture(Picture {
+    ///         mime_type: "image/jpeg".to_string(),
+    ///         picture_type: PictureType::Other,
+    ///         description: "some image".to_string(),
+    ///         data: vec![],
+    ///     });
+    ///     tag.add_picture(Picture {
+    ///         mime_type: "image/png".to_string(),
+    ///         picture_type: PictureType::Other,
+    ///         description: "some other image".to_string(),
+    ///         data: vec![],
+    ///     });
+    ///     assert_eq!(tag.pictures().count(), 1);
+    ///     assert_eq!(&tag.pictures().nth(0).ok_or("no such picture")?.mime_type[..], "image/png");
+    ///     Ok(())
+    /// }
     /// ```
     pub fn add_picture(&mut self, picture: Picture) {
         let frame = Frame::with_content("APIC", Content::Picture(picture));
@@ -488,24 +498,27 @@ impl<'a> Tag {
     /// use id3::Tag;
     /// use id3::frame::{Picture, PictureType};
     ///
-    /// let mut tag = Tag::new();
-    /// tag.add_picture(Picture {
-    ///     mime_type: "image/jpeg".to_string(),
-    ///     picture_type: PictureType::Other,
-    ///     description: "some image".to_string(),
-    ///     data: vec![],
-    /// });
-    /// tag.add_picture(Picture {
-    ///     mime_type: "image/png".to_string(),
-    ///     picture_type: PictureType::CoverFront,
-    ///     description: "some other image".to_string(),
-    ///     data: vec![],
-    /// });
+    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let mut tag = Tag::new();
+    ///     tag.add_picture(Picture {
+    ///         mime_type: "image/jpeg".to_string(),
+    ///         picture_type: PictureType::Other,
+    ///         description: "some image".to_string(),
+    ///         data: vec![],
+    ///     });
+    ///     tag.add_picture(Picture {
+    ///         mime_type: "image/png".to_string(),
+    ///         picture_type: PictureType::CoverFront,
+    ///         description: "some other image".to_string(),
+    ///         data: vec![],
+    ///     });
     ///
-    /// assert_eq!(tag.pictures().count(), 2);
-    /// tag.remove_picture_by_type(PictureType::CoverFront);
-    /// assert_eq!(tag.pictures().count(), 1);
-    /// assert_eq!(tag.pictures().nth(0).unwrap().picture_type, PictureType::Other);
+    ///     assert_eq!(tag.pictures().count(), 2);
+    ///     tag.remove_picture_by_type(PictureType::CoverFront);
+    ///     assert_eq!(tag.pictures().count(), 1);
+    ///     assert_eq!(tag.pictures().nth(0).ok_or("no such picture")?.picture_type, PictureType::Other);
+    ///     Ok(())
+    /// }
     /// ```
     pub fn remove_picture_by_type(&mut self, picture_type: PictureType) {
         self.frames.retain(|frame| {
@@ -645,7 +658,7 @@ impl<'a> Tag {
     ///
     /// let frame_valid = Frame::with_content("TYER", Content::Text("2014".to_owned()));
     /// tag.add_frame(frame_valid);
-    /// assert_eq!(tag.year().unwrap(), 2014);
+    /// assert_eq!(tag.year(), Some(2014));
     ///
     /// tag.remove("TYER");
     ///
@@ -667,7 +680,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.set_year(2014);
-    /// assert_eq!(tag.year().unwrap(), 2014);
+    /// assert_eq!(tag.year(), Some(2014));
     /// ```
     pub fn set_year(&mut self, year: i32) {
         self.set_text("TYER", format!("{:04}", year));
@@ -699,7 +712,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.set_date_recorded(Timestamp{ year: 2014, month: None, day: None, hour: None, minute: None, second: None });
-    /// assert_eq!(tag.date_recorded().unwrap().year, 2014);
+    /// assert_eq!(tag.date_recorded().map(|t| t.year), Some(2014));
     /// ```
     pub fn date_recorded(&self) -> Option<Timestamp> {
         self.read_timestamp_frame("TDRC")
@@ -714,7 +727,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.set_date_recorded(Timestamp{ year: 2014, month: None, day: None, hour: None, minute: None, second: None });
-    /// assert_eq!(tag.date_recorded().unwrap().year, 2014);
+    /// assert_eq!(tag.date_recorded().map(|t| t.year), Some(2014));
     /// ```
     pub fn set_date_recorded(&mut self, timestamp: Timestamp) {
         let time_string = timestamp.to_string();
@@ -748,7 +761,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.set_date_released(Timestamp{ year: 2014, month: None, day: None, hour: None, minute: None, second: None });
-    /// assert_eq!(tag.date_released().unwrap().year, 2014);
+    /// assert_eq!(tag.date_released().map(|t| t.year), Some(2014));
     /// ```
     pub fn date_released(&self) -> Option<Timestamp> {
         self.read_timestamp_frame("TDRL")
@@ -763,7 +776,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.set_date_released(Timestamp{ year: 2014, month: None, day: None, hour: None, minute: None, second: None });
-    /// assert_eq!(tag.date_released().unwrap().year, 2014);
+    /// assert_eq!(tag.date_released().map(|t| t.year), Some(2014));
     /// ```
     pub fn set_date_released(&mut self, timestamp: Timestamp) {
         let time_string = timestamp.to_string();
@@ -798,7 +811,7 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     /// let frame = Frame::with_content("TPE1", Content::Text("artist".to_owned()));
     /// tag.add_frame(frame);
-    /// assert_eq!(tag.artist().unwrap(), "artist");
+    /// assert_eq!(tag.artist(), Some("artist"));
     /// ```
     pub fn artist(&self) -> Option<&str> {
         self.text_for_frame_id("TPE1")
@@ -812,7 +825,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.set_artist("artist");
-    /// assert_eq!(tag.artist().unwrap(), "artist");
+    /// assert_eq!(tag.artist(), Some("artist"));
     /// ```
     pub fn set_artist(&mut self, artist: impl Into<String>) {
         self.set_text("TPE1", artist);
@@ -845,7 +858,7 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     /// let frame = Frame::with_content("TPE2", Content::Text("artist".to_owned()));
     /// tag.add_frame(frame);
-    /// assert_eq!(tag.album_artist().unwrap(), "artist");
+    /// assert_eq!(tag.album_artist(), Some("artist"));
     /// ```
     pub fn album_artist(&self) -> Option<&str> {
         self.text_for_frame_id("TPE2")
@@ -859,7 +872,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.set_album_artist("artist");
-    /// assert_eq!(tag.album_artist().unwrap(), "artist");
+    /// assert_eq!(tag.album_artist(), Some("artist"));
     /// ```
     pub fn set_album_artist(&mut self, album_artist: impl Into<String>) {
         self.set_text("TPE2", album_artist);
@@ -892,7 +905,7 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     /// let frame = Frame::with_content("TALB", Content::Text("album".to_owned()));
     /// tag.add_frame(frame);
-    /// assert_eq!(tag.album().unwrap(), "album");
+    /// assert_eq!(tag.album(), Some("album"));
     /// ```
     pub fn album(&self) -> Option<&str> {
         self.text_for_frame_id("TALB")
@@ -906,7 +919,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.set_album("album");
-    /// assert_eq!(tag.album().unwrap(), "album");
+    /// assert_eq!(tag.album(), Some("album"));
     /// ```
     pub fn set_album(&mut self, album: impl Into<String>) {
         self.set_text("TALB", album);
@@ -939,7 +952,7 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     /// let frame = Frame::with_content("TIT2", Content::Text("title".to_owned()));
     /// tag.add_frame(frame);
-    /// assert_eq!(tag.title().unwrap(), "title");
+    /// assert_eq!(tag.title(), Some("title"));
     /// ```
     pub fn title(&self) -> Option<&str> {
         self.text_for_frame_id("TIT2")
@@ -953,7 +966,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.set_title("title");
-    /// assert_eq!(tag.title().unwrap(), "title");
+    /// assert_eq!(tag.title(), Some("title"));
     /// ```
     pub fn set_title(&mut self, title: impl Into<String>) {
         self.set_text("TIT2", title);
@@ -987,7 +1000,7 @@ impl<'a> Tag {
     ///
     /// let frame = Frame::with_content("TLEN", Content::Text("350".to_owned()));
     /// tag.add_frame(frame);
-    /// assert_eq!(tag.duration().unwrap(), 350);
+    /// assert_eq!(tag.duration(), Some(350));
     /// ```
     pub fn duration(&self) -> Option<u32> {
         self.text_for_frame_id("TLEN").and_then(|t| t.parse().ok())
@@ -1001,7 +1014,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.set_duration(350);
-    /// assert_eq!(tag.duration().unwrap(), 350);
+    /// assert_eq!(tag.duration(), Some(350));
     /// ```
     pub fn set_duration(&mut self, duration: u32) {
         self.set_text("TLEN", duration.to_string());
@@ -1034,7 +1047,7 @@ impl<'a> Tag {
     /// let mut tag = Tag::new();
     /// let frame = Frame::with_content("TCON", Content::Text("genre".to_owned()));
     /// tag.add_frame(frame);
-    /// assert_eq!(tag.genre().unwrap(), "genre");
+    /// assert_eq!(tag.genre(), Some("genre"));
     /// ```
     pub fn genre(&self) -> Option<&str> {
         self.text_for_frame_id("TCON")
@@ -1048,7 +1061,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.set_genre("genre");
-    /// assert_eq!(tag.genre().unwrap(), "genre");
+    /// assert_eq!(tag.genre(), Some("genre"));
     /// ```
     pub fn set_genre(&mut self, genre: impl Into<String>) {
         self.set_text("TCON", genre);
@@ -1083,7 +1096,7 @@ impl<'a> Tag {
     ///
     /// let mut frame_valid = Frame::with_content("TPOS", Content::Text("4".to_owned()));
     /// tag.add_frame(frame_valid);
-    /// assert_eq!(tag.disc().unwrap(), 4);
+    /// assert_eq!(tag.disc(), Some(4));
     ///
     /// tag.remove("TPOS");
     ///
@@ -1103,7 +1116,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.set_disc(2);
-    /// assert_eq!(tag.disc().unwrap(), 2);
+    /// assert_eq!(tag.disc(), Some(2));
     /// ```
     pub fn set_disc(&mut self, disc: u32) {
         let text = match self
@@ -1145,7 +1158,7 @@ impl<'a> Tag {
     ///
     /// let frame_valid = Frame::with_content("TPOS", Content::Text("4/10".to_owned()));
     /// tag.add_frame(frame_valid);
-    /// assert_eq!(tag.total_discs().unwrap(), 10);
+    /// assert_eq!(tag.total_discs(), Some(10));
     ///
     /// tag.remove("TPOS");
     ///
@@ -1166,7 +1179,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.set_total_discs(10);
-    /// assert_eq!(tag.total_discs().unwrap(), 10);
+    /// assert_eq!(tag.total_discs(), Some(10));
     /// ```
     pub fn set_total_discs(&mut self, total_discs: u32) {
         let text = match self.text_pair("TPOS") {
@@ -1207,7 +1220,7 @@ impl<'a> Tag {
     ///
     /// let frame_valid = Frame::with_content("TRCK", Content::Text("4".to_owned()));
     /// tag.add_frame(frame_valid);
-    /// assert_eq!(tag.track().unwrap(), 4);
+    /// assert_eq!(tag.track(), Some(4));
     ///
     /// tag.remove("TRCK");
     ///
@@ -1227,7 +1240,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.set_track(10);
-    /// assert_eq!(tag.track().unwrap(), 10);
+    /// assert_eq!(tag.track(), Some(10));
     /// ```
     pub fn set_track(&mut self, track: u32) {
         let text = match self
@@ -1269,7 +1282,7 @@ impl<'a> Tag {
     ///
     /// let frame_valid = Frame::with_content("TRCK", Content::Text("4/10".to_owned()));
     /// tag.add_frame(frame_valid);
-    /// assert_eq!(tag.total_tracks().unwrap(), 10);
+    /// assert_eq!(tag.total_tracks(), Some(10));
     ///
     /// tag.remove("TRCK");
     ///
@@ -1290,7 +1303,7 @@ impl<'a> Tag {
     ///
     /// let mut tag = Tag::new();
     /// tag.set_total_tracks(10);
-    /// assert_eq!(tag.total_tracks().unwrap(), 10);
+    /// assert_eq!(tag.total_tracks(), Some(10));
     /// ```
     pub fn set_total_tracks(&mut self, total_tracks: u32) {
         let text = match self.text_pair("TRCK") {
@@ -1326,13 +1339,16 @@ impl<'a> Tag {
     /// use id3::Tag;
     /// use id3::frame::Lyrics;
     ///
-    /// let mut tag = Tag::new();
-    /// tag.add_lyrics(Lyrics {
-    ///     lang: "eng".to_string(),
-    ///     description: "".to_string(),
-    ///     text: "The lyrics".to_string(),
-    /// });
-    /// assert_eq!(tag.lyrics().nth(0).unwrap().text, "The lyrics");
+    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let mut tag = Tag::new();
+    ///     tag.add_lyrics(Lyrics {
+    ///         lang: "eng".to_string(),
+    ///         description: "".to_string(),
+    ///         text: "The lyrics".to_string(),
+    ///     });
+    ///     assert_eq!(tag.lyrics().nth(0).ok_or("no such lyrics")?.text, "The lyrics");
+    ///     Ok(())
+    /// }
     /// ```
     pub fn add_lyrics(&mut self, lyrics: Lyrics) {
         let frame = Frame::with_content("USLT", Content::Lyrics(lyrics));
