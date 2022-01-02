@@ -351,7 +351,7 @@ mod tests {
         });
         tag.add_synchronised_lyrics(SynchronisedLyrics {
             lang: "eng".to_string(),
-            timestamp_format: TimestampFormat::MS,
+            timestamp_format: TimestampFormat::Ms,
             content_type: SynchronisedLyricsType::Lyrics,
             content: vec![
                 (1000, "he".to_string()),

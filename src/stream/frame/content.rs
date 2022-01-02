@@ -132,8 +132,8 @@ impl<W: io::Write> Encoder<W> {
                 .collect::<Vec<u8>>(),
         )?;
         self.byte(match content.timestamp_format {
-            TimestampFormat::MPEG => 1,
-            TimestampFormat::MS => 2,
+            TimestampFormat::Mpeg => 1,
+            TimestampFormat::Ms => 2,
         })?;
         self.byte(match content.content_type {
             SynchronisedLyricsType::Other => 0,
@@ -477,8 +477,8 @@ impl<'a> Decoder<'a> {
 
         let lang = self.string_fixed(3)?;
         let timestamp_format = match self.byte()? {
-            1 => TimestampFormat::MPEG,
-            2 => TimestampFormat::MS,
+            1 => TimestampFormat::Mpeg,
+            2 => TimestampFormat::Ms,
             _ => {
                 return Err(Error::new(
                     ErrorKind::Parsing,
