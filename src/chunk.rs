@@ -6,7 +6,6 @@ use std::fmt;
 use std::fs;
 use std::io::prelude::*;
 use std::io::{BufReader, Seek, SeekFrom};
-use std::path::Path;
 use std::{convert::TryInto, io};
 
 const TAG_LEN: u32 = 4; // Size of a tag.
@@ -36,21 +35,9 @@ where
 
 /// Writes a tag to the given file. If the file contains no previous tag data, a new ID3
 /// chunk is created. Otherwise, the tag is overwritten in place.
-pub fn write_id3_chunk<F: ChunkFormat, P>(path: P, tag: &Tag, version: Version) -> crate::Result<()>
-where
-    F: ChunkFormat,
-    P: AsRef<Path>,
-{
-    // Open the file:
-    let mut file = fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(false)
-        .truncate(false)
-        .open(path)?;
-
+pub fn write_id3_chunk_file<F: ChunkFormat>(mut file: &mut fs::File, tag: &Tag, version: Version) -> crate::Result<()> {
     // Locate relevant chunks:
-    let (mut root_chunk, id3_chunk_option) = locate_relevant_chunks::<F, _>(&file)?;
+    let (mut root_chunk, id3_chunk_option) = locate_relevant_chunks::<F, _>(&mut file)?;
 
     let root_chunk_pos = SeekFrom::Start(0);
     let id3_chunk_pos;
@@ -139,7 +126,7 @@ where
     // Update chunk sizes in the file:
 
     file.seek(id3_chunk_pos)?;
-    id3_chunk.write_to::<F, _>(&file)?;
+    id3_chunk.write_to::<F, _>(&mut file)?;
 
     root_chunk.size = root_chunk
         .size
@@ -147,7 +134,7 @@ where
         .ok_or_else(|| Error::new(ErrorKind::InvalidInput, "root chunk max size reached"))?;
 
     file.seek(root_chunk_pos)?;
-    root_chunk.write_to::<F, _>(&file)?;
+    root_chunk.write_to::<F, _>(file)?;
 
     Ok(())
 }
