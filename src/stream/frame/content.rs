@@ -1,9 +1,6 @@
-// This lint is not really fixable without a lot of effort due to all the macros being used here.
-#![allow(clippy::vec_init_then_push)]
-
 use crate::frame::{
-    Content, EncapsulatedObject, ExtendedLink, Picture, PictureType, SynchronisedLyrics,
-    SynchronisedLyricsType, TimestampFormat,
+    Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics, Picture, PictureType,
+    SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat,
 };
 use crate::stream::encoding::Encoding;
 use crate::tag;
@@ -15,42 +12,230 @@ use crate::{Error, ErrorKind};
 use std::io;
 use std::iter;
 
-#[derive(Copy, Clone)]
-struct EncoderRequest<'a> {
+struct Encoder<W: io::Write> {
+    w: W,
     version: tag::Version,
     encoding: Encoding,
-    content: &'a Content,
 }
 
-/// Creates a vector representation of the request.
+impl<W: io::Write> Encoder<W> {
+    fn bytes(&mut self, bytes: impl AsRef<[u8]>) -> crate::Result<()> {
+        let bytes = bytes.as_ref();
+        self.w.write_all(bytes)?;
+        Ok(())
+    }
+
+    fn byte(&mut self, b: u8) -> crate::Result<()> {
+        self.bytes(&[b])
+    }
+
+    fn delim(&mut self) -> crate::Result<()> {
+        self.bytes(match self.encoding {
+            Encoding::Latin1 | Encoding::UTF8 => &[0][..],
+            Encoding::UTF16 | Encoding::UTF16BE => &[0, 0][..],
+        })
+    }
+
+    fn string(&mut self, string: &str) -> crate::Result<()> {
+        self.string_with_other_encoding(self.encoding, string)
+    }
+
+    fn string_with_other_encoding(
+        &mut self,
+        encoding: Encoding,
+        string: &str,
+    ) -> crate::Result<()> {
+        match encoding {
+            Encoding::Latin1 => self.bytes(string_to_latin1(string)),
+            Encoding::UTF8 => self.bytes(string.as_bytes()),
+            Encoding::UTF16 => self.bytes(string_to_utf16(string)),
+            Encoding::UTF16BE => self.bytes(string_to_utf16be(string)),
+        }
+    }
+
+    fn encoding(&mut self) -> crate::Result<()> {
+        self.byte(match self.encoding {
+            Encoding::Latin1 => 0,
+            Encoding::UTF16 => 1,
+            Encoding::UTF16BE => 2,
+            Encoding::UTF8 => 3,
+        })
+    }
+
+    fn text_content(&mut self, content: &str) -> crate::Result<()> {
+        self.encoding()?;
+        self.string(content)
+    }
+
+    fn extended_text_content(&mut self, content: &ExtendedText) -> crate::Result<()> {
+        self.encoding()?;
+        self.string(&content.description)?;
+        self.delim()?;
+        self.string(&content.value)
+    }
+
+    fn link_content(&mut self, content: &str) -> crate::Result<()> {
+        self.bytes(content.as_bytes())
+    }
+
+    fn extended_link_content(&mut self, content: &ExtendedLink) -> crate::Result<()> {
+        self.encoding()?;
+        self.string(&content.description)?;
+        self.delim()?;
+        self.bytes(content.link.as_bytes())
+    }
+
+    fn encapsulated_object_content(&mut self, content: &EncapsulatedObject) -> crate::Result<()> {
+        self.encoding()?;
+        self.bytes(content.mime_type.as_bytes())?;
+        self.byte(0)?;
+        self.string(&content.filename)?;
+        self.delim()?;
+        self.string(&content.description)?;
+        self.delim()?;
+        self.bytes(&content.data)
+    }
+
+    fn lyrics_content(&mut self, content: &Lyrics) -> crate::Result<()> {
+        self.encoding()?;
+        self.bytes(
+            content
+                .lang
+                .bytes()
+                .chain(iter::repeat(b' '))
+                .take(3)
+                .collect::<Vec<u8>>(),
+        )?;
+        self.string(&content.description)?;
+        self.delim()?;
+        self.string(&content.text)
+    }
+
+    fn synchronised_lyrics_content(&mut self, content: &SynchronisedLyrics) -> crate::Result<()> {
+        // SYLT frames are really weird because they encode the text encoding and delimiters in a
+        // different way.
+        let encoding = match self.encoding {
+            Encoding::Latin1 => Encoding::Latin1,
+            _ => Encoding::UTF8,
+        };
+        self.byte(match encoding {
+            Encoding::Latin1 => 0,
+            Encoding::UTF8 => 1,
+            _ => unreachable!(),
+        })?;
+        self.bytes(
+            &content
+                .lang
+                .bytes()
+                .chain(iter::repeat(b' '))
+                .take(3)
+                .collect::<Vec<u8>>(),
+        )?;
+        self.byte(match content.timestamp_format {
+            TimestampFormat::MPEG => 1,
+            TimestampFormat::MS => 2,
+        })?;
+        self.byte(match content.content_type {
+            SynchronisedLyricsType::Other => 0,
+            SynchronisedLyricsType::Lyrics => 1,
+            SynchronisedLyricsType::Transcription => 2,
+            SynchronisedLyricsType::PartName => 3,
+            SynchronisedLyricsType::Event => 4,
+            SynchronisedLyricsType::Chord => 5,
+            SynchronisedLyricsType::Trivia => 6,
+        })?;
+        let text_delim: &[u8] = match encoding {
+            Encoding::Latin1 => &[0],
+            Encoding::UTF8 => &[0, 0],
+            _ => unreachable!(),
+        };
+        for (timestamp, text) in &content.content {
+            self.string_with_other_encoding(encoding, text)?;
+            self.bytes(text_delim)?;
+            // NOTE: The ID3v2.3 spec is not clear on the encoding of the timestamp other
+            // than "32 bit sized".
+            self.bytes(timestamp.to_be_bytes())?;
+        }
+        self.byte(0)
+    }
+
+    fn comment_content(&mut self, content: &Comment) -> crate::Result<()> {
+        self.encoding()?;
+        self.bytes(
+            content
+                .lang
+                .bytes()
+                .chain(iter::repeat(b' '))
+                .take(3)
+                .collect::<Vec<u8>>(),
+        )?;
+        self.string(&content.description)?;
+        self.delim()?;
+        self.string(&content.text)
+    }
+
+    fn picture_content_v2(&mut self, content: &Picture) -> crate::Result<()> {
+        self.encoding()?;
+        let format = match &content.mime_type[..] {
+            "image/jpeg" | "image/jpg" => "JPG",
+            "image/png" => "PNG",
+            _ => return Err(Error::new(ErrorKind::Parsing, "unsupported MIME type")),
+        };
+        self.bytes(format.as_bytes())?;
+        self.bytes(&[u8::from(content.picture_type)])?;
+        self.string(&content.description)?;
+        self.delim()?;
+        self.bytes(&content.data)
+    }
+
+    fn picture_content_v3(&mut self, content: &Picture) -> crate::Result<()> {
+        self.encoding()?;
+        self.bytes(content.mime_type.as_bytes())?;
+        self.bytes(&[0])?;
+        self.bytes(&[u8::from(content.picture_type)])?;
+        self.string(&content.description)?;
+        self.delim()?;
+        self.bytes(&content.data)
+    }
+
+    fn picture_content(&mut self, content: &Picture) -> crate::Result<()> {
+        match self.version {
+            tag::Id3v22 => self.picture_content_v2(content),
+            tag::Id3v23 | tag::Id3v24 => self.picture_content_v3(content),
+        }
+    }
+}
+
 pub fn encode(
     mut writer: impl io::Write,
     content: &Content,
     version: tag::Version,
     encoding: Encoding,
 ) -> crate::Result<usize> {
-    let request = EncoderRequest {
+    let mut buf = Vec::new();
+
+    let mut encoder = Encoder {
+        w: &mut buf,
         version,
         encoding,
-        content,
     };
-    let bytes = match content {
-        Content::Text(_) => text_to_bytes(request),
-        Content::ExtendedText(_) => extended_text_to_bytes(request),
-        Content::Link(_) => weblink_to_bytes(request),
-        Content::ExtendedLink(_) => extended_weblink_to_bytes(request),
-        Content::EncapsulatedObject(_) => encapsulated_object_to_bytes(request),
-        Content::Lyrics(_) => lyrics_to_bytes(request),
-        Content::SynchronisedLyrics(_) => synchronised_lyrics_to_bytes(request),
-        Content::Comment(_) => comment_to_bytes(request),
-        Content::Picture(_) => picture_to_bytes(request)?,
-        Content::Unknown(data) => data.clone(),
+    match content {
+        Content::Text(c) => encoder.text_content(c)?,
+        Content::ExtendedText(c) => encoder.extended_text_content(c)?,
+        Content::Link(c) => encoder.link_content(c)?,
+        Content::ExtendedLink(c) => encoder.extended_link_content(c)?,
+        Content::EncapsulatedObject(c) => encoder.encapsulated_object_content(c)?,
+        Content::Lyrics(c) => encoder.lyrics_content(c)?,
+        Content::SynchronisedLyrics(c) => encoder.synchronised_lyrics_content(c)?,
+        Content::Comment(c) => encoder.comment_content(c)?,
+        Content::Picture(c) => encoder.picture_content(c)?,
+        Content::Unknown(c) => encoder.bytes(c)?,
     };
-    writer.write_all(&bytes)?;
-    Ok(bytes.len())
+
+    writer.write_all(&buf)?;
+    Ok(buf.len())
 }
 
-/// Attempts to decode the request.
 pub fn decode(
     id: &str,
     version: tag::Version,
@@ -71,263 +256,6 @@ pub fn decode(
         id if id.starts_with('W') => parse_weblink(data.as_slice()),
         "GRP1" => parse_text(data.as_slice(), version),
         _ => Ok(Content::Unknown(data)),
-    }
-}
-
-struct EncodingParams<'a> {
-    delim_len: u8,
-    string_func: Box<dyn Fn(&mut Vec<u8>, &str) + 'a>,
-}
-
-macro_rules! encode_part {
-    ($buf:ident, encoding($encoding:expr)) => {
-        $buf.push($encoding as u8)
-    };
-    ($buf:ident, $params:ident, string($string:expr)) => {
-        ($params.string_func)(&mut $buf, &$string[..])
-    };
-    ($buf:ident, $params:ident, delim($ignored:expr)) => {
-        for _ in 0..$params.delim_len {
-            $buf.push(0);
-        }
-    };
-    ($buf:ident, $params:ident, bytes($bytes:expr)) => {
-        $buf.extend($bytes.iter().cloned());
-    };
-    ($buf:ident, $params:ident, byte($byte:expr)) => {
-        $buf.push($byte as u8)
-    };
-}
-
-macro_rules! encode {
-    (encoding($encoding:expr) $(, $part:ident( $value:expr ) )+) => {
-        {
-            let params = match $encoding {
-                Encoding::Latin1 => EncodingParams {
-                    delim_len: 1,
-                    string_func: Box::new(|buf: &mut Vec<u8>, string: &str|
-                        buf.extend(string_to_latin1(string).into_iter())
-                    )
-                },
-                Encoding::UTF8 => EncodingParams {
-                    delim_len: 1,
-                    string_func: Box::new(|buf: &mut Vec<u8>, string: &str|
-                        buf.extend(string.bytes()))
-                },
-                Encoding::UTF16 => EncodingParams {
-                    delim_len: 2,
-                    string_func: Box::new(|buf: &mut Vec<u8>, string: &str|
-                        buf.extend(string_to_utf16(string).into_iter()))
-                },
-                Encoding::UTF16BE => EncodingParams {
-                    delim_len: 2,
-                    string_func: Box::new(|buf: &mut Vec<u8>, string: &str|
-                        buf.extend(string_to_utf16be(string).into_iter()))
-                }
-            };
-            let mut buf = Vec::new();
-            encode_part!(buf, encoding($encoding));
-            $(encode_part!(buf, params, $part ( $value ));)+
-            buf
-        }
-    };
-}
-
-fn text_to_bytes(request: EncoderRequest) -> Vec<u8> {
-    #![allow(clippy::redundant_slicing)]
-    let content = request.content.text().unwrap();
-    encode!(encoding(request.encoding), string(content))
-}
-
-fn extended_text_to_bytes(request: EncoderRequest) -> Vec<u8> {
-    let content = request.content.extended_text().unwrap();
-    encode!(
-        encoding(request.encoding),
-        string(content.description),
-        delim(0),
-        string(content.value)
-    )
-}
-
-fn weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
-    request.content.link().unwrap().as_bytes().to_vec()
-}
-
-fn encapsulated_object_to_bytes(request: EncoderRequest) -> Vec<u8> {
-    let content = request.content.encapsulated_object().unwrap();
-    encode!(
-        encoding(request.encoding),
-        bytes(content.mime_type.as_bytes()),
-        byte(0),
-        string(content.filename),
-        delim(0),
-        string(content.description),
-        delim(0),
-        bytes(content.data)
-    )
-}
-
-fn extended_weblink_to_bytes(request: EncoderRequest) -> Vec<u8> {
-    let content = request.content.extended_link().unwrap();
-    encode!(
-        encoding(request.encoding),
-        string(content.description),
-        delim(0),
-        bytes(content.link.as_bytes())
-    )
-}
-
-fn lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
-    let content = request.content.lyrics().unwrap();
-    encode!(
-        encoding(request.encoding),
-        bytes(
-            content
-                .lang
-                .bytes()
-                .chain(iter::repeat(b' '))
-                .take(3)
-                .collect::<Vec<u8>>()
-        ),
-        string(content.description),
-        delim(0),
-        string(content.text)
-    )
-}
-
-fn synchronised_lyrics_to_bytes(request: EncoderRequest) -> Vec<u8> {
-    let content = request.content.synchronised_lyrics().unwrap();
-    let encoding = match request.encoding {
-        Encoding::Latin1 => Encoding::Latin1,
-        _ => Encoding::UTF8,
-    };
-    let text_delim: &[u8] = match encoding {
-        Encoding::Latin1 => &[0],
-        Encoding::UTF8 => &[0, 0],
-        _ => unreachable!(),
-    };
-
-    let params = match encoding {
-        Encoding::Latin1 => EncodingParams {
-            delim_len: 1,
-            string_func: Box::new(|buf: &mut Vec<u8>, string: &str| {
-                buf.extend(string_to_latin1(string).into_iter())
-            }),
-        },
-        Encoding::UTF8 => EncodingParams {
-            // UTF-8
-            delim_len: 2,
-            string_func: Box::new(|buf: &mut Vec<u8>, string: &str| buf.extend(string.bytes())),
-        },
-        _ => unreachable!(),
-    };
-
-    let mut buf = Vec::new();
-    encode_part!(
-        buf,
-        params,
-        byte(match encoding {
-            Encoding::Latin1 => 0,
-            Encoding::UTF8 => 1,
-            _ => unreachable!(),
-        })
-    );
-    encode_part!(
-        buf,
-        params,
-        bytes(
-            content
-                .lang
-                .bytes()
-                .chain(iter::repeat(b' '))
-                .take(3)
-                .collect::<Vec<u8>>()
-        )
-    );
-    encode_part!(
-        buf,
-        params,
-        byte(match content.timestamp_format {
-            TimestampFormat::MPEG => 1,
-            TimestampFormat::MS => 2,
-        })
-    );
-    encode_part!(
-        buf,
-        params,
-        byte(match content.content_type {
-            SynchronisedLyricsType::Other => 0,
-            SynchronisedLyricsType::Lyrics => 1,
-            SynchronisedLyricsType::Transcription => 2,
-            SynchronisedLyricsType::PartName => 3,
-            SynchronisedLyricsType::Event => 4,
-            SynchronisedLyricsType::Chord => 5,
-            SynchronisedLyricsType::Trivia => 6,
-        })
-    );
-    for (timestamp, text) in &content.content {
-        encode_part!(buf, params, string(text));
-        encode_part!(buf, params, bytes(text_delim));
-        // NOTE: The ID3v2.3 spec is not clear on the encoding of the timestamp other
-        // than "32 bit sized".
-        encode_part!(buf, params, bytes(timestamp.to_be_bytes()));
-    }
-    buf.push(0); // delim.
-    buf
-}
-
-fn comment_to_bytes(request: EncoderRequest) -> Vec<u8> {
-    let content = request.content.comment().unwrap();
-    encode!(
-        encoding(request.encoding),
-        bytes(
-            content
-                .lang
-                .bytes()
-                .chain(iter::repeat(b' '))
-                .take(3)
-                .collect::<Vec<u8>>()
-        ),
-        string(content.description),
-        delim(0),
-        string(content.text)
-    )
-}
-
-fn picture_to_bytes_v3(request: EncoderRequest) -> Vec<u8> {
-    let content = request.content.picture().unwrap();
-    encode!(
-        encoding(request.encoding),
-        bytes(content.mime_type.as_bytes()),
-        byte(0),
-        byte(u8::from(content.picture_type)),
-        string(content.description),
-        delim(0),
-        bytes(content.data)
-    )
-}
-
-fn picture_to_bytes_v2(request: EncoderRequest) -> crate::Result<Vec<u8>> {
-    let picture = request.content.picture().unwrap();
-    let format = match &picture.mime_type[..] {
-        "image/jpeg" | "image/jpg" => "JPG",
-        "image/png" => "PNG",
-        _ => return Err(Error::new(ErrorKind::Parsing, "unsupported MIME type")),
-    };
-    Ok(encode!(
-        encoding(request.encoding),
-        bytes(format.as_bytes()),
-        byte(u8::from(picture.picture_type)),
-        string(picture.description),
-        delim(0),
-        bytes(picture.data)
-    ))
-}
-
-fn picture_to_bytes(request: EncoderRequest) -> crate::Result<Vec<u8>> {
-    match request.version {
-        tag::Id3v22 => picture_to_bytes_v2(request),
-        tag::Id3v23 | tag::Id3v24 => Ok(picture_to_bytes_v3(request)),
     }
 }
 
