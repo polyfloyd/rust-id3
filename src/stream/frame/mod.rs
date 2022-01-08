@@ -22,7 +22,7 @@ pub fn decode(
     }
 }
 
-pub fn decode_content(
+fn decode_content(
     reader: impl io::Read,
     version: tag::Version,
     id: &str,
