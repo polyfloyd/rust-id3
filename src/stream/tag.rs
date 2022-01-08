@@ -320,13 +320,13 @@ pub fn locate_id3v2(mut reader: impl io::Read + io::Seek) -> crate::Result<Optio
 mod tests {
     use super::*;
     use crate::frame::{
-        Content, Frame, Picture, PictureType, SynchronisedLyrics, SynchronisedLyricsType,
+        Chapter, Content, Frame, Picture, PictureType, SynchronisedLyrics, SynchronisedLyricsType,
         TimestampFormat,
     };
     use std::fs;
     use std::io::{self, Read};
 
-    fn make_tag() -> Tag {
+    fn make_tag(version: Version) -> Tag {
         let mut tag = Tag::new();
         tag.set_title("Title");
         tag.set_artist("Artist");
@@ -359,6 +359,20 @@ mod tests {
                 (1200, "world".to_string()),
             ],
         });
+        if let Version::Id3v23 | Version::Id3v24 = version {
+            tag.add_chapter(Chapter {
+                element_id: "01".to_string(),
+                start_time: 1000,
+                end_time: 2000,
+                start_offset: 0xff,
+                end_offset: 0xff,
+                frames: vec![
+                    Frame::with_content("TIT2", Content::Text("Foo".to_string())),
+                    Frame::with_content("TALB", Content::Text("Bar".to_string())),
+                    Frame::with_content("TCON", Content::Text("Baz".to_string())),
+                ],
+            });
+        }
         tag
     }
 
@@ -443,6 +457,30 @@ mod tests {
     }
 
     #[test]
+    fn read_id3v23_chap() {
+        let mut file = fs::File::open("testdata/id3v23_chap.id3").unwrap();
+        let tag = decode(&mut file).unwrap();
+        assert_eq!(tag.chapters().count(), 7);
+
+        let chapter_titles = tag
+            .chapters()
+            .map(|chap| chap.frames.first().unwrap().content().text().unwrap())
+            .collect::<Vec<&str>>();
+        assert_eq!(
+            chapter_titles,
+            &[
+                "MPU 554",
+                "Read-it-Later Services?",
+                "Safari Reading List",
+                "Third-Party Services",
+                "What We’re Using",
+                "David’s Research Workflow",
+                "Apple’s September"
+            ]
+        );
+    }
+
+    #[test]
     fn read_id3v24() {
         let mut file = fs::File::open("testdata/id3v24.id3").unwrap();
         let tag = decode(&mut file).unwrap();
@@ -468,7 +506,7 @@ mod tests {
 
     #[test]
     fn write_id3v22() {
-        let tag = make_tag();
+        let tag = make_tag(Version::Id3v22);
         let mut buffer = Vec::new();
         Encoder::new()
             .version(Version::Id3v22)
@@ -480,7 +518,7 @@ mod tests {
 
     #[test]
     fn write_id3v22_unsynch() {
-        let tag = make_tag();
+        let tag = make_tag(Version::Id3v22);
         let mut buffer = Vec::new();
         Encoder::new()
             .unsynchronisation(true)
@@ -493,7 +531,7 @@ mod tests {
 
     #[test]
     fn write_id3v22_invalid_id() {
-        let mut tag = make_tag();
+        let mut tag = make_tag(Version::Id3v22);
         tag.add_frame(Frame::with_content("XXX", Content::Unknown(vec![1, 2, 3])));
         tag.add_frame(Frame::with_content("YYY", Content::Unknown(vec![4, 5, 6])));
         tag.add_frame(Frame::with_content("ZZZ", Content::Unknown(vec![7, 8, 9])));
@@ -508,7 +546,7 @@ mod tests {
 
     #[test]
     fn write_id3v23() {
-        let tag = make_tag();
+        let tag = make_tag(Version::Id3v23);
         let mut buffer = Vec::new();
         Encoder::new()
             .version(Version::Id3v23)
@@ -520,7 +558,7 @@ mod tests {
 
     #[test]
     fn write_id3v23_compression() {
-        let tag = make_tag();
+        let tag = make_tag(Version::Id3v23);
         let mut buffer = Vec::new();
         Encoder::new()
             .compression(true)
@@ -533,7 +571,7 @@ mod tests {
 
     #[test]
     fn write_id3v23_unsynch() {
-        let tag = make_tag();
+        let tag = make_tag(Version::Id3v23);
         let mut buffer = Vec::new();
         Encoder::new()
             .unsynchronisation(true)
@@ -546,7 +584,7 @@ mod tests {
 
     #[test]
     fn write_id3v24() {
-        let tag = make_tag();
+        let tag = make_tag(Version::Id3v24);
         let mut buffer = Vec::new();
         Encoder::new()
             .version(Version::Id3v24)
@@ -558,7 +596,7 @@ mod tests {
 
     #[test]
     fn write_id3v24_compression() {
-        let tag = make_tag();
+        let tag = make_tag(Version::Id3v24);
         let mut buffer = Vec::new();
         Encoder::new()
             .compression(true)
@@ -571,7 +609,7 @@ mod tests {
 
     #[test]
     fn write_id3v24_unsynch() {
-        let tag = make_tag();
+        let tag = make_tag(Version::Id3v24);
         let mut buffer = Vec::new();
         Encoder::new()
             .unsynchronisation(true)

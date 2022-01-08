@@ -1,3 +1,4 @@
+use crate::frame::Frame;
 use std::borrow::Cow;
 use std::fmt;
 use std::io;
@@ -23,6 +24,8 @@ pub enum Content {
     Picture(Picture),
     /// A value containing the parsed contents of a general encapsulated object frame (GEOB).
     EncapsulatedObject(EncapsulatedObject),
+    /// A chapter object containing frames by itself.
+    Chapter(Chapter),
     /// A value containing the bytes of a unknown frame.
     Unknown(Vec<u8>),
 }
@@ -49,6 +52,9 @@ impl Content {
             Self::Picture(picture) => vec![Cow::Owned(picture.picture_type.to_string())],
             Self::EncapsulatedObject(encapsulated_object) => {
                 vec![Cow::Borrowed(&encapsulated_object.description)]
+            }
+            Self::Chapter(chapter) => {
+                vec![Cow::Borrowed(&chapter.element_id)]
             }
             Self::Unknown(_) => Vec::new(),
         }
@@ -155,6 +161,14 @@ impl Content {
         }
     }
 
+    /// Returns the `Chapter` or None if the value is not `Chapter`.
+    pub fn chapter(&self) -> Option<&Chapter> {
+        match self {
+            Content::Chapter(chapter) => Some(chapter),
+            _ => None,
+        }
+    }
+
     /// Returns the `Unknown` or None if the value is not `Unknown`.
     pub fn unknown(&self) -> Option<&[u8]> {
         match *self {
@@ -176,6 +190,7 @@ impl fmt::Display for Content {
             Content::Lyrics(lyrics) => write!(f, "{}", lyrics),
             Content::SynchronisedLyrics(sync_lyrics) => write!(f, "{}", sync_lyrics.content_type),
             Content::Picture(picture) => write!(f, "{}", picture),
+            Content::Chapter(chapter) => write!(f, "{}", chapter),
             Content::Unknown(data) => write!(f, "Unknown, {} bytes", data.len()),
         }
     }
@@ -309,7 +324,7 @@ impl SynchronisedLyrics {
     /// 00:00:12.123    Song line one
     /// 00:00:22.456    Song line two
     /// …
-    ///```
+    /// ```
     ///
     /// # Errors
     ///
@@ -509,6 +524,35 @@ impl fmt::Display for Picture {
                 self.data.len()
             )
         }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[allow(missing_docs)]
+pub struct Chapter {
+    pub element_id: String,
+    pub start_time: u32,
+    pub end_time: u32,
+    pub start_offset: u32,
+    pub end_offset: u32,
+    pub frames: Vec<Frame>,
+}
+
+impl fmt::Display for Chapter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (start, end, unit) = match (self.start_offset, self.end_offset) {
+            (0xffffffff, 0xffffffff) => (self.start_time, self.end_time, "ms"),
+            (_, _) => (self.start_offset, self.end_offset, "b"),
+        };
+        let frames: Vec<&str> = self.frames.iter().map(|f| f.id()).collect();
+        write!(
+            f,
+            "{start}{unit}-{end}{unit}: {frames}",
+            start = start,
+            end = end,
+            unit = unit,
+            frames = frames.join(", "),
+        )
     }
 }
 
