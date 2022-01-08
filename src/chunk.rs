@@ -35,7 +35,11 @@ where
 
 /// Writes a tag to the given file. If the file contains no previous tag data, a new ID3
 /// chunk is created. Otherwise, the tag is overwritten in place.
-pub fn write_id3_chunk_file<F: ChunkFormat>(mut file: &mut fs::File, tag: &Tag, version: Version) -> crate::Result<()> {
+pub fn write_id3_chunk_file<F: ChunkFormat>(
+    mut file: &mut fs::File,
+    tag: &Tag,
+    version: Version,
+) -> crate::Result<()> {
     // Locate relevant chunks:
     let (mut root_chunk, id3_chunk_option) = locate_relevant_chunks::<F, _>(&mut file)?;
 
