@@ -152,8 +152,6 @@ impl<W: io::Write> Encoder<W> {
         for (timestamp, text) in &content.content {
             self.string_with_other_encoding(encoding, text)?;
             self.bytes(text_delim)?;
-            // NOTE: The ID3v2.3 spec is not clear on the encoding of the timestamp other
-            // than "32 bit sized".
             self.bytes(timestamp.to_be_bytes())?;
         }
         self.byte(0)
@@ -182,7 +180,7 @@ impl<W: io::Write> Encoder<W> {
             _ => return Err(Error::new(ErrorKind::Parsing, "unsupported MIME type")),
         };
         self.bytes(format.as_bytes())?;
-        self.bytes(&[u8::from(content.picture_type)])?;
+        self.byte(u8::from(content.picture_type))?;
         self.string(&content.description)?;
         self.delim()?;
         self.bytes(&content.data)
@@ -191,8 +189,8 @@ impl<W: io::Write> Encoder<W> {
     fn picture_content_v3(&mut self, content: &Picture) -> crate::Result<()> {
         self.encoding()?;
         self.bytes(content.mime_type.as_bytes())?;
-        self.bytes(&[0])?;
-        self.bytes(&[u8::from(content.picture_type)])?;
+        self.byte(0)?;
+        self.byte(u8::from(content.picture_type))?;
         self.string(&content.description)?;
         self.delim()?;
         self.bytes(&content.data)
@@ -243,157 +241,119 @@ pub fn decode(
 ) -> crate::Result<Content> {
     let mut data = Vec::new();
     reader.read_to_end(&mut data)?;
+    let decoder = Decoder {
+        r: &mut data,
+        version,
+    };
+
     match id {
-        "APIC" => parse_apic_v3(data.as_slice()),
-        "PIC" => parse_apic_v2(data.as_slice()),
-        "TXXX" | "TXX" => parse_txxx(data.as_slice()),
-        "WXXX" | "WXX" => parse_wxxx(data.as_slice()),
-        "COMM" | "COM" => parse_comm(data.as_slice()),
-        "USLT" | "ULT" => parse_uslt(data.as_slice()),
-        "SYLT" | "SLT" => parse_sylt(data.as_slice()),
-        "GEOB" | "GEO" => parse_geob(data.as_slice()),
-        id if id.starts_with('T') => parse_text(data.as_slice(), version),
-        id if id.starts_with('W') => parse_weblink(data.as_slice()),
-        "GRP1" => parse_text(data.as_slice(), version),
+        "PIC" => decoder.picture_content_v2(),
+        "APIC" => decoder.picture_content_v3(),
+        "TXXX" | "TXX" => decoder.extended_text_content(),
+        "WXXX" | "WXX" => decoder.extended_link_content(),
+        "COMM" | "COM" => decoder.comment_content(),
+        "USLT" | "ULT" => decoder.lyrics_content(),
+        "SYLT" | "SLT" => decoder.synchronised_lyrics_content(),
+        "GEOB" | "GEO" => decoder.encapsulated_object_content(),
+        id if id.starts_with('T') => decoder.text_content(),
+        id if id.starts_with('W') => decoder.link_content(),
+        "GRP1" => decoder.text_content(),
         _ => Ok(Content::Unknown(data)),
     }
 }
 
-struct DecodingParams<'a> {
-    encoding: Encoding,
-    string_func: Box<dyn Fn(&[u8]) -> crate::Result<String> + 'a>,
+struct Decoder<'a> {
+    r: &'a [u8],
+    version: tag::Version,
 }
 
-impl<'a> DecodingParams<'a> {
-    fn for_encoding(encoding: Encoding) -> DecodingParams<'a> {
+impl<'a> Decoder<'a> {
+    fn bytes(&mut self, len: usize) -> crate::Result<&'a [u8]> {
+        if len > self.r.len() {
+            return Err(Error::new(
+                ErrorKind::Parsing,
+                "Insufficient data to decode bytes",
+            ));
+        }
+        let (head, tail) = self.r.split_at(len);
+        self.r = tail;
+        Ok(head)
+    }
+
+    fn byte(&mut self) -> crate::Result<u8> {
+        Ok(self.bytes(1)?[0])
+    }
+
+    fn uint32(&mut self) -> crate::Result<u32> {
+        let b = self.bytes(4)?;
+        let mut a = [0; 4];
+        a.copy_from_slice(b);
+        Ok(u32::from_be_bytes(a))
+    }
+
+    fn decode_string(encoding: Encoding, bytes: &[u8]) -> crate::Result<String> {
+        if bytes.is_empty() {
+            // UTF16 decoding requires at least 2 bytes for it not to error.
+            return Ok("".to_string());
+        }
         match encoding {
-            Encoding::Latin1 => DecodingParams {
-                encoding: Encoding::Latin1,
-                string_func: Box::new(|bytes: &[u8]| -> crate::Result<String> {
-                    string_from_latin1(bytes)
-                }),
-            },
-            Encoding::UTF8 => DecodingParams {
-                encoding: Encoding::UTF8,
-                string_func: Box::new(|bytes: &[u8]| -> crate::Result<String> {
-                    Ok(String::from_utf8(bytes.to_vec())?)
-                }),
-            },
-            Encoding::UTF16 => DecodingParams {
-                encoding: Encoding::UTF16,
-                string_func: Box::new(|bytes: &[u8]| -> crate::Result<String> {
-                    string_from_utf16(bytes)
-                }),
-            },
-            Encoding::UTF16BE => DecodingParams {
-                encoding: Encoding::UTF16BE,
-                string_func: Box::new(|bytes: &[u8]| -> crate::Result<String> {
-                    string_from_utf16be(bytes)
-                }),
-            },
+            Encoding::Latin1 => string_from_latin1(bytes),
+            Encoding::UTF8 => Ok(String::from_utf8(bytes.to_vec())?),
+            Encoding::UTF16 => string_from_utf16(bytes),
+            Encoding::UTF16BE => string_from_utf16be(bytes),
         }
     }
-}
 
-fn encoding_from_byte(n: u8) -> crate::Result<Encoding> {
-    match n {
-        0 => Ok(Encoding::Latin1),
-        1 => Ok(Encoding::UTF16),
-        2 => Ok(Encoding::UTF16BE),
-        3 => Ok(Encoding::UTF8),
-        _ => Err(Error::new(ErrorKind::Parsing, "unknown encoding")),
+    fn string_until_eof(&mut self, encoding: Encoding) -> crate::Result<String> {
+        Self::decode_string(encoding, self.r)
     }
-}
 
-macro_rules! assert_data {
-    ($bytes:ident) => {
-        if $bytes.len() == 0 {
-            return Err(Error::new(
-                ErrorKind::Parsing,
-                "frame does not contain any data",
-            ));
-        }
-    };
-}
-
-fn find_delim(
-    bytes: &[u8],
-    encoding: Encoding,
-    i: usize,
-    terminated: bool,
-) -> crate::Result<(usize, usize)> {
-    if !terminated {
-        return Ok((bytes.len(), bytes.len()));
+    fn string_delimited(&mut self, encoding: Encoding) -> crate::Result<String> {
+        let delim = crate::util::find_delim(encoding, self.r, 0)
+            .ok_or_else(|| Error::new(ErrorKind::Parsing, "delimiter not found"))?;
+        let delim_len = delim_len(encoding);
+        let b = self.bytes(delim)?;
+        self.bytes(delim_len)?; // Skip.
+        Self::decode_string(encoding, b)
     }
-    let delim = crate::util::find_delim(encoding, bytes, i)
-        .ok_or_else(|| Error::new(ErrorKind::Parsing, "delimiter not found"))?;
-    Ok((delim, delim + delim_len(encoding)))
-}
 
-macro_rules! decode_part {
-    ($bytes:expr, $params:ident, string($terminated:expr)) => {{
-        let (end, with_delim) = find_delim($bytes, $params.encoding, 0, $terminated)?;
-        if end == 0 {
-            ("".to_string(), &$bytes[with_delim..])
-        } else {
-            (
-                ($params.string_func)(&$bytes[..end])?,
-                &$bytes[with_delim..],
-            )
+    fn string_fixed(&mut self, bytes_len: usize) -> crate::Result<String> {
+        let s = self.bytes(bytes_len)?;
+        Self::decode_string(Encoding::Latin1, s)
+    }
+
+    fn encoding(&mut self) -> crate::Result<Encoding> {
+        match self.byte()? {
+            0 => Ok(Encoding::Latin1),
+            1 => Ok(Encoding::UTF16),
+            2 => Ok(Encoding::UTF16BE),
+            3 => Ok(Encoding::UTF8),
+            _ => Err(Error::new(ErrorKind::Parsing, "unknown encoding")),
         }
-    }};
-    ($bytes:expr, $params:ident, text_v3()) => {{
-        let (end, with_delim) = match crate::util::find_delim($params.encoding, $bytes, 0) {
-            Some(i) => (i, i + delim_len($params.encoding)),
-            None => ($bytes.len(), $bytes.len()),
+    }
+
+    fn text_content(mut self) -> crate::Result<Content> {
+        let encoding = self.encoding()?;
+        let (end, _) = match self.version {
+            tag::Version::Id3v24 => match crate::util::find_closing_delim(encoding, self.r) {
+                Some(i) => (i, i + delim_len(encoding)),
+                None => (self.r.len(), self.r.len()),
+            },
+            _ => match crate::util::find_delim(encoding, self.r, 0) {
+                Some(i) => (i, i + delim_len(encoding)),
+                None => (self.r.len(), self.r.len()),
+            },
         };
-        if end == 0 {
-            ("".to_string(), &$bytes[with_delim..])
-        } else {
-            (
-                ($params.string_func)(&$bytes[..end])?,
-                &$bytes[with_delim..],
-            )
-        }
-    }};
-    ($bytes:expr, $params:ident, text_v4()) => {{
-        let (end, with_delim) = match crate::util::find_closing_delim($params.encoding, $bytes) {
-            Some(i) => (i, i + delim_len($params.encoding)),
-            None => ($bytes.len(), $bytes.len()),
-        };
-        if end == 0 {
-            ("".to_string(), &$bytes[with_delim..])
-        } else {
-            (
-                ($params.string_func)(&$bytes[..end])?,
-                &$bytes[with_delim..],
-            )
-        }
-    }};
-    ($bytes:expr, $params:ident, fixed_string($len:expr)) => {{
-        if $len >= $bytes.len() {
-            return Err(Error::new(
-                ErrorKind::Parsing,
-                "insufficient data to decode fixed string",
-            ));
-        }
-        (string_from_latin1(&$bytes[..$len])?, &$bytes[$len..])
-    }};
-    ($bytes:expr, $params:ident, latin1($terminated:expr)) => {{
-        let (end, with_delim) = find_delim($bytes, Encoding::Latin1, 0, $terminated)?;
-        (
-            String::from_utf8($bytes[..end].to_vec())?,
-            &$bytes[with_delim..],
-        )
-    }};
-    ($bytes:expr, $params:ident, picture_type()) => {{
-        if 1 >= $bytes.len() {
-            return Err(Error::new(
-                ErrorKind::Parsing,
-                "insufficient data to decode picture type",
-            ));
-        }
-        let ty = match $bytes[0] {
+        let text = Self::decode_string(encoding, self.bytes(end)?)?;
+        Ok(Content::Text(text))
+    }
+
+    fn link_content(self) -> crate::Result<Content> {
+        Ok(Content::Link(String::from_utf8(self.r.to_vec())?))
+    }
+
+    fn picture_type(&mut self) -> crate::Result<PictureType> {
+        Ok(match self.byte()? {
             0 => PictureType::Other,
             1 => PictureType::Icon,
             2 => PictureType::OtherIcon,
@@ -416,222 +376,146 @@ macro_rules! decode_part {
             19 => PictureType::BandLogo,
             20 => PictureType::PublisherLogo,
             b => PictureType::Undefined(b),
-        };
-        (ty, &$bytes[1..])
-    }};
-    ($bytes:expr, $params:ident, bytes()) => {{
-        ($bytes.to_vec(), &[0u8; 0])
-    }};
-}
+        })
+    }
 
-macro_rules! decode {
-    ($bytes:ident, $result_type:ident, $($field:ident : $part:ident ( $($params:tt)* ) ),+) => {
+    fn picture_content_v2(mut self) -> crate::Result<Content> {
+        let encoding = self.encoding()?;
+        let mime_type = match self.string_fixed(3)?.as_str() {
+            "PNG" => "image/png".to_string(),
+            "JPG" => "image/jpeg".to_string(),
+            _ => {
+                return Err(Error::new(
+                    ErrorKind::UnsupportedFeature,
+                    "can't determine MIME type for image format",
+                ))
+            }
+        };
+        let picture_type = self.picture_type()?;
+        let description = self.string_delimited(encoding)?;
+        let data = self.r.to_vec();
+        Ok(Content::Picture(Picture {
+            mime_type,
+            picture_type,
+            description,
+            data,
+        }))
+    }
+
+    fn picture_content_v3(mut self) -> crate::Result<Content> {
+        let encoding = self.encoding()?;
+        let mime_type = self.string_delimited(Encoding::Latin1)?;
+        let picture_type = self.picture_type()?;
+        let description = self.string_delimited(encoding)?;
+        let data = self.r.to_vec();
+        Ok(Content::Picture(Picture {
+            mime_type,
+            picture_type,
+            description,
+            data,
+        }))
+    }
+
+    fn comment_content(mut self) -> crate::Result<Content> {
+        let encoding = self.encoding()?;
+        let lang = self.string_fixed(3)?;
+        let description = self.string_delimited(encoding)?;
+        let text = self.string_until_eof(encoding)?;
+        Ok(Content::Comment(Comment {
+            lang,
+            description,
+            text,
+        }))
+    }
+
+    fn extended_text_content(mut self) -> crate::Result<Content> {
+        let encoding = self.encoding()?;
+        let description = self.string_delimited(encoding)?;
+        let value = self.string_until_eof(encoding)?;
+        Ok(Content::ExtendedText(ExtendedText { description, value }))
+    }
+
+    fn extended_link_content(mut self) -> crate::Result<Content> {
+        let encoding = self.encoding()?;
+        let description = self.string_delimited(encoding)?;
+        let link = self.string_until_eof(Encoding::Latin1)?;
+        Ok(Content::ExtendedLink(ExtendedLink { description, link }))
+    }
+
+    fn encapsulated_object_content(mut self) -> crate::Result<Content> {
+        let encoding = self.encoding()?;
+        let mime_type = self.string_delimited(Encoding::Latin1)?;
+        let filename = self.string_delimited(encoding)?;
+        let description = self.string_delimited(encoding)?;
+        let data = self.r.to_vec();
+        Ok(Content::EncapsulatedObject(EncapsulatedObject {
+            mime_type,
+            filename,
+            description,
+            data,
+        }))
+    }
+
+    fn lyrics_content(mut self) -> crate::Result<Content> {
+        let encoding = self.encoding()?;
+        let lang = self.string_fixed(3)?;
+        let description = self.string_delimited(encoding)?;
+        let text = self.string_until_eof(encoding)?;
+        Ok(Content::Lyrics(Lyrics {
+            lang,
+            description,
+            text,
+        }))
+    }
+
+    fn synchronised_lyrics_content(mut self) -> crate::Result<Content> {
+        let (encoding, text_delim) = match self.byte()? {
+            0 => (Encoding::Latin1, &[0][..]),
+            1 => (Encoding::UTF8, &[0, 0][..]),
+            _ => return Err(Error::new(ErrorKind::Parsing, "invalid SYLT encoding")),
+        };
+
+        let lang = self.string_fixed(3)?;
+        let timestamp_format = match self.byte()? {
+            1 => TimestampFormat::MPEG,
+            2 => TimestampFormat::MS,
+            _ => {
+                return Err(Error::new(
+                    ErrorKind::Parsing,
+                    "invalid SYLT timestamp format",
+                ))
+            }
+        };
+        let content_type = match self.byte()? {
+            0 => SynchronisedLyricsType::Other,
+            1 => SynchronisedLyricsType::Lyrics,
+            2 => SynchronisedLyricsType::Transcription,
+            3 => SynchronisedLyricsType::PartName,
+            4 => SynchronisedLyricsType::Event,
+            5 => SynchronisedLyricsType::Chord,
+            6 => SynchronisedLyricsType::Trivia,
+            _ => return Err(Error::new(ErrorKind::Parsing, "invalid SYLT content type")),
+        };
+
+        let mut content = Vec::new();
+        while let Some(i) = self
+            .r
+            .windows(text_delim.len())
+            .position(|w| w == text_delim)
         {
-            use crate::frame::$result_type;
-
-            assert_data!($bytes);
-
-            let encoding = encoding_from_byte($bytes[0])?;
-            let params = DecodingParams::for_encoding(encoding);
-
-            let next = &$bytes[1..];
-            $(
-                let ($field, next) = decode_part!(next, params, $part ( $($params)* ));
-            )+
-            let _ = next;
-
-            Ok(Content::$result_type( $result_type {
-                $($field,)+
-            }))
+            let text = Self::decode_string(encoding, &self.r[..i])?;
+            self.r = &self.r[i + text_delim.len()..];
+            let timestamp = self.uint32()?;
+            content.push((timestamp, text));
         }
-    };
-}
 
-/// Attempts to parse the data as an ID3v2.2 picture frame.
-/// Returns a `Content::Picture`.
-fn parse_apic_v2(data: &[u8]) -> crate::Result<Content> {
-    assert_data!(data);
-
-    let encoding = encoding_from_byte(data[0])?;
-    let params = DecodingParams::for_encoding(encoding);
-
-    let (format, next) = decode_part!(&data[1..], params, fixed_string(3));
-    let mime_type = match &format[..] {
-        "PNG" => "image/png".to_string(),
-        "JPG" => "image/jpeg".to_string(),
-        _ => {
-            return Err(Error::new(
-                ErrorKind::UnsupportedFeature,
-                "can't determine MIME type for image format",
-            ));
-        }
-    };
-    let (picture_type, next) = decode_part!(next, params, picture_type());
-    let (description, next) = decode_part!(next, params, string(true));
-    let (picture_data, _) = decode_part!(next, params, bytes());
-
-    let picture = Picture {
-        mime_type,
-        picture_type,
-        description,
-        data: picture_data,
-    };
-    Ok(Content::Picture(picture))
-}
-
-/// Attempts to parse the data as an ID3v2.3/ID3v2.4 picture frame.
-/// Returns a `Content::Picture`.
-fn parse_apic_v3(data: &[u8]) -> crate::Result<Content> {
-    return decode!(data, Picture, mime_type: latin1(true), picture_type : picture_type(),
-                   description: string(true), data: bytes());
-}
-
-/// Attempts to parse the data as a comment frame.
-/// Returns a `Content::Comment`.
-fn parse_comm(data: &[u8]) -> crate::Result<Content> {
-    return decode!(data, Comment, lang: fixed_string(3), description: string(true),
-                   text: string(false));
-}
-
-/// Attempts to parse the data as a text frame.
-/// Returns a `Content::Text`.
-fn parse_text(data: &[u8], version: tag::Version) -> crate::Result<Content> {
-    assert_data!(data);
-    let encoding = encoding_from_byte(data[0])?;
-
-    let params = DecodingParams::for_encoding(encoding);
-    match version {
-        tag::Version::Id3v24 => Ok(Content::Text(decode_part!(&data[1..], params, text_v4()).0)),
-        _ => Ok(Content::Text(decode_part!(&data[1..], params, text_v3()).0)),
+        Ok(Content::SynchronisedLyrics(SynchronisedLyrics {
+            lang,
+            timestamp_format,
+            content_type,
+            content,
+        }))
     }
-}
-
-/// Attempts to parse the data as a user defined text frame.
-/// Returns an `Content::ExtendedText`.
-fn parse_txxx(data: &[u8]) -> crate::Result<Content> {
-    return decode!(data, ExtendedText, description: string(true), value: string(false));
-}
-
-/// Attempts to parse the data as a web link frame.
-/// Returns a `Content::Link`.
-fn parse_weblink(data: &[u8]) -> crate::Result<Content> {
-    Ok(Content::Link(String::from_utf8(data.to_vec())?))
-}
-
-/// Attempts to parse the data as a general encapsulated object.
-/// Returns an `Content::EncapsulatedObject`.
-fn parse_geob(data: &[u8]) -> crate::Result<Content> {
-    assert_data!(data);
-
-    let encoding = encoding_from_byte(data[0])?;
-
-    let uparams = DecodingParams::for_encoding(Encoding::Latin1);
-    let (mime_type, next) = decode_part!(&data[1..], uparams, string(true));
-
-    let params = DecodingParams::for_encoding(encoding);
-    let (filename, next) = decode_part!(next, params, string(true));
-
-    let (description, next) = decode_part!(next, params, string(true));
-
-    let data = next.to_vec();
-
-    let obj = EncapsulatedObject {
-        mime_type,
-        filename,
-        description,
-        data,
-    };
-    Ok(Content::EncapsulatedObject(obj))
-}
-
-/// Attempts to parse the data as a user defined web link frame.
-/// Returns an `Content::ExtendedLink`.
-fn parse_wxxx(data: &[u8]) -> crate::Result<Content> {
-    assert_data!(data);
-
-    let encoding = encoding_from_byte(data[0])?;
-
-    let params = DecodingParams::for_encoding(encoding);
-    let (description, next) = decode_part!(&data[1..], params, string(true));
-
-    let uparams = DecodingParams::for_encoding(Encoding::Latin1);
-    let (link, _) = decode_part!(next, uparams, string(false));
-
-    let elink = ExtendedLink { description, link };
-    Ok(Content::ExtendedLink(elink))
-}
-
-/// Attempts to parse the data as an unsynchronized lyrics text frame.
-/// Returns a `Content::Lyrics`.
-fn parse_uslt(data: &[u8]) -> crate::Result<Content> {
-    return decode!(data, Lyrics, lang: fixed_string(3), description: string(true),
-                   text: string(false));
-}
-
-fn parse_sylt(data: &[u8]) -> crate::Result<Content> {
-    let (encoding, text_delim) = match data[0] {
-        0 => (Encoding::Latin1, &[0][..]),
-        1 => (Encoding::UTF8, &[0, 0][..]),
-        _ => return Err(Error::new(ErrorKind::Parsing, "invalid SYLT encoding")),
-    };
-    let decode_str: &dyn Fn(&[u8]) -> crate::Result<String> = match encoding {
-        Encoding::Latin1 => &string_from_latin1,
-        Encoding::UTF8 => &|d: &[u8]| Ok(String::from_utf8(d.to_vec())?),
-        _ => unreachable!(),
-    };
-    let next = &data[1..];
-
-    let (lang, next) = decode_part!(next, params, fixed_string(3));
-    let timestamp_format = match next[0] {
-        1 => TimestampFormat::MPEG,
-        2 => TimestampFormat::MS,
-        _ => {
-            return Err(Error::new(
-                ErrorKind::Parsing,
-                "invalid SYLT timestamp format",
-            ))
-        }
-    };
-    let next = &next[1..];
-
-    let content_type = match next[0] {
-        0 => SynchronisedLyricsType::Other,
-        1 => SynchronisedLyricsType::Lyrics,
-        2 => SynchronisedLyricsType::Transcription,
-        3 => SynchronisedLyricsType::PartName,
-        4 => SynchronisedLyricsType::Event,
-        5 => SynchronisedLyricsType::Chord,
-        6 => SynchronisedLyricsType::Trivia,
-        _ => return Err(Error::new(ErrorKind::Parsing, "invalid SYLT content type")),
-    };
-    let mut next = &next[1..];
-
-    let mut content = Vec::new();
-    loop {
-        let ii = next.windows(text_delim.len()).position(|w| w == text_delim);
-        let i = match ii {
-            Some(i) => i,
-            None => break,
-        };
-
-        let text = decode_str(&next[..i])?;
-        let timestamp = u32::from_be_bytes({
-            let t = &next[i + text_delim.len()..i + text_delim.len() + 4];
-            let mut a = [0; 4];
-            a.copy_from_slice(t);
-            a
-        });
-        content.push((timestamp, text));
-
-        next = &next[i + text_delim.len() + 4..];
-    }
-
-    Ok(Content::SynchronisedLyrics(SynchronisedLyrics {
-        lang,
-        timestamp_format,
-        content_type,
-        content,
-    }))
 }
 
 #[cfg(test)]
@@ -643,7 +527,6 @@ mod tests {
 
     fn bytes_for_encoding(text: &str, encoding: Encoding) -> Vec<u8> {
         match encoding {
-            //string.chars().map(|c| c as u8)
             Encoding::Latin1 => text.chars().map(|c| c as u8).collect(),
             Encoding::UTF8 => text.as_bytes().to_vec(),
             Encoding::UTF16 => string_to_utf16(text),
