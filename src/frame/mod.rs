@@ -4,8 +4,8 @@ use std::fmt;
 use std::str;
 
 pub use self::content::{
-    Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics, Picture, PictureType,
-    SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat,
+    Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics, Picture,
+    PictureType, SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat,
 };
 pub use self::timestamp::Timestamp;
 

@@ -43,15 +43,12 @@ fn decode_content(
     }
 }
 
-pub fn encode<W>(
-    writer: &mut W,
+pub fn encode(
+    writer: impl io::Write,
     frame: &Frame,
     version: tag::Version,
     unsynchronization: bool,
-) -> crate::Result<usize>
-where
-    W: io::Write,
-{
+) -> crate::Result<usize> {
     match version {
         tag::Id3v22 => v2::encode(writer, frame),
         tag::Id3v23 => {

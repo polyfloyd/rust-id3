@@ -1,8 +1,8 @@
 use crate::chunk;
 use crate::frame::Content;
 use crate::frame::{
-    Comment, EncapsulatedObject, ExtendedLink, ExtendedText, Frame, Lyrics, Picture, PictureType,
-    SynchronisedLyrics, Timestamp,
+    Chapter, Comment, EncapsulatedObject, ExtendedLink, ExtendedText, Frame, Lyrics, Picture,
+    PictureType, SynchronisedLyrics, Timestamp,
 };
 use crate::storage::{PlainStorage, Storage};
 use crate::stream;
@@ -1584,6 +1584,86 @@ impl<'a> Tag {
     /// ```
     pub fn remove_all_synchronised_lyrics(&mut self) {
         self.remove("SYLT");
+    }
+
+    /// Adds a single chapter (CHAP) to the farme.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    /// use id3::frame::{Chapter, Content, Frame};
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.add_chapter(Chapter{
+    ///     element_id: "01".to_string(),
+    ///     start_time: 1000,
+    ///     end_time: 2000,
+    ///     start_offset: 0xff,
+    ///     end_offset: 0xff,
+    ///     frames: vec![
+    ///         Frame::with_content("TIT2", Content::Text("Foo".to_string())),
+    ///         Frame::with_content("TALB", Content::Text("Bar".to_string())),
+    ///         Frame::with_content("TCON", Content::Text("Baz".to_string())),
+    ///     ],
+    /// });
+    /// assert_eq!(1, tag.chapters().count());
+    /// ```
+    pub fn add_chapter(&mut self, chapter: Chapter) {
+        self.add_frame(Frame::with_content("CHAP", Content::Chapter(chapter)));
+    }
+
+    /// Returns an iterator over all chapters (CHAP) in the tag.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    /// use id3::frame::{Chapter, Content, Frame};
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.add_chapter(Chapter{
+    ///     element_id: "01".to_string(),
+    ///     start_time: 1000,
+    ///     end_time: 2000,
+    ///     start_offset: 0xff,
+    ///     end_offset: 0xff,
+    ///     frames: Vec::new(),
+    /// });
+    /// tag.add_chapter(Chapter{
+    ///     element_id: "02".to_string(),
+    ///     start_time: 2000,
+    ///     end_time: 3000,
+    ///     start_offset: 0xff,
+    ///     end_offset: 0xff,
+    ///     frames: Vec::new(),
+    /// });
+    /// assert_eq!(2, tag.chapters().count());
+    /// ```
+    pub fn chapters(&self) -> impl Iterator<Item = &Chapter> {
+        self.frames().filter_map(|frame| frame.content().chapter())
+    }
+
+    /// Adds a single chapter (CHAP) to the farme.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Tag;
+    /// use id3::frame::{Chapter, Content, Frame};
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.add_chapter(Chapter{
+    ///     element_id: "01".to_string(),
+    ///     start_time: 1000,
+    ///     end_time: 2000,
+    ///     start_offset: 0xff,
+    ///     end_offset: 0xff,
+    ///     frames: Vec::new(),
+    /// });
+    /// assert_eq!(1, tag.chapters().count());
+    /// tag.remove_all_chapters();
+    /// assert_eq!(0, tag.chapters().count());
+    /// ```
+    pub fn remove_all_chapters(&mut self) {
+        self.remove("CHAP");
     }
 
     /// Returns the `Content::Text` string for the frame with the specified identifier.

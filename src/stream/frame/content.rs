@@ -1,8 +1,9 @@
 use crate::frame::{
-    Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics, Picture, PictureType,
-    SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat,
+    Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics, Picture,
+    PictureType, SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat,
 };
 use crate::stream::encoding::Encoding;
+use crate::stream::frame;
 use crate::tag;
 use crate::util::{
     delim_len, string_from_latin1, string_from_utf16, string_from_utf16be, string_to_latin1,
@@ -27,6 +28,10 @@ impl<W: io::Write> Encoder<W> {
 
     fn byte(&mut self, b: u8) -> crate::Result<()> {
         self.bytes(&[b])
+    }
+
+    fn uint32(&mut self, int: u32) -> crate::Result<()> {
+        self.bytes(int.to_be_bytes())
     }
 
     fn delim(&mut self) -> crate::Result<()> {
@@ -152,7 +157,7 @@ impl<W: io::Write> Encoder<W> {
         for (timestamp, text) in &content.content {
             self.string_with_other_encoding(encoding, text)?;
             self.bytes(text_delim)?;
-            self.bytes(timestamp.to_be_bytes())?;
+            self.uint32(*timestamp)?;
         }
         self.byte(0)
     }
@@ -202,6 +207,19 @@ impl<W: io::Write> Encoder<W> {
             tag::Id3v23 | tag::Id3v24 => self.picture_content_v3(content),
         }
     }
+
+    fn chapter_content(&mut self, content: &Chapter) -> crate::Result<()> {
+        self.string_with_other_encoding(Encoding::Latin1, &content.element_id)?;
+        self.byte(0)?;
+        self.uint32(content.start_time)?;
+        self.uint32(content.end_time)?;
+        self.uint32(content.start_offset)?;
+        self.uint32(content.end_offset)?;
+        for frame in &content.frames {
+            frame::encode(&mut self.w, frame, self.version, false)?;
+        }
+        Ok(())
+    }
 }
 
 pub fn encode(
@@ -227,6 +245,7 @@ pub fn encode(
         Content::SynchronisedLyrics(c) => encoder.synchronised_lyrics_content(c)?,
         Content::Comment(c) => encoder.comment_content(c)?,
         Content::Picture(c) => encoder.picture_content(c)?,
+        Content::Chapter(c) => encoder.chapter_content(c)?,
         Content::Unknown(c) => encoder.bytes(c)?,
     };
 
@@ -258,6 +277,7 @@ pub fn decode(
         id if id.starts_with('T') => decoder.text_content(),
         id if id.starts_with('W') => decoder.link_content(),
         "GRP1" => decoder.text_content(),
+        "CHAP" => decoder.chapter_content(),
         _ => Ok(Content::Unknown(data)),
     }
 }
@@ -514,6 +534,26 @@ impl<'a> Decoder<'a> {
             timestamp_format,
             content_type,
             content,
+        }))
+    }
+
+    fn chapter_content(mut self) -> crate::Result<Content> {
+        let element_id = self.string_delimited(Encoding::Latin1)?;
+        let start_time = self.uint32()?;
+        let end_time = self.uint32()?;
+        let start_offset = self.uint32()?;
+        let end_offset = self.uint32()?;
+        let mut frames = Vec::new();
+        while let Some((_advance, frame)) = frame::decode(&mut self.r, self.version, false)? {
+            frames.push(frame);
+        }
+        Ok(Content::Chapter(Chapter {
+            element_id,
+            start_time,
+            end_time,
+            start_offset,
+            end_offset,
+            frames,
         }))
     }
 }
