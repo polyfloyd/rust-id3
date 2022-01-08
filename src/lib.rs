@@ -3,7 +3,7 @@
 //! # Reading tag frames
 //!
 //! ```
-//! use id3::{Tag, Version};
+//! use id3::{Tag, TagLike, Version};
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     let tag = Tag::read_from_path("testdata/id3v24.id3")?;
@@ -30,7 +30,7 @@
 //! # Modifying an existing tag.
 //!
 //! ```no_run
-//! use id3::{Tag, Version};
+//! use id3::{Tag, TagLike, Version};
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     let mut tag = Tag::read_from_path("music.mp3")?;
@@ -44,7 +44,7 @@
 //! # Creating a new tag, overwriting any old tag.
 //!
 //! ```no_run
-//! use id3::{Tag, Frame, Version};
+//! use id3::{Frame, Tag, TagLike, Version};
 //! use id3::frame::Content;
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -71,6 +71,7 @@ pub use crate::error::{Error, ErrorKind, Result};
 pub use crate::frame::{Content, Frame, Timestamp};
 pub use crate::stream::tag::Encoder;
 pub use crate::tag::{Tag, Version};
+pub use crate::taglike::TagLike;
 
 /// Contains types and methods for operating on ID3 frames.
 pub mod frame;
@@ -82,4 +83,5 @@ mod error;
 mod storage;
 mod stream;
 mod tag;
+mod taglike;
 mod util;
