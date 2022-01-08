@@ -1,4 +1,5 @@
 use crate::frame::Frame;
+use crate::taglike::TagLike;
 use std::borrow::Cow;
 use std::fmt;
 use std::io;
@@ -553,6 +554,16 @@ impl fmt::Display for Chapter {
             unit = unit,
             frames = frames.join(", "),
         )
+    }
+}
+
+impl TagLike for Chapter {
+    fn frames_vec(&self) -> &Vec<Frame> {
+        &self.frames
+    }
+
+    fn frames_vec_mut(&mut self) -> &mut Vec<Frame> {
+        &mut self.frames
     }
 }
 

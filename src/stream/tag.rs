@@ -1,6 +1,7 @@
 use crate::storage::{PlainStorage, Storage};
 use crate::stream::{frame, unsynch};
 use crate::tag::{Tag, Version};
+use crate::taglike::TagLike;
 use crate::{Error, ErrorKind};
 use bitflags::bitflags;
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
