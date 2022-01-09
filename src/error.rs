@@ -18,12 +18,9 @@ pub enum ErrorKind {
     StringDecoding(Vec<u8>),
     /// An error kind indicating that the reader does not contain an ID3 tag.
     NoTag,
-    /// An error kind indicating that the reader contains an unsupported ID3 tag version. Contains
-    /// the major and minor versions that were detected in the tag.
-    UnsupportedVersion(u8, u8),
-    /// An error kind indicating that parsing error has occurred.
+    /// An error kind indicating that parsing of some binary data has failed.
     Parsing,
-    /// An error kind indicating that some input was invalid.
+    /// An error kind indicating that some input to a function was invalid.
     InvalidInput,
     /// An error kind indicating that a feature is not supported.
     UnsupportedFeature,
@@ -121,9 +118,6 @@ impl fmt::Display for ErrorKind {
             ErrorKind::Io(io_error) => write!(f, "IO: {}", io_error),
             ErrorKind::StringDecoding(_) => write!(f, "StringDecoding"),
             ErrorKind::NoTag => write!(f, "NoTag"),
-            ErrorKind::UnsupportedVersion(major, minor) => {
-                write!(f, "UnsupportedVersion: {}.{}", major, minor)
-            }
             ErrorKind::Parsing => write!(f, "Parsing"),
             ErrorKind::InvalidInput => write!(f, "InvalidInput"),
             ErrorKind::UnsupportedFeature => write!(f, "UnsupportedFeature"),
