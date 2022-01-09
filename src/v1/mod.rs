@@ -180,7 +180,7 @@ pub struct Tag {
     pub track: Option<u8>,
     /// The genre mapping is standardized up to 79, altough this implementation uses the Winamp
     /// extended genre list:
-    /// https://de.wikipedia.org/wiki/Liste_der_ID3v1-Genres
+    /// <https://de.wikipedia.org/wiki/Liste_der_ID3v1-Genres>
     pub genre_id: u8,
 
     /// 1 (slow), 2, 3, 4 (fast) or None when not set. ID3v1 extended data.
