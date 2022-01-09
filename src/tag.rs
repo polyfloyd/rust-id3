@@ -7,6 +7,7 @@ use crate::storage::{PlainStorage, Storage};
 use crate::stream;
 use crate::taglike::TagLike;
 use crate::v1;
+use std::fmt;
 use std::fs::{self, File};
 use std::io::{self, BufReader, Write};
 use std::iter::{FromIterator, Iterator};
@@ -44,6 +45,16 @@ impl Version {
 impl Default for Version {
     fn default() -> Self {
         Version::Id3v24
+    }
+}
+
+impl fmt::Display for Version {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Version::Id3v22 => write!(f, "ID3v2.2"),
+            Version::Id3v23 => write!(f, "ID3v2.3"),
+            Version::Id3v24 => write!(f, "ID3v2.4"),
+        }
     }
 }
 
