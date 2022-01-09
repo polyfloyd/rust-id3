@@ -1,7 +1,7 @@
 use crate::frame::Content;
 use crate::frame::Frame;
 use crate::stream::unsynch;
-use crate::tag;
+use crate::tag::Version;
 use flate2::read::ZlibDecoder;
 use std::io;
 
@@ -12,19 +12,19 @@ mod v4;
 
 pub fn decode(
     mut reader: impl io::Read,
-    version: tag::Version,
+    version: Version,
     unsynchronization: bool,
 ) -> crate::Result<Option<(usize, Frame)>> {
     match version {
-        tag::Id3v22 => unreachable!(), //We handled this already
-        tag::Id3v23 => v3::decode(&mut reader, unsynchronization),
-        tag::Id3v24 => v4::decode(&mut reader),
+        Version::Id3v22 => unreachable!(), //We handled this already
+        Version::Id3v23 => v3::decode(&mut reader, unsynchronization),
+        Version::Id3v24 => v4::decode(&mut reader),
     }
 }
 
 fn decode_content(
     reader: impl io::Read,
-    version: tag::Version,
+    version: Version,
     id: &str,
     compression: bool,
     unsynchronisation: bool,
@@ -46,12 +46,12 @@ fn decode_content(
 pub fn encode(
     writer: impl io::Write,
     frame: &Frame,
-    version: tag::Version,
+    version: Version,
     unsynchronization: bool,
 ) -> crate::Result<usize> {
     match version {
-        tag::Id3v22 => v2::encode(writer, frame),
-        tag::Id3v23 => {
+        Version::Id3v22 => v2::encode(writer, frame),
+        Version::Id3v23 => {
             let mut flags = v3::Flags::empty();
             flags.set(
                 v3::Flags::TAG_ALTER_PRESERVATION,
@@ -63,7 +63,7 @@ pub fn encode(
             );
             v3::encode(writer, frame, flags, unsynchronization)
         }
-        tag::Id3v24 => {
+        Version::Id3v24 => {
             let mut flags = v4::Flags::empty();
             flags.set(v4::Flags::UNSYNCHRONISATION, unsynchronization);
             flags.set(
@@ -106,7 +106,7 @@ mod tests {
         data.push(encoding as u8);
         data.extend(string_to_utf16(text).into_iter());
 
-        let content = decode_content(&data[..], tag::Id3v22, id, false, false).unwrap();
+        let content = decode_content(&data[..], Version::Id3v22, id, false, false).unwrap();
         let frame = Frame::with_content(id, content);
 
         let mut bytes = Vec::new();
@@ -115,7 +115,7 @@ mod tests {
         bytes.extend(data.into_iter());
 
         let mut writer = Vec::new();
-        encode(&mut writer, &frame, tag::Id3v22, false).unwrap();
+        encode(&mut writer, &frame, Version::Id3v22, false).unwrap();
         assert_eq!(writer, bytes);
     }
 
@@ -129,7 +129,7 @@ mod tests {
         data.push(encoding as u8);
         data.extend(string_to_utf16(text).into_iter());
 
-        let content = decode_content(&data[..], tag::Id3v23, id, false, false).unwrap();
+        let content = decode_content(&data[..], Version::Id3v23, id, false, false).unwrap();
         let frame = Frame::with_content(id, content);
 
         let mut bytes = Vec::new();
@@ -139,7 +139,7 @@ mod tests {
         bytes.extend(data.into_iter());
 
         let mut writer = Vec::new();
-        encode(&mut writer, &frame, tag::Id3v23, false).unwrap();
+        encode(&mut writer, &frame, Version::Id3v23, false).unwrap();
         assert_eq!(writer, bytes);
     }
 
@@ -153,7 +153,7 @@ mod tests {
         data.push(encoding as u8);
         data.extend(text.bytes());
 
-        let content = decode_content(&data[..], tag::Id3v24, id, false, false).unwrap();
+        let content = decode_content(&data[..], Version::Id3v24, id, false, false).unwrap();
         let mut frame = Frame::with_content(id, content);
         frame.set_tag_alter_preservation(true);
         frame.set_file_alter_preservation(true);
@@ -165,7 +165,7 @@ mod tests {
         bytes.extend(data.into_iter());
 
         let mut writer = Vec::new();
-        encode(&mut writer, &frame, tag::Id3v24, false).unwrap();
+        encode(&mut writer, &frame, Version::Id3v24, false).unwrap();
         assert_eq!(writer, bytes);
     }
 }
