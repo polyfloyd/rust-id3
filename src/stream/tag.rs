@@ -64,8 +64,11 @@ impl Header {
             (4, _) => Version::Id3v24,
             (_, _) => {
                 return Err(Error::new(
-                    ErrorKind::UnsupportedVersion(ver_major, ver_minor),
-                    "unsupported id3 tag version",
+                    ErrorKind::UnsupportedFeature,
+                    format!(
+                        "Unsupported id3 tag version: v2.{}.{}",
+                        ver_major, ver_minor
+                    ),
                 ));
             }
         };
