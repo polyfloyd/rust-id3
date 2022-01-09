@@ -279,9 +279,8 @@ impl Encoder {
         Ok(())
     }
 
-    /// Encodes a tag and replaces any existing tag in the file pointed to by the specified path.
-    pub fn encode_to_path(&self, tag: &Tag, path: impl AsRef<Path>) -> crate::Result<()> {
-        let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
+    /// Encodes a tag and replaces any existing tag in the file.
+    pub fn encode_to_file(&self, tag: &Tag, mut file: &mut fs::File) -> crate::Result<()> {
         #[allow(clippy::reversed_empty_ranges)]
         let location = locate_id3v2(&mut file)?.unwrap_or(0..0); // Create a new tag if none could be located.
 
@@ -289,6 +288,14 @@ impl Encoder {
         let mut w = storage.writer()?;
         self.encode(tag, &mut w)?;
         w.flush()?;
+        Ok(())
+    }
+
+    /// Encodes a tag and replaces any existing tag in the file pointed to by the specified path.
+    pub fn encode_to_path(&self, tag: &Tag, path: impl AsRef<Path>) -> crate::Result<()> {
+        let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
+        self.encode_to_file(tag, &mut file)?;
+        file.flush()?;
         Ok(())
     }
 }
