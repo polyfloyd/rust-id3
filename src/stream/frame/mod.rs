@@ -5,7 +5,7 @@ use crate::tag::Version;
 use flate2::read::ZlibDecoder;
 use std::io;
 
-mod content;
+pub mod content;
 pub mod v2;
 mod v3;
 mod v4;

@@ -4,7 +4,7 @@ use std::str;
 
 pub use self::content::{
     Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics, Picture,
-    PictureType, SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat,
+    PictureType, SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat, Unknown,
 };
 pub use self::timestamp::Timestamp;
 

@@ -1,6 +1,6 @@
 use crate::frame::{
     Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics, Picture,
-    PictureType, SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat,
+    PictureType, SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat, Unknown,
 };
 use crate::stream::encoding::Encoding;
 use crate::stream::frame;
@@ -238,7 +238,7 @@ pub fn encode(
         Content::Comment(c) => encoder.comment_content(c)?,
         Content::Picture(c) => encoder.picture_content(c)?,
         Content::Chapter(c) => encoder.chapter_content(c)?,
-        Content::Unknown(c) => encoder.bytes(c)?,
+        Content::Unknown(c) => encoder.bytes(&c.data)?,
     };
 
     writer.write_all(&buf)?;
@@ -266,7 +266,7 @@ pub fn decode(id: &str, version: Version, mut reader: impl io::Read) -> crate::R
         id if id.starts_with('W') => decoder.link_content(),
         "GRP1" => decoder.text_content(),
         "CHAP" => decoder.chapter_content(),
-        _ => Ok(Content::Unknown(data)),
+        _ => Ok(Content::Unknown(Unknown { data, version })),
     }
 }
 
