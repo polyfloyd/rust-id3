@@ -5,11 +5,8 @@ use crate::frame::{
 use crate::stream::encoding::Encoding;
 use crate::stream::frame;
 use crate::tag::Version;
-use crate::util::{
-    delim_len, string_from_latin1, string_from_utf16, string_from_utf16be, string_to_latin1,
-    string_to_utf16, string_to_utf16be,
-};
 use crate::{Error, ErrorKind};
+use std::convert::TryInto;
 use std::io;
 use std::iter;
 
@@ -50,12 +47,7 @@ impl<W: io::Write> Encoder<W> {
         encoding: Encoding,
         string: &str,
     ) -> crate::Result<()> {
-        match encoding {
-            Encoding::Latin1 => self.bytes(string_to_latin1(string)),
-            Encoding::UTF8 => self.bytes(string.as_bytes()),
-            Encoding::UTF16 => self.bytes(string_to_utf16(string)),
-            Encoding::UTF16BE => self.bytes(string_to_utf16be(string)),
-        }
+        self.bytes(encoding.encode(string))
     }
 
     fn encoding(&mut self) -> crate::Result<()> {
@@ -302,40 +294,26 @@ impl<'a> Decoder<'a> {
 
     fn uint32(&mut self) -> crate::Result<u32> {
         let b = self.bytes(4)?;
-        let mut a = [0; 4];
-        a.copy_from_slice(b);
+        let a = b.try_into().unwrap();
         Ok(u32::from_be_bytes(a))
     }
 
-    fn decode_string(encoding: Encoding, bytes: &[u8]) -> crate::Result<String> {
-        if bytes.is_empty() {
-            // UTF16 decoding requires at least 2 bytes for it not to error.
-            return Ok("".to_string());
-        }
-        match encoding {
-            Encoding::Latin1 => string_from_latin1(bytes),
-            Encoding::UTF8 => Ok(String::from_utf8(bytes.to_vec())?),
-            Encoding::UTF16 => string_from_utf16(bytes),
-            Encoding::UTF16BE => string_from_utf16be(bytes),
-        }
-    }
-
     fn string_until_eof(&mut self, encoding: Encoding) -> crate::Result<String> {
-        Self::decode_string(encoding, self.r)
+        encoding.decode(self.r)
     }
 
     fn string_delimited(&mut self, encoding: Encoding) -> crate::Result<String> {
-        let delim = crate::util::find_delim(encoding, self.r, 0)
+        let delim = find_delim(encoding, self.r, 0)
             .ok_or_else(|| Error::new(ErrorKind::Parsing, "delimiter not found"))?;
         let delim_len = delim_len(encoding);
         let b = self.bytes(delim)?;
         self.bytes(delim_len)?; // Skip.
-        Self::decode_string(encoding, b)
+        encoding.decode(b)
     }
 
     fn string_fixed(&mut self, bytes_len: usize) -> crate::Result<String> {
         let s = self.bytes(bytes_len)?;
-        Self::decode_string(Encoding::Latin1, s)
+        Encoding::Latin1.decode(s)
     }
 
     fn encoding(&mut self) -> crate::Result<Encoding> {
@@ -351,16 +329,16 @@ impl<'a> Decoder<'a> {
     fn text_content(mut self) -> crate::Result<Content> {
         let encoding = self.encoding()?;
         let (end, _) = match self.version {
-            Version::Id3v24 => match crate::util::find_closing_delim(encoding, self.r) {
+            Version::Id3v24 => match find_closing_delim(encoding, self.r) {
                 Some(i) => (i, i + delim_len(encoding)),
                 None => (self.r.len(), self.r.len()),
             },
-            _ => match crate::util::find_delim(encoding, self.r, 0) {
+            _ => match find_delim(encoding, self.r, 0) {
                 Some(i) => (i, i + delim_len(encoding)),
                 None => (self.r.len(), self.r.len()),
             },
         };
-        let text = Self::decode_string(encoding, self.bytes(end)?)?;
+        let text = encoding.decode(self.bytes(end)?)?;
         Ok(Content::Text(text))
     }
 
@@ -519,7 +497,7 @@ impl<'a> Decoder<'a> {
             .windows(text_delim.len())
             .position(|w| w == text_delim)
         {
-            let text = Self::decode_string(encoding, &self.r[..i])?;
+            let text = encoding.decode(&self.r[..i])?;
             self.r = &self.r[i + text_delim.len()..];
             let timestamp = self.uint32()?;
             content.push((timestamp, text));
@@ -554,6 +532,88 @@ impl<'a> Decoder<'a> {
     }
 }
 
+/// Returns the index of the first delimiter for the specified encoding.
+fn find_delim(encoding: Encoding, data: &[u8], index: usize) -> Option<usize> {
+    let mut i = index;
+    match encoding {
+        Encoding::Latin1 | Encoding::UTF8 => {
+            if i >= data.len() {
+                return None;
+            }
+
+            for c in data[i..].iter() {
+                if *c == 0 {
+                    break;
+                }
+                i += 1;
+            }
+
+            if i == data.len() {
+                // delimiter was not found
+                return None;
+            }
+
+            Some(i)
+        }
+        Encoding::UTF16 | Encoding::UTF16BE => {
+            while i + 1 < data.len() && (data[i] != 0 || data[i + 1] != 0) {
+                i += 2;
+            }
+
+            if i + 1 >= data.len() {
+                // delimiter was not found
+                return None;
+            }
+
+            Some(i)
+        }
+    }
+}
+
+/// Returns the index of the last delimiter for the specified encoding.
+pub fn find_closing_delim(encoding: Encoding, data: &[u8]) -> Option<usize> {
+    let mut i = data.len();
+    match encoding {
+        Encoding::Latin1 | Encoding::UTF8 => {
+            i = i.checked_sub(1)?;
+            while i > 0 {
+                if data[i] != 0 {
+                    return if (i + 1) == data.len() {
+                        None
+                    } else {
+                        Some(i + 1)
+                    };
+                }
+                i -= 1;
+            }
+            None
+        }
+        Encoding::UTF16 | Encoding::UTF16BE => {
+            i = i.checked_sub(2)?;
+            i -= i % 2; // align to 2-byte boundary
+            while i > 1 {
+                if data[i] != 0 || data[i + 1] != 0 {
+                    return if (i + 2) == data.len() {
+                        None
+                    } else {
+                        Some(i + 2)
+                    };
+                }
+                i -= 2;
+            }
+            None
+        }
+    }
+}
+
+/// Returns the delimiter length for the specified encoding.
+fn delim_len(encoding: Encoding) -> usize {
+    match encoding {
+        Encoding::Latin1 | Encoding::UTF8 => 1,
+        Encoding::UTF16 | Encoding::UTF16BE => 2,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -562,19 +622,11 @@ mod tests {
     use std::collections::HashMap;
 
     fn bytes_for_encoding(text: &str, encoding: Encoding) -> Vec<u8> {
-        match encoding {
-            Encoding::Latin1 => text.chars().map(|c| c as u8).collect(),
-            Encoding::UTF8 => text.as_bytes().to_vec(),
-            Encoding::UTF16 => string_to_utf16(text),
-            Encoding::UTF16BE => string_to_utf16be(text),
-        }
+        encoding.encode(text)
     }
 
     fn delim_for_encoding(encoding: Encoding) -> Vec<u8> {
-        match encoding {
-            Encoding::Latin1 | Encoding::UTF8 => vec![0],
-            Encoding::UTF16 | Encoding::UTF16BE => vec![0, 0],
-        }
+        vec![0; delim_len(encoding)]
     }
 
     #[test]
@@ -1123,5 +1175,46 @@ mod tests {
             data.extend(bytes_for_encoding(lyrics, *encoding).into_iter());
             assert!(decode("USLT", Version::Id3v23, &data[..]).is_err());
         }
+    }
+
+    #[test]
+    fn test_find_delim() {
+        assert_eq!(
+            find_delim(Encoding::UTF8, &[0x0, 0xFF, 0xFF, 0xFF, 0x0], 3).unwrap(),
+            4
+        );
+        assert!(find_delim(Encoding::UTF8, &[0x0, 0xFF, 0xFF, 0xFF, 0xFF], 3).is_none());
+
+        assert_eq!(
+            find_delim(
+                Encoding::UTF16,
+                &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0x0, 0xFF, 0xFF],
+                2
+            )
+            .unwrap(),
+            4
+        );
+        assert!(find_delim(
+            Encoding::UTF16,
+            &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0xFF, 0xFF],
+            2
+        )
+        .is_none());
+
+        assert_eq!(
+            find_delim(
+                Encoding::UTF16BE,
+                &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0x0, 0xFF, 0xFF],
+                2
+            )
+            .unwrap(),
+            4
+        );
+        assert!(find_delim(
+            Encoding::UTF16BE,
+            &[0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0xFF, 0xFF],
+            2
+        )
+        .is_none());
     }
 }

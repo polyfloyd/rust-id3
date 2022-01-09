@@ -85,7 +85,6 @@ mod tests {
     use crate::frame::Frame;
     use crate::stream::encoding::Encoding;
     use crate::stream::unsynch;
-    use crate::util::string_to_utf16;
 
     fn u32_to_bytes(n: u32) -> Vec<u8> {
         vec![
@@ -104,7 +103,7 @@ mod tests {
 
         let mut data = Vec::new();
         data.push(encoding as u8);
-        data.extend(string_to_utf16(text).into_iter());
+        data.extend(Encoding::UTF16.encode(text).into_iter());
 
         let content = decode_content(&data[..], Version::Id3v22, id, false, false).unwrap();
         let frame = Frame::with_content(id, content);
@@ -127,7 +126,7 @@ mod tests {
 
         let mut data = Vec::new();
         data.push(encoding as u8);
-        data.extend(string_to_utf16(text).into_iter());
+        data.extend(Encoding::UTF16.encode(text).into_iter());
 
         let content = decode_content(&data[..], Version::Id3v23, id, false, false).unwrap();
         let frame = Frame::with_content(id, content);
