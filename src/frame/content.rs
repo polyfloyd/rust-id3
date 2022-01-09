@@ -335,7 +335,7 @@ impl fmt::Display for Lyrics {
     }
 }
 
-/// The parsed contents of an unsynchronized lyrics frame.
+/// The parsed contents of an synchronized lyrics frame.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(missing_docs)]
 pub struct SynchronisedLyrics {
