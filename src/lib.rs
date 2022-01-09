@@ -1,71 +1,10 @@
-//! A library to read and write ID3v2 tags. ID3 versions v2.2, v2.3, and v2.4 are supported.
-//!
-//! # Reading tag frames
-//!
-//! ```
-//! use id3::{Tag, TagLike, Version};
-//!
-//! fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let tag = Tag::read_from_path("testdata/id3v24.id3")?;
-//!
-//!     // Get a bunch of frames...
-//!     if let Some(artist) = tag.artist() {
-//!         println!("artist: {}", artist);
-//!     }
-//!     if let Some(title) = tag.title() {
-//!         println!("title: {}", title);
-//!     }
-//!     if let Some(album) = tag.album() {
-//!         println!("album: {}", album);
-//!     }
-//!
-//!     // Get frames before getting their content for more complex tags.
-//!     if let Some(artist) = tag.get("TPE1").and_then(|frame| frame.content().text()) {
-//!         println!("artist: {}", artist);
-//!     }
-//!     Ok(())
-//! }
-//! ```
-//!
-//! # Modifying an existing tag.
-//!
-//! ```no_run
-//! use id3::{Tag, TagLike, Version};
-//!
-//! fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let mut tag = Tag::read_from_path("music.mp3")?;
-//!     tag.set_album("Fancy Album Title");
-//!
-//!     tag.write_to_path("music.mp3", Version::Id3v24)?;
-//!     Ok(())
-//! }
-//! ```
-//!
-//! # Creating a new tag, overwriting any old tag.
-//!
-//! ```no_run
-//! use id3::{Frame, Tag, TagLike, Version};
-//! use id3::frame::Content;
-//!
-//! fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let mut tag = Tag::new();
-//!     tag.set_album("Fancy Album Title");
-//!
-//!     // Set the album the hard way.
-//!     tag.add_frame(Frame::with_content("TALB", Content::Text("album".to_string())));
-//!
-//!     tag.write_to_path("music.mp3", Version::Id3v24)?;
-//!     Ok(())
-//! }
-//! ```
-//!
-//! # Resources
-//!
-//! * ID3v2.2 http://id3.org/id3v2-00
-//! * ID3v2.3 http://id3.org/id3v2.3.0
-//! * ID3v2.4 http://id3.org/id3v2.4.0-structure
-
+#![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
+
+// Resources:
+// * ID3v2.2 <http://id3.org/id3v2-00>
+// * ID3v2.3 <http://id3.org/id3v2.3.0>
+// * ID3v2.4 <http://id3.org/id3v2.4.0-structure>
 
 pub use crate::error::{Error, ErrorKind, Result};
 pub use crate::frame::{Content, Frame, Timestamp};
