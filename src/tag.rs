@@ -177,6 +177,9 @@ impl<'a> Tag {
     }
 
     /// Attempts to write the ID3 tag to the writer using the specified version.
+    ///
+    /// Note that the plain tag is written, regardless of the original contents. To safely encode a
+    /// tag to an MP3 file, use `Tag::write_to_path`.
     pub fn write_to(&self, writer: impl io::Write, version: Version) -> crate::Result<()> {
         stream::tag::Encoder::new()
             .version(version)
