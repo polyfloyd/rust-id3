@@ -557,6 +557,12 @@ impl fmt::Display for Chapter {
     }
 }
 
+impl Extend<Frame> for Chapter {
+    fn extend<I: IntoIterator<Item = Frame>>(&mut self, iter: I) {
+        self.frames.extend(iter)
+    }
+}
+
 impl TagLike for Chapter {
     fn frames_vec(&self) -> &Vec<Frame> {
         &self.frames

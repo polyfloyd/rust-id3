@@ -9,7 +9,7 @@ use crate::taglike::TagLike;
 use crate::v1;
 use std::fs::{self, File};
 use std::io::{self, BufReader, Write};
-use std::iter::Iterator;
+use std::iter::{FromIterator, Iterator};
 use std::path::Path;
 
 /// Denotes the version of a tag.
@@ -367,6 +367,21 @@ impl PartialEq for Tag {
     fn eq(&self, other: &Tag) -> bool {
         self.frames.len() == other.frames.len()
             && self.frames().all(|frame| other.frames.contains(frame))
+    }
+}
+
+impl FromIterator<Frame> for Tag {
+    fn from_iter<I: IntoIterator<Item = Frame>>(iter: I) -> Self {
+        Self {
+            frames: Vec::from_iter(iter),
+            ..Self::default()
+        }
+    }
+}
+
+impl Extend<Frame> for Tag {
+    fn extend<I: IntoIterator<Item = Frame>>(&mut self, iter: I) {
+        self.frames.extend(iter)
     }
 }
 
