@@ -2,7 +2,7 @@ use crate::frame::Frame;
 use crate::stream::encoding::Encoding;
 use crate::stream::frame;
 use crate::stream::unsynch;
-use crate::tag;
+use crate::tag::Version;
 use crate::{Error, ErrorKind};
 use bitflags::bitflags;
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
@@ -55,7 +55,7 @@ pub fn decode(mut reader: impl io::Read) -> crate::Result<Option<(usize, Frame)>
 
     let content = super::decode_content(
         reader.take(read_size as u64),
-        tag::Id3v24,
+        Version::Id3v24,
         id,
         flags.contains(Flags::COMPRESSION),
         flags.contains(Flags::UNSYNCHRONISATION),
@@ -68,8 +68,12 @@ pub fn encode(mut writer: impl io::Write, frame: &Frame, flags: Flags) -> crate:
     let (mut content_buf, comp_hint_delta, decompressed_size) =
         if flags.contains(Flags::COMPRESSION) {
             let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-            let content_size =
-                frame::content::encode(&mut encoder, frame.content(), tag::Id3v24, Encoding::UTF8)?;
+            let content_size = frame::content::encode(
+                &mut encoder,
+                frame.content(),
+                Version::Id3v24,
+                Encoding::UTF8,
+            )?;
             let content_buf = encoder.finish()?;
             let cd = if flags.contains(Flags::DATA_LENGTH_INDICATOR) {
                 4
@@ -82,7 +86,7 @@ pub fn encode(mut writer: impl io::Write, frame: &Frame, flags: Flags) -> crate:
             frame::content::encode(
                 &mut content_buf,
                 frame.content(),
-                tag::Id3v24,
+                Version::Id3v24,
                 Encoding::UTF8,
             )?;
             (content_buf, 0, None)

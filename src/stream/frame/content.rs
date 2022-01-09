@@ -4,7 +4,7 @@ use crate::frame::{
 };
 use crate::stream::encoding::Encoding;
 use crate::stream::frame;
-use crate::tag;
+use crate::tag::Version;
 use crate::util::{
     delim_len, string_from_latin1, string_from_utf16, string_from_utf16be, string_to_latin1,
     string_to_utf16, string_to_utf16be,
@@ -15,7 +15,7 @@ use std::iter;
 
 struct Encoder<W: io::Write> {
     w: W,
-    version: tag::Version,
+    version: Version,
     encoding: Encoding,
 }
 
@@ -203,8 +203,8 @@ impl<W: io::Write> Encoder<W> {
 
     fn picture_content(&mut self, content: &Picture) -> crate::Result<()> {
         match self.version {
-            tag::Id3v22 => self.picture_content_v2(content),
-            tag::Id3v23 | tag::Id3v24 => self.picture_content_v3(content),
+            Version::Id3v22 => self.picture_content_v2(content),
+            Version::Id3v23 | Version::Id3v24 => self.picture_content_v3(content),
         }
     }
 
@@ -225,7 +225,7 @@ impl<W: io::Write> Encoder<W> {
 pub fn encode(
     mut writer: impl io::Write,
     content: &Content,
-    version: tag::Version,
+    version: Version,
     encoding: Encoding,
 ) -> crate::Result<usize> {
     let mut buf = Vec::new();
@@ -253,11 +253,7 @@ pub fn encode(
     Ok(buf.len())
 }
 
-pub fn decode(
-    id: &str,
-    version: tag::Version,
-    mut reader: impl io::Read,
-) -> crate::Result<Content> {
+pub fn decode(id: &str, version: Version, mut reader: impl io::Read) -> crate::Result<Content> {
     let mut data = Vec::new();
     reader.read_to_end(&mut data)?;
     let decoder = Decoder {
@@ -284,7 +280,7 @@ pub fn decode(
 
 struct Decoder<'a> {
     r: &'a [u8],
-    version: tag::Version,
+    version: Version,
 }
 
 impl<'a> Decoder<'a> {
@@ -355,7 +351,7 @@ impl<'a> Decoder<'a> {
     fn text_content(mut self) -> crate::Result<Content> {
         let encoding = self.encoding()?;
         let (end, _) = match self.version {
-            tag::Version::Id3v24 => match crate::util::find_closing_delim(encoding, self.r) {
+            Version::Id3v24 => match crate::util::find_closing_delim(encoding, self.r) {
                 Some(i) => (i, i + delim_len(encoding)),
                 None => (self.r.len(), self.r.len()),
             },
@@ -583,7 +579,7 @@ mod tests {
 
     #[test]
     fn test_apic_v2() {
-        assert!(decode("PIC", tag::Id3v22, &[][..]).is_err());
+        assert!(decode("PIC", Version::Id3v22, &[][..]).is_err());
 
         let mut format_map = HashMap::new();
         format_map.insert("image/jpeg", "JPG");
@@ -611,7 +607,7 @@ mod tests {
                     data.extend(picture_data.iter().cloned());
 
                     assert_eq!(
-                        *decode("PIC", tag::Id3v22, &data[..])
+                        *decode("PIC", Version::Id3v22, &data[..])
                             .unwrap()
                             .picture()
                             .unwrap(),
@@ -621,7 +617,7 @@ mod tests {
                     encode(
                         &mut data_out,
                         &Content::Picture(picture.clone()),
-                        tag::Id3v22,
+                        Version::Id3v22,
                         *encoding,
                     )
                     .unwrap();
@@ -633,7 +629,7 @@ mod tests {
 
     #[test]
     fn test_apic_v3() {
-        assert!(decode("APIC", tag::Id3v23, &[][..]).is_err());
+        assert!(decode("APIC", Version::Id3v23, &[][..]).is_err());
 
         for mime_type in &["", "image/jpeg"] {
             for description in &["", "description"] {
@@ -663,7 +659,7 @@ mod tests {
                     data.extend(picture_data.iter().cloned());
 
                     assert_eq!(
-                        *decode("APIC", tag::Id3v23, &data[..])
+                        *decode("APIC", Version::Id3v23, &data[..])
                             .unwrap()
                             .picture()
                             .unwrap(),
@@ -673,7 +669,7 @@ mod tests {
                     encode(
                         &mut data_out,
                         &Content::Picture(picture.clone()),
-                        tag::Id3v23,
+                        Version::Id3v23,
                         *encoding,
                     )
                     .unwrap();
@@ -685,7 +681,7 @@ mod tests {
 
     #[test]
     fn test_comm() {
-        assert!(decode("COMM", tag::Id3v23, &[][..]).is_err());
+        assert!(decode("COMM", Version::Id3v23, &[][..]).is_err());
 
         println!("valid");
         for description in &["", "description"] {
@@ -710,7 +706,7 @@ mod tests {
                         text: comment.to_string(),
                     };
                     assert_eq!(
-                        *decode("COMM", tag::Id3v23, &data[..])
+                        *decode("COMM", Version::Id3v23, &data[..])
                             .unwrap()
                             .comment()
                             .unwrap(),
@@ -720,7 +716,7 @@ mod tests {
                     encode(
                         &mut data_out,
                         &Content::Comment(content),
-                        tag::Id3v23,
+                        Version::Id3v23,
                         *encoding,
                     )
                     .unwrap();
@@ -744,7 +740,7 @@ mod tests {
             data.extend(b"eng".iter().cloned());
             data.extend(bytes_for_encoding(description, *encoding).into_iter());
             data.extend(bytes_for_encoding(comment, *encoding).into_iter());
-            assert!(decode("COMM", tag::Id3v23, &data[..]).is_err());
+            assert!(decode("COMM", Version::Id3v23, &data[..]).is_err());
         }
         println!("Empty description");
         let comment = "comment";
@@ -768,7 +764,7 @@ mod tests {
             println!("data == {:?}", data);
             println!("content == {:?}", content);
             assert_eq!(
-                *decode("COMM", tag::Id3v23, &data[..])
+                *decode("COMM", Version::Id3v23, &data[..])
                     .unwrap()
                     .comment()
                     .unwrap(),
@@ -779,7 +775,7 @@ mod tests {
 
     #[test]
     fn test_text() {
-        assert!(decode("TALB", tag::Id3v23, &[][..]).is_err());
+        assert!(decode("TALB", Version::Id3v23, &[][..]).is_err());
 
         for text in &["", "text"] {
             for encoding in &[
@@ -794,7 +790,7 @@ mod tests {
                 data.extend(bytes_for_encoding(text, *encoding).into_iter());
 
                 assert_eq!(
-                    decode("TALB", tag::Id3v23, &data[..])
+                    decode("TALB", Version::Id3v23, &data[..])
                         .unwrap()
                         .text()
                         .unwrap(),
@@ -804,7 +800,7 @@ mod tests {
                 encode(
                     &mut data_out,
                     &Content::Text(text.to_string()),
-                    tag::Id3v23,
+                    Version::Id3v23,
                     *encoding,
                 )
                 .unwrap();
@@ -815,7 +811,7 @@ mod tests {
 
     #[test]
     fn test_null_terminated_text_v3() {
-        assert!(decode("TRCK", tag::Id3v23, &[][..]).is_err());
+        assert!(decode("TRCK", Version::Id3v23, &[][..]).is_err());
         let text = "text\u{0}test\u{0}";
         for encoding in &[
             Encoding::Latin1,
@@ -829,7 +825,7 @@ mod tests {
             data.extend(bytes_for_encoding(text, *encoding).into_iter());
 
             assert_eq!(
-                decode("TALB", tag::Id3v23, &data[..])
+                decode("TALB", Version::Id3v23, &data[..])
                     .unwrap()
                     .text()
                     .unwrap(),
@@ -839,7 +835,7 @@ mod tests {
             encode(
                 &mut data_out,
                 &Content::Text(text.to_string()),
-                tag::Id3v23,
+                Version::Id3v23,
                 *encoding,
             )
             .unwrap();
@@ -849,7 +845,7 @@ mod tests {
 
     #[test]
     fn test_null_terminated_text_v4() {
-        assert!(decode("TRCK", tag::Id3v24, &[][..]).is_err());
+        assert!(decode("TRCK", Version::Id3v24, &[][..]).is_err());
         let text = "text\u{0}text\u{0}";
         for encoding in &[
             Encoding::Latin1,
@@ -863,7 +859,7 @@ mod tests {
             data.extend(bytes_for_encoding(text, *encoding).into_iter());
 
             assert_eq!(
-                decode("TALB", tag::Id3v24, &data[..])
+                decode("TALB", Version::Id3v24, &data[..])
                     .unwrap()
                     .text()
                     .unwrap(),
@@ -873,7 +869,7 @@ mod tests {
             encode(
                 &mut data_out,
                 &Content::Text(text.to_string()),
-                tag::Id3v24,
+                Version::Id3v24,
                 *encoding,
             )
             .unwrap();
@@ -883,7 +879,7 @@ mod tests {
 
     #[test]
     fn test_non_null_terminated_text_v4() {
-        assert!(decode("TRCK", tag::Id3v24, &[][..]).is_err());
+        assert!(decode("TRCK", Version::Id3v24, &[][..]).is_err());
         let text = "text\u{0}text";
         for encoding in &[
             Encoding::Latin1,
@@ -897,7 +893,7 @@ mod tests {
             data.extend(bytes_for_encoding(text, *encoding).into_iter());
 
             assert_eq!(
-                decode("TALB", tag::Id3v24, &data[..])
+                decode("TALB", Version::Id3v24, &data[..])
                     .unwrap()
                     .text()
                     .unwrap(),
@@ -907,7 +903,7 @@ mod tests {
             encode(
                 &mut data_out,
                 &Content::Text(text.to_string()),
-                tag::Id3v24,
+                Version::Id3v24,
                 *encoding,
             )
             .unwrap();
@@ -917,7 +913,7 @@ mod tests {
 
     #[test]
     fn test_txxx() {
-        assert!(decode("TXXX", tag::Id3v23, &[][..]).is_err());
+        assert!(decode("TXXX", Version::Id3v23, &[][..]).is_err());
 
         println!("valid");
         for key in &["", "key"] {
@@ -940,7 +936,7 @@ mod tests {
                         value: value.to_string(),
                     };
                     assert_eq!(
-                        *decode("TXXX", tag::Id3v23, &data[..])
+                        *decode("TXXX", Version::Id3v23, &data[..])
                             .unwrap()
                             .extended_text()
                             .unwrap(),
@@ -950,7 +946,7 @@ mod tests {
                     encode(
                         &mut data_out,
                         &Content::ExtendedText(content),
-                        tag::Id3v23,
+                        Version::Id3v23,
                         *encoding,
                     )
                     .unwrap();
@@ -973,7 +969,7 @@ mod tests {
             data.push(*encoding as u8);
             data.extend(bytes_for_encoding(key, *encoding).into_iter());
             data.extend(bytes_for_encoding(value, *encoding).into_iter());
-            assert!(decode("TXXX", tag::Id3v23, &data[..]).is_err());
+            assert!(decode("TXXX", Version::Id3v23, &data[..]).is_err());
         }
     }
 
@@ -984,7 +980,7 @@ mod tests {
             let data = link.as_bytes().to_vec();
 
             assert_eq!(
-                decode("WOAF", tag::Id3v23, &data[..])
+                decode("WOAF", Version::Id3v23, &data[..])
                     .unwrap()
                     .link()
                     .unwrap(),
@@ -994,7 +990,7 @@ mod tests {
             encode(
                 &mut data_out,
                 &Content::Link(link.to_string()),
-                tag::Id3v23,
+                Version::Id3v23,
                 Encoding::Latin1,
             )
             .unwrap();
@@ -1004,7 +1000,7 @@ mod tests {
 
     #[test]
     fn test_wxxx() {
-        assert!(decode("WXXX", tag::Id3v23, &[][..]).is_err());
+        assert!(decode("WXXX", Version::Id3v23, &[][..]).is_err());
 
         println!("valid");
         for description in &["", "rust"] {
@@ -1027,7 +1023,7 @@ mod tests {
                         link: link.to_string(),
                     };
                     assert_eq!(
-                        *decode("WXXX", tag::Id3v23, &data[..])
+                        *decode("WXXX", Version::Id3v23, &data[..])
                             .unwrap()
                             .extended_link()
                             .unwrap(),
@@ -1037,7 +1033,7 @@ mod tests {
                     encode(
                         &mut data_out,
                         &Content::ExtendedLink(content),
-                        tag::Id3v23,
+                        Version::Id3v23,
                         *encoding,
                     )
                     .unwrap();
@@ -1060,13 +1056,13 @@ mod tests {
             data.push(*encoding as u8);
             data.extend(bytes_for_encoding(description, *encoding).into_iter());
             data.extend(bytes_for_encoding(link, Encoding::Latin1).into_iter());
-            assert!(decode("WXXX", tag::Id3v23, &data[..]).is_err());
+            assert!(decode("WXXX", Version::Id3v23, &data[..]).is_err());
         }
     }
 
     #[test]
     fn test_uslt() {
-        assert!(decode("USLT", tag::Id3v23, &[][..]).is_err());
+        assert!(decode("USLT", Version::Id3v23, &[][..]).is_err());
 
         println!("valid");
         for description in &["", "description"] {
@@ -1091,7 +1087,7 @@ mod tests {
                         text: text.to_string(),
                     };
                     assert_eq!(
-                        *decode("USLT", tag::Id3v23, &data[..])
+                        *decode("USLT", Version::Id3v23, &data[..])
                             .unwrap()
                             .lyrics()
                             .unwrap(),
@@ -1101,7 +1097,7 @@ mod tests {
                     encode(
                         &mut data_out,
                         &Content::Lyrics(content),
-                        tag::Id3v23,
+                        Version::Id3v23,
                         *encoding,
                     )
                     .unwrap();
@@ -1125,7 +1121,7 @@ mod tests {
             data.extend(b"eng".iter().cloned());
             data.extend(bytes_for_encoding(description, *encoding).into_iter());
             data.extend(bytes_for_encoding(lyrics, *encoding).into_iter());
-            assert!(decode("USLT", tag::Id3v23, &data[..]).is_err());
+            assert!(decode("USLT", Version::Id3v23, &data[..]).is_err());
         }
     }
 }

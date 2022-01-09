@@ -22,7 +22,6 @@ pub enum Version {
     /// ID3v2.4
     Id3v24,
 }
-pub use self::Version::*;
 
 impl Version {
     /// Returns the minor version.
@@ -35,9 +34,9 @@ impl Version {
     /// ```
     pub fn minor(self) -> u8 {
         match self {
-            Id3v22 => 2,
-            Id3v23 => 3,
-            Id3v24 => 4,
+            Version::Id3v22 => 2,
+            Version::Id3v23 => 3,
+            Version::Id3v24 => 4,
         }
     }
 }
