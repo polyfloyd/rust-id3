@@ -1,11 +1,28 @@
 use crate::frame::Frame;
+use crate::stream::encoding::Encoding;
+use crate::tag::Version;
 use crate::taglike::TagLike;
 use std::borrow::Cow;
 use std::fmt;
 use std::io;
 
 /// The decoded contents of a frame.
+///
+/// # Compatibility
+///
+/// It is important to note that the ID3 spec has a variety of extensions of which not all are
+/// implemented by this library. When a new frame content type is added, the signature of this enum
+/// changes. Hence, the non_exhaustive attribute is set.
+///
+/// However, when a new frame type variant is added, frames that would previously decode to
+/// `Unknown` are now decoded to their new variants. This would break code user, such as custom
+/// decoders, that was expecting `Unknown`.
+///
+/// In order to prevent breakage when this library adds a new frame type, users must use the
+/// `to_unknown` method which will return an `Unknown` regardlesss of whether the frame content was
+/// successfully decoded.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Content {
     /// A value containing the parsed contents of a text frame.
     Text(String),
@@ -27,8 +44,11 @@ pub enum Content {
     EncapsulatedObject(EncapsulatedObject),
     /// A chapter object containing frames by itself.
     Chapter(Chapter),
-    /// A value containing the bytes of a unknown frame.
-    Unknown(Vec<u8>),
+    /// A value containing the bytes of a currently unknown frame type.
+    ///
+    /// Users that wish to write custom decoders must use as_raw instead of matching on this
+    /// variant. See the compatibility note in the top level enum docs.
+    Unknown(Unknown),
 }
 
 impl Content {
@@ -171,10 +191,26 @@ impl Content {
     }
 
     /// Returns the `Unknown` or None if the value is not `Unknown`.
+    #[deprecated(note = "Use to_unknown")]
     pub fn unknown(&self) -> Option<&[u8]> {
-        match *self {
-            Content::Unknown(ref data) => Some(&data[..]),
+        match self {
+            Content::Unknown(unknown) => Some(&unknown.data),
             _ => None,
+        }
+    }
+
+    /// Returns the `Unknown` variant or an ad-hoc encoding of any other variant.
+    ///
+    /// See the enum top level docs for why this function exists.
+    pub fn to_unknown(&self) -> crate::Result<Cow<'_, Unknown>> {
+        match self {
+            Content::Unknown(unknown) => Ok(Cow::Borrowed(unknown)),
+            content => {
+                let version = Version::default();
+                let mut data = Vec::new();
+                crate::stream::frame::content::encode(&mut data, content, version, Encoding::UTF8)?;
+                Ok(Cow::Owned(Unknown { data, version }))
+            }
         }
     }
 }
@@ -192,7 +228,7 @@ impl fmt::Display for Content {
             Content::SynchronisedLyrics(sync_lyrics) => write!(f, "{}", sync_lyrics.content_type),
             Content::Picture(picture) => write!(f, "{}", picture),
             Content::Chapter(chapter) => write!(f, "{}", chapter),
-            Content::Unknown(data) => write!(f, "Unknown, {} bytes", data.len()),
+            Content::Unknown(unknown) => write!(f, "{}", unknown),
         }
     }
 }
@@ -573,6 +609,22 @@ impl TagLike for Chapter {
     }
 }
 
+/// The contents of a frame for which no decoder is currently implemented.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Unknown {
+    /// The binary contents of the frame, excluding the frame header. No compression or
+    /// unsynchronization is applied.
+    pub data: Vec<u8>,
+    /// The version of the tag which contained this frame.
+    pub version: Version,
+}
+
+impl fmt::Display for Unknown {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}, {} bytes", self.version, self.data.len())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -657,8 +709,11 @@ mod tests {
 
     #[test]
     fn content_unknown_display() {
-        let unknown = Content::Unknown(vec![1, 2, 3]);
-        assert_eq!(format!("{}", unknown), "Unknown, 3 bytes");
+        let unknown = Content::Unknown(Unknown {
+            version: Version::Id3v24,
+            data: vec![1, 2, 3],
+        });
+        assert_eq!(format!("{}", unknown), "ID3v2.4, 3 bytes");
     }
 
     #[test]
@@ -695,5 +750,27 @@ mod tests {
             std::str::from_utf8(&buffer).unwrap(),
             "Timecode\tChord\n00:00:01.000\tA\n00:00:02.000\tB\n03:25:45.678\tC\n"
         );
+    }
+
+    #[test]
+    fn unknown_to_unknown() {
+        let unknown = Unknown {
+            version: Version::Id3v22,
+            data: vec![1, 2, 3, 4],
+        };
+        let content = Content::Unknown(unknown.clone());
+        assert_eq!(*content.to_unknown().unwrap(), unknown);
+    }
+
+    #[test]
+    fn link_to_unknown() {
+        let content = Content::Text("https://polyfloyd.net".to_string());
+        let mut data = vec![3]; // Encoding byte.
+        data.extend("https://polyfloyd.net".bytes());
+        let unknown = Unknown {
+            version: Version::Id3v24,
+            data,
+        };
+        assert_eq!(*content.to_unknown().unwrap(), unknown);
     }
 }

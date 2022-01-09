@@ -322,7 +322,7 @@ mod tests {
     use super::*;
     use crate::frame::{
         Chapter, Content, Frame, Picture, PictureType, SynchronisedLyrics, SynchronisedLyricsType,
-        TimestampFormat,
+        TimestampFormat, Unknown,
     };
     use std::fs;
     use std::io::{self, Read};
@@ -533,9 +533,27 @@ mod tests {
     #[test]
     fn write_id3v22_invalid_id() {
         let mut tag = make_tag(Version::Id3v22);
-        tag.add_frame(Frame::with_content("XXX", Content::Unknown(vec![1, 2, 3])));
-        tag.add_frame(Frame::with_content("YYY", Content::Unknown(vec![4, 5, 6])));
-        tag.add_frame(Frame::with_content("ZZZ", Content::Unknown(vec![7, 8, 9])));
+        tag.add_frame(Frame::with_content(
+            "XXX",
+            Content::Unknown(Unknown {
+                version: Version::Id3v22,
+                data: vec![1, 2, 3],
+            }),
+        ));
+        tag.add_frame(Frame::with_content(
+            "YYY",
+            Content::Unknown(Unknown {
+                version: Version::Id3v22,
+                data: vec![4, 5, 6],
+            }),
+        ));
+        tag.add_frame(Frame::with_content(
+            "ZZZ",
+            Content::Unknown(Unknown {
+                version: Version::Id3v22,
+                data: vec![7, 8, 9],
+            }),
+        ));
         let mut buffer = Vec::new();
         Encoder::new()
             .version(Version::Id3v22)
