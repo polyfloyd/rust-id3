@@ -1,5 +1,4 @@
 use crate::tag::Version;
-use crate::util::{convert_id_2_to_3, convert_id_3_to_2};
 use std::fmt;
 use std::str;
 
@@ -298,6 +297,103 @@ impl fmt::Display for Frame {
         write!(f, "{} = {}", self.name(), self.content)
     }
 }
+
+macro_rules! convert_2_to_3_and_back {
+    ( $( $id2:expr, $id3:expr ),* ) => {
+        fn convert_id_2_to_3(id: impl AsRef<str>) -> Option<&'static str> {
+            match id.as_ref() {
+                $($id2 => Some($id3),)*
+                _ => None,
+            }
+        }
+
+        fn convert_id_3_to_2(id: impl AsRef<str>) -> Option<&'static str> {
+            match id.as_ref() {
+                $($id3 => Some($id2),)*
+                _ => None,
+            }
+        }
+    }
+}
+
+#[rustfmt::skip]
+convert_2_to_3_and_back!(
+    "BUF", "RBUF",
+
+    "CNT", "PCNT",
+    "COM", "COMM",
+    "CRA", "AENC",
+    // "CRM" does not exist in ID3v2.3
+
+    "ETC", "ETCO",
+    "EQU", "EQUA",
+
+    "GEO", "GEOB",
+
+    "IPL", "IPLS",
+
+    "LNK", "LINK",
+
+    "MCI", "MCDI",
+    "MLL", "MLLT",
+
+    "PIC", "APIC",
+    "POP", "POPM",
+
+    "REV", "RVRB",
+    "RVA", "RVA2",
+
+    "SLT", "SYLT",
+    "STC", "SYTC",
+
+    "TAL", "TALB",
+    "TBP", "TBPM",
+    "TCM", "TCOM",
+    "TCO", "TCON",
+    "TCR", "TCOP",
+    "TDA", "TDAT",
+    "TDY", "TDLY",
+    "TEN", "TENC",
+    "TFT", "TFLT",
+    "TIM", "TIME",
+    "TKE", "TKEY",
+    "TLA", "TLAN",
+    "TLE", "TLEN",
+    "TMT", "TMED",
+    "TOA", "TOPE",
+    "TOF", "TOFN",
+    "TOL", "TOLY",
+    "TOT", "TOAL",
+    "TOR", "TORY",
+    "TP1", "TPE1",
+    "TP2", "TPE2",
+    "TP3", "TPE3",
+    "TP4", "TPE4",
+    "TPA", "TPOS",
+    "TPB", "TPUB",
+    "TRC", "TSRC",
+    "TRD", "TRDA",
+    "TRK", "TRCK",
+    "TSI", "TSIZ",
+    "TSS", "TSSE",
+    "TT1", "TIT1",
+    "TT2", "TIT2",
+    "TT3", "TIT3",
+    "TXT", "TEXT",
+    "TXX", "TXXX",
+    "TYE", "TYER",
+
+    "UFI", "UFID",
+    "ULT", "USLT",
+
+    "WAF", "WOAF",
+    "WAR", "WOAR",
+    "WAS", "WOAS",
+    "WCM", "WCOM",
+    "WCP", "WCOP",
+    "WPB", "WPUB",
+    "WXX", "WXXX"
+);
 
 #[cfg(test)]
 mod tests {
