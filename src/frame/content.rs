@@ -21,7 +21,7 @@ use std::io;
 /// In order to prevent breakage when this library adds a new frame type, users must use the
 /// `to_unknown` method which will return an `Unknown` regardlesss of whether the frame content was
 /// successfully decoded.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[non_exhaustive]
 pub enum Content {
     /// A value containing the parsed contents of a text frame.
@@ -234,7 +234,7 @@ impl fmt::Display for Content {
 }
 
 /// The parsed contents of an extended text frame.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[allow(missing_docs)]
 pub struct ExtendedText {
     pub description: String,
@@ -258,7 +258,7 @@ impl From<ExtendedText> for Frame {
 }
 
 /// The parsed contents of an extended link frame.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[allow(missing_docs)]
 pub struct ExtendedLink {
     pub description: String,
@@ -282,7 +282,7 @@ impl From<ExtendedLink> for Frame {
 }
 
 /// The parsed contents of an general encapsulated object frame.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[allow(missing_docs)]
 pub struct EncapsulatedObject {
     pub mime_type: String,
@@ -316,7 +316,7 @@ impl From<EncapsulatedObject> for Frame {
 }
 
 /// The parsed contents of a comment frame.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[allow(missing_docs)]
 pub struct Comment {
     pub lang: String,
@@ -341,7 +341,7 @@ impl From<Comment> for Frame {
 }
 
 /// The parsed contents of an unsynchronized lyrics frame.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[allow(missing_docs)]
 pub struct Lyrics {
     pub lang: String,
@@ -366,7 +366,7 @@ impl From<Lyrics> for Frame {
 }
 
 /// The parsed contents of an synchronized lyrics frame.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[allow(missing_docs)]
 pub struct SynchronisedLyrics {
     pub lang: String,
@@ -433,7 +433,7 @@ impl From<SynchronisedLyrics> for Frame {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[allow(missing_docs)]
 pub enum TimestampFormat {
     // Absolute time, using MPEG frames as unit.
@@ -451,7 +451,7 @@ impl fmt::Display for TimestampFormat {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[allow(missing_docs)]
 pub enum SynchronisedLyricsType {
     // Is other.
@@ -485,7 +485,7 @@ impl fmt::Display for SynchronisedLyricsType {
 }
 
 /// Types of pictures used in APIC frames.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[allow(missing_docs)]
 pub enum PictureType {
     Other,
@@ -571,7 +571,7 @@ impl fmt::Display for PictureType {
 }
 
 /// A structure representing an ID3 picture frame's contents.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Picture {
     /// The picture's MIME type.
     pub mime_type: String,
@@ -606,7 +606,7 @@ impl From<Picture> for Frame {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[allow(missing_docs)]
 pub struct Chapter {
     pub element_id: String,
@@ -658,7 +658,7 @@ impl From<Chapter> for Frame {
 }
 
 /// The contents of a frame for which no decoder is currently implemented.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Unknown {
     /// The binary contents of the frame, excluding the frame header. No compression or
     /// unsynchronization is applied.
