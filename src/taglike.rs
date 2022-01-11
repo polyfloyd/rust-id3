@@ -3,6 +3,7 @@ use crate::frame::{
     Comment, EncapsulatedObject, ExtendedText, Frame, Lyrics, Picture, PictureType,
     SynchronisedLyrics, Timestamp,
 };
+use std::mem::swap;
 
 /// TagLike is a trait that provides a set of useful default methods that make manipulation of tag
 /// frames easier.
@@ -74,12 +75,20 @@ pub trait TagLike: private::Sealed {
     /// use id3::{Tag, TagLike, Frame, Content};
     /// use id3::frame::ExtendedText;
     ///
-    /// let mut tag = Tag::new();
-    /// tag.add_frame(Frame::text("TPE1", "Armin van Buuren"));
-    /// tag.add_frame(ExtendedText{
-    ///     description: "hello".to_string(),
-    ///     value: "world".to_string(),
-    /// });
+    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let mut tag = Tag::new();
+    ///
+    ///     tag.add_frame(Frame::text("TPE1", "Armin van Buuren"));
+    ///     tag.add_frame(ExtendedText{
+    ///         description: "hello".to_string(),
+    ///         value: "world".to_string(),
+    ///     });
+    ///
+    ///     let removed = tag.add_frame(Frame::text("TPE1", "John 00 Fleming"))
+    ///         .ok_or("no such frame")?;
+    ///     assert_eq!(removed.content().text(), Some("Armin van Buuren"));
+    ///     Ok(())
+    /// }
     /// ```
     fn add_frame(&mut self, new_frame: impl Into<Frame>) -> Option<Frame> {
         let new_frame = new_frame.into();
@@ -134,7 +143,7 @@ pub trait TagLike: private::Sealed {
         self.add_frame(Frame::with_content(id, Content::new_text_values(texts)));
     }
 
-    /// Removes all frames with the specified identifier.
+    /// Remove all frames with the specified identifier and return them.
     ///
     /// # Example
     /// ```
@@ -146,15 +155,22 @@ pub trait TagLike: private::Sealed {
     /// tag.add_frame(Frame::text("TPE1", ""));
     /// assert_eq!(tag.frames().count(), 2);
     ///
-    /// tag.remove("TALB");
+    /// let removed = tag.remove("TALB");
     /// assert_eq!(tag.frames().count(), 1);
+    /// assert_eq!(removed.len(), 1);
     ///
-    /// tag.remove("TPE1");
+    /// let removed = tag.remove("TPE1");
     /// assert_eq!(tag.frames().count(), 0);
+    /// assert_eq!(removed.len(), 1);
     /// ```
-    fn remove(&mut self, id: impl AsRef<str>) {
-        self.frames_vec_mut()
-            .retain(|frame| frame.id() != id.as_ref());
+    fn remove(&mut self, id: impl AsRef<str>) -> Vec<Frame> {
+        let mut from = Vec::new();
+        swap(&mut from, self.frames_vec_mut());
+        let (keep, remove): (Vec<Frame>, Vec<Frame>) = from
+            .into_iter()
+            .partition(|frame| frame.id() != id.as_ref());
+        *self.frames_vec_mut() = keep;
+        remove
     }
 
     /// Returns the year (TYER).
