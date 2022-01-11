@@ -5,7 +5,8 @@ use std::str;
 
 pub use self::content::{
     Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics, Picture,
-    PictureType, SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat, Unknown,
+    PictureType, Popularimeter, SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat,
+    Unknown,
 };
 pub use self::timestamp::Timestamp;
 
@@ -56,6 +57,7 @@ impl Frame {
             ("USLT", Content::Lyrics(_)) => Ok(()),
             ("SYLT", Content::SynchronisedLyrics(_)) => Ok(()),
             ("COMM", Content::Comment(_)) => Ok(()),
+            ("POPM", Content::Popularimeter(_)) => Ok(()),
             ("APIC", Content::Picture(_)) => Ok(()),
             ("CHAP", Content::Chapter(_)) => Ok(()),
             (_, Content::Unknown(_)) => Ok(()),
@@ -66,6 +68,7 @@ impl Frame {
                     Content::Link(_) => "Link",
                     Content::ExtendedLink(_) => "ExtendedLink",
                     Content::Comment(_) => "Comment",
+                    Content::Popularimeter(_) => "Popularimeter",
                     Content::Lyrics(_) => "Lyrics",
                     Content::SynchronisedLyrics(_) => "SynchronisedLyrics",
                     Content::Picture(_) => "Picture",

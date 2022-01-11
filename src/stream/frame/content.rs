@@ -1,6 +1,7 @@
 use crate::frame::{
     Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics, Picture,
-    PictureType, SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat, Unknown,
+    PictureType, Popularimeter, SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat,
+    Unknown,
 };
 use crate::stream::encoding::Encoding;
 use crate::stream::frame;
@@ -9,6 +10,7 @@ use crate::{Error, ErrorKind};
 use std::convert::TryInto;
 use std::io;
 use std::iter;
+use std::mem::size_of;
 
 struct Encoder<W: io::Write> {
     w: W,
@@ -169,6 +171,18 @@ impl<W: io::Write> Encoder<W> {
         self.string(&content.text)
     }
 
+    fn popularimeter_content(&mut self, content: &Popularimeter) -> crate::Result<()> {
+        self.string_with_other_encoding(Encoding::Latin1, &content.user)?;
+        self.byte(0)?;
+        self.byte(content.rating)?;
+        let counter_bin = content.counter.to_be_bytes();
+        let i = counter_bin
+            .iter()
+            .position(|b| *b != 0)
+            .unwrap_or(size_of::<u64>());
+        self.bytes(&counter_bin[i..])
+    }
+
     fn picture_content_v2(&mut self, content: &Picture) -> crate::Result<()> {
         self.encoding()?;
         let format = match &content.mime_type[..] {
@@ -236,6 +250,7 @@ pub fn encode(
         Content::Lyrics(c) => encoder.lyrics_content(c)?,
         Content::SynchronisedLyrics(c) => encoder.synchronised_lyrics_content(c)?,
         Content::Comment(c) => encoder.comment_content(c)?,
+        Content::Popularimeter(c) => encoder.popularimeter_content(c)?,
         Content::Picture(c) => encoder.picture_content(c)?,
         Content::Chapter(c) => encoder.chapter_content(c)?,
         Content::Unknown(c) => encoder.bytes(&c.data)?,
@@ -259,6 +274,7 @@ pub fn decode(id: &str, version: Version, mut reader: impl io::Read) -> crate::R
         "TXXX" | "TXX" => decoder.extended_text_content(),
         "WXXX" | "WXX" => decoder.extended_link_content(),
         "COMM" | "COM" => decoder.comment_content(),
+        "POPM" | "POP" => decoder.popularimeter_content(),
         "USLT" | "ULT" => decoder.lyrics_content(),
         "SYLT" | "SLT" => decoder.synchronised_lyrics_content(),
         "GEOB" | "GEO" => decoder.encapsulated_object_content(),
@@ -419,6 +435,26 @@ impl<'a> Decoder<'a> {
             lang,
             description,
             text,
+        }))
+    }
+
+    fn popularimeter_content(mut self) -> crate::Result<Content> {
+        let user = self.string_delimited(Encoding::Latin1)?;
+        let rating = self.byte()?;
+        let counter = {
+            let r = match self.r.len() {
+                0..=8 => self.r,
+                9.. => &self.r[..8],
+                _ => unreachable!(),
+            };
+            let mut bin = [0; 8];
+            bin[8 - r.len()..].copy_from_slice(r);
+            u64::from_be_bytes(bin)
+        };
+        Ok(Content::Popularimeter(Popularimeter {
+            user,
+            rating,
+            counter,
         }))
     }
 
@@ -823,6 +859,31 @@ mod tests {
                 content
             );
         }
+    }
+
+    #[test]
+    fn test_popm() {
+        // Counter with 3 bytes
+        let bin = b"\x00\xff\xaa\xaa\xaa";
+        assert_eq!(
+            decode("POPM", Version::Id3v23, &bin[..]).unwrap(),
+            Content::Popularimeter(Popularimeter {
+                user: "".to_string(),
+                rating: 255,
+                counter: 0xaaaaaa,
+            })
+        );
+
+        // Counter with 12 bytes
+        let bin = b"\x00\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xbb\xbb\xbb\xbb";
+        assert_eq!(
+            decode("POPM", Version::Id3v23, &bin[..]).unwrap(),
+            Content::Popularimeter(Popularimeter {
+                user: "".to_string(),
+                rating: 255,
+                counter: 0xaaaaaaaaaaaaaaaa,
+            })
+        );
     }
 
     #[test]

@@ -332,8 +332,8 @@ pub fn locate_id3v2(mut reader: impl io::Read + io::Seek) -> crate::Result<Optio
 mod tests {
     use super::*;
     use crate::frame::{
-        Chapter, Content, EncapsulatedObject, Frame, Picture, PictureType, SynchronisedLyrics,
-        SynchronisedLyricsType, TimestampFormat, Unknown,
+        Chapter, Content, EncapsulatedObject, Frame, Picture, PictureType, Popularimeter,
+        SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat, Unknown,
     };
     use std::fs;
     use std::io::{self, Read};
@@ -360,6 +360,11 @@ mod tests {
             picture_type: PictureType::CoverFront,
             description: "an image".to_string(),
             data: image_data,
+        });
+        tag.add_frame(Popularimeter {
+            user: "user@example.com".to_string(),
+            rating: 255,
+            counter: 1337,
         });
         tag.add_frame(SynchronisedLyrics {
             lang: "eng".to_string(),
