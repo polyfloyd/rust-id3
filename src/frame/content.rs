@@ -6,7 +6,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::io;
 
-/// The decoded contents of a frame.
+/// The decoded contents of a [`Frame`].
 ///
 /// # Compatibility
 ///
@@ -15,12 +15,12 @@ use std::io;
 /// changes. Hence, the non_exhaustive attribute is set.
 ///
 /// However, when a new frame type variant is added, frames that would previously decode to
-/// `Unknown` are now decoded to their new variants. This would break code user, such as custom
-/// decoders, that was expecting `Unknown`.
+/// [`Unknown`] are now decoded to their new variants. This would break code user, such as custom
+/// decoders, that was expecting [`Unknown`].
 ///
 /// In order to prevent breakage when this library adds a new frame type, users must use the
-/// `to_unknown` method which will return an `Unknown` regardlesss of whether the frame content was
-/// successfully decoded.
+/// [`Content::to_unknown`] method which will return an [`Unknown`] regardlesss of whether the
+/// frame content was successfully decoded.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[non_exhaustive]
 pub enum Content {
@@ -42,7 +42,7 @@ pub enum Content {
     Picture(Picture),
     /// A value containing the parsed contents of a general encapsulated object frame (GEOB).
     EncapsulatedObject(EncapsulatedObject),
-    /// A chapter object containing frames by itself.
+    /// A chapter object containing frames by itself (CHAP).
     Chapter(Chapter),
     /// A value containing the bytes of a currently unknown frame type.
     ///
@@ -201,7 +201,8 @@ impl Content {
 
     /// Returns the `Unknown` variant or an ad-hoc encoding of any other variant.
     ///
-    /// See the enum top level docs for why this function exists.
+    /// See the compatibility note on the docs of `Content` for the reason of why this function
+    /// exists.
     pub fn to_unknown(&self) -> crate::Result<Cow<'_, Unknown>> {
         match self {
             Content::Unknown(unknown) => Ok(Cow::Borrowed(unknown)),

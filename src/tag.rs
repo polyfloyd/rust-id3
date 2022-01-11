@@ -58,7 +58,7 @@ impl fmt::Display for Version {
     }
 }
 
-/// An ID3 tag containing metadata frames.
+/// An ID3 tag containing zero or more [`Frame`]s.
 #[derive(Clone, Debug, Default, Eq)]
 pub struct Tag {
     /// A vector of frames included in the tag.
@@ -73,7 +73,7 @@ impl<'a> Tag {
         Tag::default()
     }
 
-    /// Used for creating new tag with version
+    /// Used for creating new tag with a specific version.
     pub fn with_version(version: Version) -> Tag {
         Tag {
             version,
@@ -95,8 +95,8 @@ impl<'a> Tag {
         Ok(rs?.is_some())
     }
 
-    /// Detects the presence of an ID3v2 tag at the current position of the reader and skips it if
-    /// it if found. Returns true if a tag was found.
+    /// Detects the presence of an ID3v2 tag at the current position of the reader and skips it
+    /// if is found. Returns true if a tag was found.
     pub fn skip(mut reader: impl io::Read + io::Seek) -> crate::Result<bool> {
         let initial_position = reader.seek(io::SeekFrom::Current(0))?;
         let range = stream::tag::locate_id3v2(&mut reader)?;
@@ -243,7 +243,7 @@ impl<'a> Tag {
         chunk::write_id3_chunk_file::<chunk::WavFormat>(file, self, version)
     }
 
-    /// Returns version of the read tag
+    /// Returns version of the read tag.
     pub fn version(&self) -> Version {
         self.version
     }

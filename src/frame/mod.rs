@@ -23,7 +23,7 @@ enum ID {
 
 /// A structure representing an ID3 frame.
 ///
-/// The content must be accompanied by a matching ID. Although this struct allows for invalid
+/// The [`Content`] must be accompanied by a matching ID. Although this struct allows for invalid
 /// combinations to exist, attempting to encode them will yield an error.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Frame {

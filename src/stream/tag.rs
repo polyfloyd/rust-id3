@@ -168,7 +168,7 @@ pub fn decode_v2_frames(mut reader: impl io::Read) -> crate::Result<Tag> {
     }
 }
 
-/// The `Encoder` may be used to encode tags.
+/// The `Encoder` may be used to encode tags with custom settings.
 #[derive(Clone, Debug)]
 pub struct Encoder {
     version: Version,
@@ -181,10 +181,10 @@ pub struct Encoder {
 impl Encoder {
     /// Constructs a new `Encoder` with the following configuration:
     ///
-    /// * version is ID3v2.4
-    /// * unsynchronization is disabled due to compatibility issues
-    /// * no compression
-    /// * file is not marked as altered
+    /// * [`Version`] is ID3v2.4
+    /// * Unsynchronization is disabled due to compatibility issues
+    /// * No compression
+    /// * File is not marked as altered
     pub fn new() -> Self {
         Self {
             version: Version::Id3v24,
@@ -236,10 +236,10 @@ impl Encoder {
         self
     }
 
-    /// Encodes the specified tag using the settings set in the encoder.
+    /// Encodes the specified [`Tag`] using the settings set in the [`Encoder`].
     ///
     /// Note that the plain tag is written, regardless of the original contents. To safely encode a
-    /// tag to an MP3 file, use `Encoder::encode_to_path`.
+    /// tag to an MP3 file, use [`Encoder::encode_to_path`].
     pub fn encode(&self, tag: &Tag, mut writer: impl io::Write) -> crate::Result<()> {
         // remove frames which have the flags indicating they should be removed
         let saved_frames = tag
@@ -283,7 +283,7 @@ impl Encoder {
         Ok(())
     }
 
-    /// Encodes a tag and replaces any existing tag in the file.
+    /// Encodes a [`Tag`] and replaces any existing tag in the file.
     pub fn encode_to_file(&self, tag: &Tag, mut file: &mut fs::File) -> crate::Result<()> {
         #[allow(clippy::reversed_empty_ranges)]
         let location = locate_id3v2(&mut file)?.unwrap_or(0..0); // Create a new tag if none could be located.
@@ -295,7 +295,7 @@ impl Encoder {
         Ok(())
     }
 
-    /// Encodes a tag and replaces any existing tag in the file pointed to by the specified path.
+    /// Encodes a [`Tag`] and replaces any existing tag in the file pointed to by the specified path.
     pub fn encode_to_path(&self, tag: &Tag, path: impl AsRef<Path>) -> crate::Result<()> {
         let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
         self.encode_to_file(tag, &mut file)?;
