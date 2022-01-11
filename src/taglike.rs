@@ -1,6 +1,6 @@
 use crate::frame::Content;
 use crate::frame::{
-    Chapter, Comment, EncapsulatedObject, ExtendedText, Frame, Lyrics, Picture, PictureType,
+    Comment, EncapsulatedObject, ExtendedText, Frame, Lyrics, Picture, PictureType,
     SynchronisedLyrics, Timestamp,
 };
 
@@ -56,7 +56,7 @@ pub trait TagLike: private::Sealed {
     ///
     /// let mut tag = Tag::new();
     ///
-    /// tag.add_frame(Frame::with_content("TIT2", Content::Text("".to_string())));
+    /// tag.add_frame(Frame::text("TIT2", "Hello"));
     ///
     /// assert!(tag.get("TIT2").is_some());
     /// assert!(tag.get("TCON").is_none());
@@ -72,14 +72,17 @@ pub trait TagLike: private::Sealed {
     /// # Example
     /// ```
     /// use id3::{Tag, TagLike, Frame, Content};
+    /// use id3::frame::ExtendedText;
     ///
     /// let mut tag = Tag::new();
-    /// tag.add_frame(Frame::with_content("TALB", Content::Text("Foo".to_string())));
-    /// let removed = tag.add_frame(Frame::with_content("TALB", Content::Text("Bar".to_string())));
-    /// assert!(removed.is_some());
-    /// assert!(tag.get("TALB").is_some());
+    /// tag.add_frame(Frame::text("TPE1", "Armin van Buuren"));
+    /// tag.add_frame(ExtendedText{
+    ///     description: "hello".to_string(),
+    ///     value: "world".to_string(),
+    /// });
     /// ```
-    fn add_frame(&mut self, new_frame: Frame) -> Option<Frame> {
+    fn add_frame(&mut self, new_frame: impl Into<Frame>) -> Option<Frame> {
+        let new_frame = new_frame.into();
         let removed = self
             .frames_vec()
             .iter()
@@ -103,7 +106,7 @@ pub trait TagLike: private::Sealed {
     /// }
     /// ```
     fn set_text(&mut self, id: impl AsRef<str>, text: impl Into<String>) {
-        self.add_frame(Frame::with_content(id, Content::Text(text.into())));
+        self.add_frame(Frame::text(id, text));
     }
 
     // Adds a new text frame with multiple string values.
@@ -139,9 +142,8 @@ pub trait TagLike: private::Sealed {
     ///
     /// let mut tag = Tag::new();
     ///
-    /// tag.add_frame(Frame::with_content("TALB", Content::Text("".to_string())));
-    /// tag.add_frame(Frame::with_content("TPE1", Content::Text("".to_string())));
-    ///
+    /// tag.add_frame(Frame::text("TALB", ""));
+    /// tag.add_frame(Frame::text("TPE1", ""));
     /// assert_eq!(tag.frames().count(), 2);
     ///
     /// tag.remove("TALB");
@@ -166,14 +168,12 @@ pub trait TagLike: private::Sealed {
     /// let mut tag = Tag::new();
     /// assert!(tag.year().is_none());
     ///
-    /// let frame_valid = Frame::with_content("TYER", Content::Text("2014".to_owned()));
-    /// tag.add_frame(frame_valid);
+    /// tag.add_frame(Frame::text("TYER", "2014"));
     /// assert_eq!(tag.year(), Some(2014));
     ///
     /// tag.remove("TYER");
     ///
-    /// let frame_invalid = Frame::with_content("TYER", Content::Text("nope".to_owned()));
-    /// tag.add_frame(frame_invalid);
+    /// tag.add_frame(Frame::text("TYER", "nope"));
     /// assert!(tag.year().is_none());
     /// ```
     fn year(&self) -> Option<i32> {
@@ -314,8 +314,7 @@ pub trait TagLike: private::Sealed {
     /// use id3::frame::Content;
     ///
     /// let mut tag = Tag::new();
-    /// let frame = Frame::with_content("TPE1", Content::Text("artist".to_owned()));
-    /// tag.add_frame(frame);
+    /// tag.add_frame(Frame::text("TPE1", "artist"));
     /// assert_eq!(tag.artist(), Some("artist"));
     /// ```
     fn artist(&self) -> Option<&str> {
@@ -361,8 +360,7 @@ pub trait TagLike: private::Sealed {
     /// use id3::frame::Content;
     ///
     /// let mut tag = Tag::new();
-    /// let frame = Frame::with_content("TPE2", Content::Text("artist".to_owned()));
-    /// tag.add_frame(frame);
+    /// tag.add_frame(Frame::text("TPE2", "artist"));
     /// assert_eq!(tag.album_artist(), Some("artist"));
     /// ```
     fn album_artist(&self) -> Option<&str> {
@@ -408,8 +406,7 @@ pub trait TagLike: private::Sealed {
     /// use id3::frame::Content;
     ///
     /// let mut tag = Tag::new();
-    /// let frame = Frame::with_content("TALB", Content::Text("album".to_owned()));
-    /// tag.add_frame(frame);
+    /// tag.add_frame(Frame::text("TALB", "album"));
     /// assert_eq!(tag.album(), Some("album"));
     /// ```
     fn album(&self) -> Option<&str> {
@@ -455,8 +452,7 @@ pub trait TagLike: private::Sealed {
     /// use id3::frame::Content;
     ///
     /// let mut tag = Tag::new();
-    /// let frame = Frame::with_content("TIT2", Content::Text("title".to_owned()));
-    /// tag.add_frame(frame);
+    /// tag.add_frame(Frame::text("TIT2", "title"));
     /// assert_eq!(tag.title(), Some("title"));
     /// ```
     fn title(&self) -> Option<&str> {
@@ -503,8 +499,7 @@ pub trait TagLike: private::Sealed {
     ///
     /// let mut tag = Tag::new();
     ///
-    /// let frame = Frame::with_content("TLEN", Content::Text("350".to_owned()));
-    /// tag.add_frame(frame);
+    /// tag.add_frame(Frame::text("TLEN", "350"));
     /// assert_eq!(tag.duration(), Some(350));
     /// ```
     fn duration(&self) -> Option<u32> {
@@ -550,8 +545,7 @@ pub trait TagLike: private::Sealed {
     /// use id3::frame::Content;
     ///
     /// let mut tag = Tag::new();
-    /// let frame = Frame::with_content("TCON", Content::Text("genre".to_owned()));
-    /// tag.add_frame(frame);
+    /// tag.add_frame(Frame::text("TCON", "genre"));
     /// assert_eq!(tag.genre(), Some("genre"));
     /// ```
     fn genre(&self) -> Option<&str> {
@@ -599,14 +593,12 @@ pub trait TagLike: private::Sealed {
     /// let mut tag = Tag::new();
     /// assert!(tag.disc().is_none());
     ///
-    /// let mut frame_valid = Frame::with_content("TPOS", Content::Text("4".to_owned()));
-    /// tag.add_frame(frame_valid);
+    /// tag.add_frame(Frame::text("TPOS", "4"));
     /// assert_eq!(tag.disc(), Some(4));
     ///
     /// tag.remove("TPOS");
     ///
-    /// let mut frame_invalid = Frame::with_content("TPOS", Content::Text("nope".to_owned()));
-    /// tag.add_frame(frame_invalid);
+    /// tag.add_frame(Frame::text("TPOS", "nope"));
     /// assert!(tag.disc().is_none());
     /// ```
     fn disc(&self) -> Option<u32> {
@@ -661,14 +653,12 @@ pub trait TagLike: private::Sealed {
     /// let mut tag = Tag::new();
     /// assert!(tag.disc().is_none());
     ///
-    /// let frame_valid = Frame::with_content("TPOS", Content::Text("4/10".to_owned()));
-    /// tag.add_frame(frame_valid);
+    /// tag.add_frame(Frame::text("TPOS", "4/10"));
     /// assert_eq!(tag.total_discs(), Some(10));
     ///
     /// tag.remove("TPOS");
     ///
-    /// let frame_invalid = Frame::with_content("TPOS", Content::Text("4/nope".to_owned()));
-    /// tag.add_frame(frame_invalid);
+    /// tag.add_frame(Frame::text("TPOS", "4/nope"));
     /// assert!(tag.total_discs().is_none());
     /// ```
     fn total_discs(&self) -> Option<u32> {
@@ -723,14 +713,12 @@ pub trait TagLike: private::Sealed {
     /// let mut tag = Tag::new();
     /// assert!(tag.track().is_none());
     ///
-    /// let frame_valid = Frame::with_content("TRCK", Content::Text("4".to_owned()));
-    /// tag.add_frame(frame_valid);
+    /// tag.add_frame(Frame::text("TRCK", "4"));
     /// assert_eq!(tag.track(), Some(4));
     ///
     /// tag.remove("TRCK");
     ///
-    /// let frame_invalid = Frame::with_content("TRCK", Content::Text("nope".to_owned()));
-    /// tag.add_frame(frame_invalid);
+    /// tag.add_frame(Frame::text("TRCK", "nope"));
     /// assert!(tag.track().is_none());
     /// ```
     fn track(&self) -> Option<u32> {
@@ -785,14 +773,12 @@ pub trait TagLike: private::Sealed {
     /// let mut tag = Tag::new();
     /// assert!(tag.total_tracks().is_none());
     ///
-    /// let frame_valid = Frame::with_content("TRCK", Content::Text("4/10".to_owned()));
-    /// tag.add_frame(frame_valid);
+    /// tag.add_frame(Frame::text("TRCK", "4/10"));
     /// assert_eq!(tag.total_tracks(), Some(10));
     ///
     /// tag.remove("TRCK");
     ///
-    /// let frame_invalid = Frame::with_content("TRCK", Content::Text("4/nope".to_owned()));
-    /// tag.add_frame(frame_invalid);
+    /// tag.add_frame(Frame::text("TRCK", "4/nope"));
     /// assert!(tag.total_tracks().is_none());
     /// ```
     fn total_tracks(&self) -> Option<u32> {
@@ -852,15 +838,12 @@ pub trait TagLike: private::Sealed {
     /// assert!(tag.extended_texts().any(|t| t.description == "key1" && t.value == "value1"));
     /// assert!(tag.extended_texts().any(|t| t.description == "key2" && t.value == "value2"));
     /// ```
+    #[deprecated(note = "Use add_frame(frame::ExtendedText{ .. })")]
     fn add_extended_text(&mut self, description: impl Into<String>, value: impl Into<String>) {
-        let frame = Frame::with_content(
-            "TXXX",
-            Content::ExtendedText(ExtendedText {
-                description: description.into(),
-                value: value.into(),
-            }),
-        );
-        self.add_frame(frame);
+        self.add_frame(ExtendedText {
+            description: description.into(),
+            value: value.into(),
+        });
     }
 
     /// Removes the user defined text frame (TXXX) with the specified key and value.
@@ -941,9 +924,9 @@ pub trait TagLike: private::Sealed {
     ///     Ok(())
     /// }
     /// ```
+    #[deprecated(note = "Use add_frame(frame::Picture{ .. })")]
     fn add_picture(&mut self, picture: Picture) {
-        let frame = Frame::with_content("APIC", Content::Picture(picture));
-        self.add_frame(frame);
+        self.add_frame(picture);
     }
 
     /// Removes all pictures of the specified type.
@@ -1044,9 +1027,9 @@ pub trait TagLike: private::Sealed {
     /// assert_ne!(None, tag.comments().position(|c| *c == com1));
     /// assert_ne!(None, tag.comments().position(|c| *c == com2));
     /// ```
+    #[deprecated(note = "Use add_frame(frame::Comment{ .. })")]
     fn add_comment(&mut self, comment: Comment) {
-        let frame = Frame::with_content("COMM", Content::Comment(comment));
-        self.add_frame(frame);
+        self.add_frame(comment);
     }
 
     /// Removes the comment (COMM) with the specified key and value.
@@ -1115,6 +1098,7 @@ pub trait TagLike: private::Sealed {
     /// assert!(tag.encapsulated_objects().any(|t| t.description == "key1" && t.mime_type == "application/octet-stream" && t.filename == "" && t.data == b"\x00\x01\xAB"));
     /// assert!(tag.encapsulated_objects().any(|t| t.description == "key2" && t.mime_type == "application/json" && t.filename == "foo.json" && t.data == b"{ \"value\" }"));
     /// ```
+    #[deprecated(note = "Use add_frame(frame::EncapsulatedObject{ .. })")]
     fn add_encapsulated_object(
         &mut self,
         description: impl Into<String>,
@@ -1122,16 +1106,12 @@ pub trait TagLike: private::Sealed {
         filename: impl Into<String>,
         data: impl Into<Vec<u8>>,
     ) {
-        let frame = Frame::with_content(
-            "GEOB",
-            Content::EncapsulatedObject(EncapsulatedObject {
-                description: description.into(),
-                mime_type: mime_type.into(),
-                filename: filename.into(),
-                data: data.into(),
-            }),
-        );
-        self.add_frame(frame);
+        self.add_frame(EncapsulatedObject {
+            description: description.into(),
+            mime_type: mime_type.into(),
+            filename: filename.into(),
+            data: data.into(),
+        });
     }
 
     /// Removes the encapsulated object frame (GEOB) with the specified key, MIME type, filename
@@ -1222,9 +1202,9 @@ pub trait TagLike: private::Sealed {
     ///     Ok(())
     /// }
     /// ```
+    #[deprecated(note = "Use add_frame(frame::Lyrics{ .. })")]
     fn add_lyrics(&mut self, lyrics: Lyrics) {
-        let frame = Frame::with_content("USLT", Content::Lyrics(lyrics));
-        self.add_frame(frame);
+        self.add_frame(lyrics);
     }
 
     /// Removes the lyrics text (USLT) from the tag.
@@ -1268,9 +1248,9 @@ pub trait TagLike: private::Sealed {
     /// });
     /// assert_eq!(1, tag.synchronised_lyrics().count());
     /// ```
+    #[deprecated(note = "Use add_frame(frame::SynchronisedLyrics{ .. })")]
     fn add_synchronised_lyrics(&mut self, lyrics: SynchronisedLyrics) {
-        let frame = Frame::with_content("SYLT", Content::SynchronisedLyrics(lyrics));
-        self.add_frame(frame);
+        self.add_frame(lyrics);
     }
 
     /// Removes all synchronised lyrics (SYLT) frames from the tag.
@@ -1307,33 +1287,7 @@ pub trait TagLike: private::Sealed {
     /// use id3::frame::{Chapter, Content, Frame};
     ///
     /// let mut tag = Tag::new();
-    /// tag.add_chapter(Chapter{
-    ///     element_id: "01".to_string(),
-    ///     start_time: 1000,
-    ///     end_time: 2000,
-    ///     start_offset: 0xff,
-    ///     end_offset: 0xff,
-    ///     frames: vec![
-    ///         Frame::with_content("TIT2", Content::Text("Foo".to_string())),
-    ///         Frame::with_content("TALB", Content::Text("Bar".to_string())),
-    ///         Frame::with_content("TCON", Content::Text("Baz".to_string())),
-    ///     ],
-    /// });
-    /// assert_eq!(1, tag.chapters().count());
-    /// ```
-    fn add_chapter(&mut self, chapter: Chapter) {
-        self.add_frame(Frame::with_content("CHAP", Content::Chapter(chapter)));
-    }
-
-    /// Adds a single chapter (CHAP) to the farme.
-    ///
-    /// # Example
-    /// ```
-    /// use id3::{Tag, TagLike};
-    /// use id3::frame::{Chapter, Content, Frame};
-    ///
-    /// let mut tag = Tag::new();
-    /// tag.add_chapter(Chapter{
+    /// tag.add_frame(Chapter{
     ///     element_id: "01".to_string(),
     ///     start_time: 1000,
     ///     end_time: 2000,

@@ -331,8 +331,8 @@ pub fn locate_id3v2(mut reader: impl io::Read + io::Seek) -> crate::Result<Optio
 mod tests {
     use super::*;
     use crate::frame::{
-        Chapter, Content, Frame, Picture, PictureType, SynchronisedLyrics, SynchronisedLyricsType,
-        TimestampFormat, Unknown,
+        Chapter, Content, EncapsulatedObject, Frame, Picture, PictureType, SynchronisedLyrics,
+        SynchronisedLyricsType, TimestampFormat, Unknown,
     };
     use std::fs;
     use std::io::{self, Read};
@@ -343,24 +343,24 @@ mod tests {
         tag.set_artist("Artist");
         tag.set_genre("Genre");
         tag.set_duration(1337);
-        tag.add_encapsulated_object(
-            "Some Object",
-            "application/octet-stream",
-            "",
-            &b"\xC0\xFF\xEE\x00"[..],
-        );
+        tag.add_frame(EncapsulatedObject {
+            mime_type: "Some Object".to_string(),
+            filename: "application/octet-stream".to_string(),
+            description: "".to_string(),
+            data: b"\xC0\xFF\xEE\x00".to_vec(),
+        });
         let mut image_data = Vec::new();
         fs::File::open("testdata/image.jpg")
             .unwrap()
             .read_to_end(&mut image_data)
             .unwrap();
-        tag.add_picture(Picture {
+        tag.add_frame(Picture {
             mime_type: "image/jpeg".to_string(),
             picture_type: PictureType::CoverFront,
             description: "an image".to_string(),
             data: image_data,
         });
-        tag.add_synchronised_lyrics(SynchronisedLyrics {
+        tag.add_frame(SynchronisedLyrics {
             lang: "eng".to_string(),
             timestamp_format: TimestampFormat::Ms,
             content_type: SynchronisedLyricsType::Lyrics,
@@ -371,7 +371,7 @@ mod tests {
             ],
         });
         if let Version::Id3v23 | Version::Id3v24 = version {
-            tag.add_chapter(Chapter {
+            tag.add_frame(Chapter {
                 element_id: "01".to_string(),
                 start_time: 1000,
                 end_time: 2000,
