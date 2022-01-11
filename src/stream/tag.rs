@@ -262,6 +262,7 @@ impl Encoder {
 
         let mut frame_data = Vec::new();
         for frame in saved_frames {
+            frame.validate()?;
             frame::encode(&mut frame_data, frame, self.version, self.unsynchronisation)?;
         }
         // In ID3v2, Unsynchronization is applied to the whole tag data at once, not for each frame

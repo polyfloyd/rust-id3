@@ -1,3 +1,4 @@
+use crate::error::{Error, ErrorKind};
 use crate::tag::Version;
 use std::fmt;
 use std::str;
@@ -21,6 +22,9 @@ enum ID {
 }
 
 /// A structure representing an ID3 frame.
+///
+/// The content must be accompanied by a matching ID. Although this struct allows for invalid
+/// combinations to exist, attempting to encode them will yield an error.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Frame {
     id: ID,
@@ -32,6 +36,52 @@ pub struct Frame {
 impl Frame {
     pub(crate) fn unique(&self) -> impl Eq + '_ {
         (&self.id, self.content.unique())
+    }
+
+    pub(crate) fn validate(&self) -> crate::Result<()> {
+        // The valid/invalid ID enum exists to be able to read and write back unknown and possibly
+        // invalid IDs. If it can be read, it can also be written again.
+        let id = match &self.id {
+            ID::Valid(v) => v,
+            ID::Invalid(_) => return Ok(()),
+        };
+        // The matching groups must match the decoding groups of stream/frame/content.rs:decode().
+        match (id.as_str(), &self.content) {
+            ("GRP1", Content::Text(_)) if id.starts_with('T') => Ok(()),
+            (id, Content::Text(_)) if id.starts_with('T') => Ok(()),
+            ("TXXX", Content::ExtendedText(_)) => Ok(()),
+            (id, Content::Link(_)) if id.starts_with('W') => Ok(()),
+            ("WXXX", Content::ExtendedLink(_)) => Ok(()),
+            ("GEOB", Content::EncapsulatedObject(_)) => Ok(()),
+            ("USLT", Content::Lyrics(_)) => Ok(()),
+            ("SYLT", Content::SynchronisedLyrics(_)) => Ok(()),
+            ("COMM", Content::Comment(_)) => Ok(()),
+            ("APIC", Content::Picture(_)) => Ok(()),
+            ("CHAP", Content::Chapter(_)) => Ok(()),
+            (_, Content::Unknown(_)) => Ok(()),
+            (id, content) => {
+                let content_kind = match content {
+                    Content::Text(_) => "Text",
+                    Content::ExtendedText(_) => "ExtendedText",
+                    Content::Link(_) => "Link",
+                    Content::ExtendedLink(_) => "ExtendedLink",
+                    Content::Comment(_) => "Comment",
+                    Content::Lyrics(_) => "Lyrics",
+                    Content::SynchronisedLyrics(_) => "SynchronisedLyrics",
+                    Content::Picture(_) => "Picture",
+                    Content::EncapsulatedObject(_) => "EncapsulatedObject",
+                    Content::Chapter(_) => "Chapter",
+                    Content::Unknown(_) => "Unknown",
+                };
+                Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    format!(
+                        "Frame with ID {} and content type {} can not be written as valid ID3",
+                        id, content_kind,
+                    ),
+                ))
+            }
+        }
     }
 
     /// Creates a frame with the specified ID and content.
