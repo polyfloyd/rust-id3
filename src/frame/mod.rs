@@ -12,7 +12,7 @@ pub use self::timestamp::Timestamp;
 mod content;
 mod timestamp;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 enum ID {
     /// A valid 4-byte frame ID.
     Valid(String),
@@ -25,7 +25,7 @@ enum ID {
 ///
 /// The content must be accompanied by a matching ID. Although this struct allows for invalid
 /// combinations to exist, attempting to encode them will yield an error.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Frame {
     id: ID,
     content: Content,
