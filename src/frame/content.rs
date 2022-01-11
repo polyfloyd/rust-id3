@@ -34,6 +34,8 @@ pub enum Content {
     ExtendedLink(ExtendedLink),
     /// A value containing the parsed contents of a comment frame (COMM).
     Comment(Comment),
+    /// Popularimeter frame content (POPM).
+    Popularimeter(Popularimeter),
     /// A value containing the parsed contents of a lyrics frame (USLT).
     Lyrics(Lyrics),
     /// A value containing the parsed contents of a synchronised lyrics frame (SYLT).
@@ -58,6 +60,7 @@ impl Content {
             Self::ExtendedText(extended_text) => vec![Cow::Borrowed(&extended_text.description)],
             Self::Link(_) => Vec::new(),
             Self::ExtendedLink(extended_link) => vec![Cow::Borrowed(&extended_link.description)],
+            Self::Popularimeter(popularimeter) => vec![Cow::Borrowed(&popularimeter.user)],
             Self::Comment(comment) => vec![
                 Cow::Borrowed(&comment.lang),
                 Cow::Borrowed(&comment.description),
@@ -225,6 +228,7 @@ impl fmt::Display for Content {
             Content::ExtendedText(ext_text) => write!(f, "{}", ext_text),
             Content::ExtendedLink(ext_link) => write!(f, "{}", ext_link),
             Content::Comment(comment) => write!(f, "{}", comment),
+            Content::Popularimeter(popularimeter) => write!(f, "{}", popularimeter),
             Content::Lyrics(lyrics) => write!(f, "{}", lyrics),
             Content::SynchronisedLyrics(sync_lyrics) => write!(f, "{}", sync_lyrics.content_type),
             Content::Picture(picture) => write!(f, "{}", picture),
@@ -338,6 +342,30 @@ impl fmt::Display for Comment {
 impl From<Comment> for Frame {
     fn from(c: Comment) -> Self {
         Self::with_content("COMM", Content::Comment(c))
+    }
+}
+
+/// The parsed contents of a popularimeter frame.
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct Popularimeter {
+    /// An identifier for the user which performed the rating. Typically an email address.
+    pub user: String,
+    /// The rating is 1-255 where 1 is worst and 255 is best. 0 is unknown.
+    pub rating: u8,
+    /// The play count for this user. It is intended to be incremented for every time the file is
+    /// played.
+    pub counter: u64,
+}
+
+impl fmt::Display for Popularimeter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: *{}* ({})", self.user, self.rating, self.counter)
+    }
+}
+
+impl From<Popularimeter> for Frame {
+    fn from(c: Popularimeter) -> Self {
+        Self::with_content("POPM", Content::Popularimeter(c))
     }
 }
 
