@@ -21,10 +21,6 @@ enum ID {
 }
 
 /// A structure representing an ID3 frame.
-///
-/// It is imporant to note that the (Partial)Eq and Hash implementations are based on the ID3 spec.
-/// This means that text frames with equal ID's are equal but picture frames with both "APIC" as ID
-/// are not because their uniqueness is also defined by their content.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Frame {
     id: ID,
