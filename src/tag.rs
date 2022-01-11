@@ -354,7 +354,7 @@ impl<'a> Tag {
     /// use id3::frame::{Chapter, Content, Frame};
     ///
     /// let mut tag = Tag::new();
-    /// tag.add_chapter(Chapter{
+    /// tag.add_frame(Chapter{
     ///     element_id: "01".to_string(),
     ///     start_time: 1000,
     ///     end_time: 2000,
@@ -362,7 +362,7 @@ impl<'a> Tag {
     ///     end_offset: 0xff,
     ///     frames: Vec::new(),
     /// });
-    /// tag.add_chapter(Chapter{
+    /// tag.add_frame(Chapter{
     ///     element_id: "02".to_string(),
     ///     start_time: 2000,
     ///     end_time: 3000,
@@ -428,7 +428,7 @@ impl From<v1::Tag> for Tag {
             tag.set_text("TYER", tag_v1.year);
         }
         if !tag_v1.comment.is_empty() {
-            tag.add_comment(Comment {
+            tag.add_frame(Comment {
                 lang: "eng".to_string(),
                 description: "".to_string(),
                 text: tag_v1.comment,

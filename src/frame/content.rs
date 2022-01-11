@@ -251,6 +251,12 @@ impl fmt::Display for ExtendedText {
     }
 }
 
+impl From<ExtendedText> for Frame {
+    fn from(c: ExtendedText) -> Self {
+        Self::with_content("TXXX", Content::ExtendedText(c))
+    }
+}
+
 /// The parsed contents of an extended link frame.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(missing_docs)]
@@ -266,6 +272,12 @@ impl fmt::Display for ExtendedLink {
         } else {
             write!(f, "{}: {}", self.description, self.link)
         }
+    }
+}
+
+impl From<ExtendedLink> for Frame {
+    fn from(c: ExtendedLink) -> Self {
+        Self::with_content("WXXX", Content::ExtendedLink(c))
     }
 }
 
@@ -297,6 +309,12 @@ impl fmt::Display for EncapsulatedObject {
     }
 }
 
+impl From<EncapsulatedObject> for Frame {
+    fn from(c: EncapsulatedObject) -> Self {
+        Self::with_content("GEOB", Content::EncapsulatedObject(c))
+    }
+}
+
 /// The parsed contents of a comment frame.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(missing_docs)]
@@ -316,6 +334,12 @@ impl fmt::Display for Comment {
     }
 }
 
+impl From<Comment> for Frame {
+    fn from(c: Comment) -> Self {
+        Self::with_content("COMM", Content::Comment(c))
+    }
+}
+
 /// The parsed contents of an unsynchronized lyrics frame.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(missing_docs)]
@@ -332,6 +356,12 @@ impl fmt::Display for Lyrics {
         } else {
             write!(f, "{}: {}", self.description, self.text)
         }
+    }
+}
+
+impl From<Lyrics> for Frame {
+    fn from(c: Lyrics) -> Self {
+        Self::with_content("USLT", Content::Lyrics(c))
     }
 }
 
@@ -394,6 +424,12 @@ impl SynchronisedLyrics {
         }
 
         Ok(())
+    }
+}
+
+impl From<SynchronisedLyrics> for Frame {
+    fn from(c: SynchronisedLyrics) -> Self {
+        Self::with_content("SYLT", Content::SynchronisedLyrics(c))
     }
 }
 
@@ -564,6 +600,12 @@ impl fmt::Display for Picture {
     }
 }
 
+impl From<Picture> for Frame {
+    fn from(c: Picture) -> Self {
+        Self::with_content("APIC", Content::Picture(c))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(missing_docs)]
 pub struct Chapter {
@@ -606,6 +648,12 @@ impl TagLike for Chapter {
 
     fn frames_vec_mut(&mut self) -> &mut Vec<Frame> {
         &mut self.frames
+    }
+}
+
+impl From<Chapter> for Frame {
+    fn from(c: Chapter) -> Self {
+        Self::with_content("CHAP", Content::Chapter(c))
     }
 }
 

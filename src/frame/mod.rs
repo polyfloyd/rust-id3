@@ -41,7 +41,7 @@ impl Frame {
     ///
     /// # Panics
     /// If the id's length is not 3 or 4 bytes long.
-    pub fn with_content(id: impl AsRef<str>, content: Content) -> Frame {
+    pub fn with_content(id: impl AsRef<str>, content: Content) -> Self {
         assert!({
             let l = id.as_ref().bytes().count();
             l == 3 || l == 4
@@ -59,6 +59,36 @@ impl Frame {
             tag_alter_preservation: false,
             file_alter_preservation: false,
         }
+    }
+
+    /// Creates a new text frame with the specified ID and text content.
+    ///
+    /// This function does not verify whether the ID is valid for text frames.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Frame;
+    ///
+    /// let frame = Frame::text("TPE1", "Armin van Buuren");
+    /// assert_eq!(frame.content().text(), Some("Armin van Buuren"));
+    /// ```
+    pub fn text(id: impl AsRef<str>, content: impl Into<String>) -> Self {
+        Self::with_content(id, Content::Text(content.into()))
+    }
+
+    /// Creates a new link frame with the specified ID and link content.
+    ///
+    /// This function does not verify whether the ID is valid for link frames.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::Frame;
+    ///
+    /// let frame = Frame::link("WCOM", "https://wwww.arminvanbuuren.com");
+    /// assert_eq!(frame.content().link(), Some("https://wwww.arminvanbuuren.com"));
+    /// ```
+    pub fn link(id: impl AsRef<str>, content: impl Into<String>) -> Self {
+        Self::with_content(id, Content::Link(content.into()))
     }
 
     /// Returns the ID of this frame.

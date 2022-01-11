@@ -89,7 +89,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tag.set_album("Fancy Album Title");
 
     // Set the album the hard way.
-    tag.add_frame(Frame::with_content("TALB", Content::Text("album".to_string())));
+    tag.add_frame(Frame::text("TALB", "album"));
 
     tag.write_to_path("/tmp/music.mp3", Version::Id3v24)?;
     Ok(())
