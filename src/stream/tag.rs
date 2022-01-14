@@ -332,8 +332,9 @@ pub fn locate_id3v2(mut reader: impl io::Read + io::Seek) -> crate::Result<Optio
 mod tests {
     use super::*;
     use crate::frame::{
-        Chapter, Content, EncapsulatedObject, Frame, Picture, PictureType, Popularimeter,
-        SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat, Unknown,
+        Chapter, Content, EncapsulatedObject, Frame, MpegLocationLookupTable,
+        MpegLocationLookupTableReference, Picture, PictureType, Popularimeter, SynchronisedLyrics,
+        SynchronisedLyricsType, TimestampFormat, Unknown,
     };
     use std::fs;
     use std::io::{self, Read};
@@ -387,6 +388,23 @@ mod tests {
                     Frame::with_content("TIT2", Content::Text("Foo".to_string())),
                     Frame::with_content("TALB", Content::Text("Bar".to_string())),
                     Frame::with_content("TCON", Content::Text("Baz".to_string())),
+                ],
+            });
+            tag.add_frame(MpegLocationLookupTable {
+                frames_between_reference: 1,
+                bytes_between_reference: 418,
+                millis_between_reference: 12,
+                bits_for_bytes: 4,
+                bits_for_millis: 4,
+                references: vec![
+                    MpegLocationLookupTableReference {
+                        deviate_bytes: 0xa,
+                        deviate_millis: 0xf,
+                    },
+                    MpegLocationLookupTableReference {
+                        deviate_bytes: 0xa,
+                        deviate_millis: 0x0,
+                    },
                 ],
             });
         }

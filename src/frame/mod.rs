@@ -4,9 +4,9 @@ use std::fmt;
 use std::str;
 
 pub use self::content::{
-    Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics, Picture,
-    PictureType, Popularimeter, SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat,
-    Unknown,
+    Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics,
+    MpegLocationLookupTable, MpegLocationLookupTableReference, Picture, PictureType, Popularimeter,
+    SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat, Unknown,
 };
 pub use self::timestamp::Timestamp;
 
@@ -60,6 +60,7 @@ impl Frame {
             ("POPM", Content::Popularimeter(_)) => Ok(()),
             ("APIC", Content::Picture(_)) => Ok(()),
             ("CHAP", Content::Chapter(_)) => Ok(()),
+            ("MLLT", Content::MpegLocationLookupTable(_)) => Ok(()),
             (_, Content::Unknown(_)) => Ok(()),
             (id, content) => {
                 let content_kind = match content {
@@ -74,6 +75,7 @@ impl Frame {
                     Content::Picture(_) => "Picture",
                     Content::EncapsulatedObject(_) => "EncapsulatedObject",
                     Content::Chapter(_) => "Chapter",
+                    Content::MpegLocationLookupTable(_) => "MpegLocationLookupTable",
                     Content::Unknown(_) => "Unknown",
                 };
                 Err(Error::new(

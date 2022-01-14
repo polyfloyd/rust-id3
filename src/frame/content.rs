@@ -46,6 +46,8 @@ pub enum Content {
     EncapsulatedObject(EncapsulatedObject),
     /// A chapter object containing frames by itself (CHAP).
     Chapter(Chapter),
+    /// MPEG location lookup table content (MLLT).
+    MpegLocationLookupTable(MpegLocationLookupTable),
     /// A value containing the bytes of a currently unknown frame type.
     ///
     /// Users that wish to write custom decoders must use as_raw instead of matching on this
@@ -77,9 +79,8 @@ impl Content {
             Self::EncapsulatedObject(encapsulated_object) => {
                 vec![Cow::Borrowed(&encapsulated_object.description)]
             }
-            Self::Chapter(chapter) => {
-                vec![Cow::Borrowed(&chapter.element_id)]
-            }
+            Self::Chapter(chapter) => vec![Cow::Borrowed(&chapter.element_id)],
+            Self::MpegLocationLookupTable(_) => Vec::new(),
             Self::Unknown(_) => Vec::new(),
         }
     }
@@ -193,6 +194,15 @@ impl Content {
         }
     }
 
+    /// Returns the `MpegLocationLookupTable` or None if the value is not
+    /// `MpegLocationLookupTable`.
+    pub fn mpeg_location_lookup_table(&self) -> Option<&MpegLocationLookupTable> {
+        match self {
+            Content::MpegLocationLookupTable(mpeg_table) => Some(mpeg_table),
+            _ => None,
+        }
+    }
+
     /// Returns the `Unknown` or None if the value is not `Unknown`.
     #[deprecated(note = "Use to_unknown")]
     pub fn unknown(&self) -> Option<&[u8]> {
@@ -233,6 +243,7 @@ impl fmt::Display for Content {
             Content::SynchronisedLyrics(sync_lyrics) => write!(f, "{}", sync_lyrics.content_type),
             Content::Picture(picture) => write!(f, "{}", picture),
             Content::Chapter(chapter) => write!(f, "{}", chapter),
+            Content::MpegLocationLookupTable(mpeg_table) => write!(f, "{}", mpeg_table),
             Content::Unknown(unknown) => write!(f, "{}", unknown),
         }
     }
@@ -683,6 +694,44 @@ impl TagLike for Chapter {
 impl From<Chapter> for Frame {
     fn from(c: Chapter) -> Self {
         Self::with_content("CHAP", Content::Chapter(c))
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[allow(missing_docs)]
+pub struct MpegLocationLookupTable {
+    pub frames_between_reference: u16,
+    /// Truncated to 24 bits.
+    pub bytes_between_reference: u32,
+    /// Truncated to 24 bits.
+    pub millis_between_reference: u32,
+    /// The number of bits in [`MpegLocationLookupTableReference::deviate_bytes`] to retain.
+    /// Must be a multiple of 4.
+    ///
+    /// The sum of bits_for_bytes and bits_for_millis may not exceed 64.
+    pub bits_for_bytes: u8,
+    /// The number of bits in [`MpegLocationLookupTableReference::deviate_millis`] to retain.
+    /// Must be a multiple of 4.
+    pub bits_for_millis: u8,
+    pub references: Vec<MpegLocationLookupTableReference>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[allow(missing_docs)]
+pub struct MpegLocationLookupTableReference {
+    pub deviate_bytes: u32,
+    pub deviate_millis: u32,
+}
+
+impl fmt::Display for MpegLocationLookupTable {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Mpeg Lookup Table, {} references", self.references.len())
+    }
+}
+
+impl From<MpegLocationLookupTable> for Frame {
+    fn from(c: MpegLocationLookupTable) -> Self {
+        Self::with_content("MLLT", Content::MpegLocationLookupTable(c))
     }
 }
 

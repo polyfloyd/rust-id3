@@ -1,13 +1,13 @@
 use crate::frame::{
-    Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics, Picture,
-    PictureType, Popularimeter, SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat,
-    Unknown,
+    Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics,
+    MpegLocationLookupTable, MpegLocationLookupTableReference, Picture, PictureType, Popularimeter,
+    SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat, Unknown,
 };
 use crate::stream::encoding::Encoding;
 use crate::stream::frame;
 use crate::tag::Version;
 use crate::{Error, ErrorKind};
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use std::io;
 use std::iter;
 use std::mem::size_of;
@@ -27,6 +27,14 @@ impl<W: io::Write> Encoder<W> {
 
     fn byte(&mut self, b: u8) -> crate::Result<()> {
         self.bytes(&[b])
+    }
+
+    fn uint16(&mut self, int: u16) -> crate::Result<()> {
+        self.bytes(int.to_be_bytes())
+    }
+
+    fn uint24(&mut self, int: u32) -> crate::Result<()> {
+        self.bytes(&int.to_be_bytes()[1..])
     }
 
     fn uint32(&mut self, int: u32) -> crate::Result<()> {
@@ -226,6 +234,52 @@ impl<W: io::Write> Encoder<W> {
         }
         Ok(())
     }
+
+    fn mpeg_location_lookup_table_content(
+        &mut self,
+        content: &MpegLocationLookupTable,
+    ) -> crate::Result<()> {
+        let ref_packed_size = content.bits_for_bytes + content.bits_for_millis;
+        if ref_packed_size % 4 != 0 {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "MLLT bits_for_bytes + bits_for_millis must be a multiple of 4",
+            ));
+        } else if ref_packed_size > 64 {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "MLLT bits_for_bytes + bits_for_millis must be <= 64",
+            ));
+        }
+
+        self.uint16(content.frames_between_reference)?;
+        self.uint24(content.bytes_between_reference)?;
+        self.uint24(content.millis_between_reference)?;
+        self.byte(content.bits_for_bytes)?;
+        self.byte(content.bits_for_millis)?;
+
+        let mut carry = 0u64;
+        let mut carry_bits = 0usize;
+        for r in &content.references {
+            for (ref_field, bits) in [
+                (r.deviate_bytes, content.bits_for_bytes),
+                (r.deviate_millis, content.bits_for_millis),
+            ] {
+                let deviate = u64::from(ref_field) & ((1 << bits) - 1);
+                carry |= deviate << (64 - usize::from(bits) - carry_bits);
+                carry_bits += usize::from(bits);
+                let shift_out_bytes = carry_bits / 8;
+                self.bytes(&carry.to_be_bytes()[..shift_out_bytes])?;
+                carry <<= shift_out_bytes * 8;
+                carry_bits -= shift_out_bytes * 8;
+            }
+        }
+        debug_assert!(carry_bits < 8);
+        if carry_bits > 0 {
+            self.byte((carry >> 56) as u8)?;
+        }
+        Ok(())
+    }
 }
 
 pub fn encode(
@@ -253,6 +307,7 @@ pub fn encode(
         Content::Popularimeter(c) => encoder.popularimeter_content(c)?,
         Content::Picture(c) => encoder.picture_content(c)?,
         Content::Chapter(c) => encoder.chapter_content(c)?,
+        Content::MpegLocationLookupTable(c) => encoder.mpeg_location_lookup_table_content(c)?,
         Content::Unknown(c) => encoder.bytes(&c.data)?,
     };
 
@@ -282,6 +337,7 @@ pub fn decode(id: &str, version: Version, mut reader: impl io::Read) -> crate::R
         id if id.starts_with('W') => decoder.link_content(),
         "GRP1" => decoder.text_content(),
         "CHAP" => decoder.chapter_content(),
+        "MLLT" => decoder.mpeg_location_lookup_table_content(),
         _ => Ok(Content::Unknown(Unknown { data, version })),
     }
 }
@@ -306,6 +362,19 @@ impl<'a> Decoder<'a> {
 
     fn byte(&mut self) -> crate::Result<u8> {
         Ok(self.bytes(1)?[0])
+    }
+
+    fn uint16(&mut self) -> crate::Result<u16> {
+        let b = self.bytes(2)?;
+        let a = b.try_into().unwrap();
+        Ok(u16::from_be_bytes(a))
+    }
+
+    fn uint24(&mut self) -> crate::Result<u32> {
+        let b3 = self.bytes(3)?;
+        let mut b4 = [0; 4];
+        b4[1..4].copy_from_slice(b3);
+        Ok(u32::from_be_bytes(b4))
     }
 
     fn uint32(&mut self) -> crate::Result<u32> {
@@ -564,6 +633,76 @@ impl<'a> Decoder<'a> {
             start_offset,
             end_offset,
             frames,
+        }))
+    }
+
+    fn mpeg_location_lookup_table_content(mut self) -> crate::Result<Content> {
+        let frames_between_reference = self.uint16()?;
+        let bytes_between_reference = self.uint24()?;
+        let millis_between_reference = self.uint24()?;
+        let bits_for_bytes = self.byte()?;
+        let bits_for_millis = self.byte()?;
+
+        if bits_for_bytes == 0 {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "MLLT bits_for_bytes must be > 0",
+            ));
+        } else if bits_for_millis == 0 {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "MLLT bits_for_millis must be > 0",
+            ));
+        }
+
+        let bits_for_bytes_us = usize::from(bits_for_bytes);
+        let bits_for_millis_us = usize::from(bits_for_millis);
+        let mut references = Vec::new();
+        let mut carry = 0u64;
+        let mut carry_bits = 0usize;
+        let mut bytes = self.r.iter().copied().peekable();
+        while bytes.peek().is_some() {
+            // Load enough bytes to shift the next reference from.
+            for b in bytes
+                .by_ref()
+                .take((bits_for_bytes_us + bits_for_millis_us) / 8)
+            {
+                carry |= u64::from(b) << (64 - carry_bits - 8);
+                carry_bits += 8;
+            }
+            // Shift 2 deviation fields from the carry accumulator.
+            let mut deviations = [0u32; 2];
+            for (i, bits_us) in [bits_for_bytes_us, bits_for_millis_us]
+                .into_iter()
+                .enumerate()
+            {
+                if carry_bits < bits_us {
+                    return Err(Error::new(
+                        ErrorKind::InvalidInput,
+                        format!(
+                            "MLLT not enough bits left for reference: {}<{}",
+                            carry_bits, bits_us
+                        ),
+                    ));
+                }
+                deviations[i] = u32::try_from(carry >> (64 - bits_us)).unwrap();
+                carry <<= bits_us;
+                carry_bits -= bits_us;
+            }
+            let [deviate_bytes, deviate_millis] = deviations;
+            references.push(MpegLocationLookupTableReference {
+                deviate_bytes,
+                deviate_millis,
+            });
+        }
+
+        Ok(Content::MpegLocationLookupTable(MpegLocationLookupTable {
+            frames_between_reference,
+            bytes_between_reference,
+            millis_between_reference,
+            bits_for_bytes,
+            bits_for_millis,
+            references,
         }))
     }
 }
@@ -1236,6 +1375,100 @@ mod tests {
             data.extend(bytes_for_encoding(lyrics, *encoding).into_iter());
             assert!(decode("USLT", Version::Id3v23, &data[..]).is_err());
         }
+    }
+
+    #[test]
+    fn test_mllt_4_4() {
+        let mllt = Content::MpegLocationLookupTable(MpegLocationLookupTable {
+            frames_between_reference: 1,
+            bytes_between_reference: 418,
+            millis_between_reference: 15,
+            bits_for_bytes: 4,
+            bits_for_millis: 4,
+            references: vec![
+                MpegLocationLookupTableReference {
+                    deviate_bytes: 0x1,
+                    deviate_millis: 0x2,
+                },
+                MpegLocationLookupTableReference {
+                    deviate_bytes: 0x3,
+                    deviate_millis: 0x4,
+                },
+                MpegLocationLookupTableReference {
+                    deviate_bytes: 0x5,
+                    deviate_millis: 0x6,
+                },
+            ],
+        });
+        let mut data_out = Vec::new();
+        encode(&mut data_out, &mllt, Version::Id3v23, Encoding::UTF8).unwrap();
+        let expect_data = b"\x00\x01\x00\x01\xa2\x00\x00\x0f\x04\x04\x12\x34\x56";
+        assert_eq!(format!("{:x?}", data_out), format!("{:x?}", expect_data));
+        let mllt_decoded = decode("MLLT", Version::Id3v23, &*data_out).unwrap();
+        assert_eq!(mllt, mllt_decoded);
+    }
+
+    #[test]
+    fn test_mllt_8_8() {
+        let mllt = Content::MpegLocationLookupTable(MpegLocationLookupTable {
+            frames_between_reference: 1,
+            bytes_between_reference: 418,
+            millis_between_reference: 15,
+            bits_for_bytes: 8,
+            bits_for_millis: 8,
+            references: vec![
+                MpegLocationLookupTableReference {
+                    deviate_bytes: 0x11,
+                    deviate_millis: 0x22,
+                },
+                MpegLocationLookupTableReference {
+                    deviate_bytes: 0x33,
+                    deviate_millis: 0x44,
+                },
+                MpegLocationLookupTableReference {
+                    deviate_bytes: 0x55,
+                    deviate_millis: 0x66,
+                },
+            ],
+        });
+        let mut data_out = Vec::new();
+        encode(&mut data_out, &mllt, Version::Id3v23, Encoding::UTF8).unwrap();
+        let expect_data = b"\x00\x01\x00\x01\xa2\x00\x00\x0f\x08\x08\x11\x22\x33\x44\x55\x66";
+        assert_eq!(format!("{:x?}", data_out), format!("{:x?}", expect_data));
+        let mllt_decoded = decode("MLLT", Version::Id3v23, &*data_out).unwrap();
+        assert_eq!(mllt, mllt_decoded);
+    }
+
+    #[test]
+    fn test_mllt_12_12() {
+        let mllt = Content::MpegLocationLookupTable(MpegLocationLookupTable {
+            frames_between_reference: 1,
+            bytes_between_reference: 418,
+            millis_between_reference: 15,
+            bits_for_bytes: 12,
+            bits_for_millis: 12,
+            references: vec![
+                MpegLocationLookupTableReference {
+                    deviate_bytes: 0x111,
+                    deviate_millis: 0x222,
+                },
+                MpegLocationLookupTableReference {
+                    deviate_bytes: 0x333,
+                    deviate_millis: 0x444,
+                },
+                MpegLocationLookupTableReference {
+                    deviate_bytes: 0x555,
+                    deviate_millis: 0x666,
+                },
+            ],
+        });
+        let mut data_out = Vec::new();
+        encode(&mut data_out, &mllt, Version::Id3v23, Encoding::UTF8).unwrap();
+        let expect_data =
+            b"\x00\x01\x00\x01\xa2\x00\x00\x0f\x0c\x0c\x11\x12\x22\x33\x34\x44\x55\x56\x66";
+        assert_eq!(format!("{:x?}", data_out), format!("{:x?}", expect_data));
+        let mllt_decoded = decode("MLLT", Version::Id3v23, &*data_out).unwrap();
+        assert_eq!(mllt, mllt_decoded);
     }
 
     #[test]
