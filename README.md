@@ -24,6 +24,7 @@ A library for reading and writing ID3 metadata.
 * Chapter frames
 * Unsynchronisation
 * Compression
+* MPEG Location Lookup Table frames
 * Tag and File Alter Preservation bits
 
 
