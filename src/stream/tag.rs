@@ -376,6 +376,7 @@ mod tests {
                 (1100, "llo".to_string()),
                 (1200, "world".to_string()),
             ],
+            description: String::from("description"),
         });
         if let Version::Id3v23 | Version::Id3v24 = version {
             tag.add_frame(Chapter {

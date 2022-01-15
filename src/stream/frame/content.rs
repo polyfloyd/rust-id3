@@ -123,11 +123,11 @@ impl<W: io::Write> Encoder<W> {
         // different way.
         let encoding = match self.encoding {
             Encoding::Latin1 => Encoding::Latin1,
-            _ => Encoding::UTF8,
+            _ => Encoding::UTF16,
         };
         self.byte(match encoding {
             Encoding::Latin1 => 0,
-            Encoding::UTF8 => 1,
+            Encoding::UTF16 => 1,
             _ => unreachable!(),
         })?;
         self.bytes(
@@ -153,9 +153,12 @@ impl<W: io::Write> Encoder<W> {
         })?;
         let text_delim: &[u8] = match encoding {
             Encoding::Latin1 => &[0],
-            Encoding::UTF8 => &[0, 0],
+            Encoding::UTF16 => &[0, 0],
             _ => unreachable!(),
         };
+        // Description
+        self.string_with_other_encoding(encoding, &content.description)?;
+        self.bytes(text_delim)?;
         for (timestamp, text) in &content.content {
             self.string_with_other_encoding(encoding, text)?;
             self.bytes(text_delim)?;
@@ -570,7 +573,7 @@ impl<'a> Decoder<'a> {
     fn synchronised_lyrics_content(mut self) -> crate::Result<Content> {
         let (encoding, text_delim) = match self.byte()? {
             0 => (Encoding::Latin1, &[0][..]),
-            1 => (Encoding::UTF8, &[0, 0][..]),
+            1 => (Encoding::UTF16, &[0, 0][..]),
             _ => return Err(Error::new(ErrorKind::Parsing, "invalid SYLT encoding")),
         };
 
@@ -596,14 +599,24 @@ impl<'a> Decoder<'a> {
             _ => return Err(Error::new(ErrorKind::Parsing, "invalid SYLT content type")),
         };
 
+        let mut description = None;
         let mut content = Vec::new();
         while let Some(i) = self
             .r
-            .windows(text_delim.len())
+            .chunks(text_delim.len())
             .position(|w| w == text_delim)
         {
+            let i = i * text_delim.len();
             let text = encoding.decode(&self.r[..i])?;
+
             self.r = &self.r[i + text_delim.len()..];
+
+            // Read description
+            if description.is_none() {
+                description = Some(text);
+                continue;
+            }
+
             let timestamp = self.uint32()?;
             content.push((timestamp, text));
         }
@@ -613,6 +626,7 @@ impl<'a> Decoder<'a> {
             timestamp_format,
             content_type,
             content,
+            description: description.unwrap_or_default(),
         }))
     }
 
