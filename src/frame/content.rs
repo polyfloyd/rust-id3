@@ -412,6 +412,7 @@ pub struct SynchronisedLyrics {
     pub lang: String,
     pub timestamp_format: TimestampFormat,
     pub content_type: SynchronisedLyricsType,
+    pub description: String,
     // The content of a synchronised lyrics consists of the text segments mapped to a timestamp as
     // specified by the `timestamp_format` field.
     pub content: Vec<(u32, String)>,
@@ -815,6 +816,7 @@ mod tests {
                 (1, String::from("first line")),
                 (2, String::from("second line")),
             ],
+            description: String::from("description"),
         });
         assert_eq!(format!("{}", sync_lyrics), "Lyrics");
     }
@@ -852,6 +854,7 @@ mod tests {
                 (1, String::from("first line")),
                 (2, String::from("second line")),
             ],
+            description: String::from("description"),
         };
         let mut buffer: Vec<u8> = Vec::new();
         assert!(sync_lyrics_mpeg_lyrics.fmt_table(&mut buffer).is_ok());
@@ -869,6 +872,7 @@ mod tests {
                 (2000, String::from("B")),
                 (12345678, String::from("C")),
             ],
+            description: String::from("description"),
         };
         let mut buffer: Vec<u8> = Vec::new();
         assert!(sync_lyrics_ms_chord.fmt_table(&mut buffer).is_ok());

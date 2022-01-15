@@ -751,4 +751,11 @@ mod tests {
             Version::Id3v24
         );
     }
+
+    #[test]
+    fn test_sylt() {
+        let tag = Tag::read_from_path("testdata/SYLT.mp3").unwrap();
+        let lyrics = tag.synchronised_lyrics().next().unwrap();
+        assert_eq!(lyrics.description, "Description");
+    }
 }

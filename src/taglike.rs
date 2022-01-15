@@ -1261,6 +1261,7 @@ pub trait TagLike: private::Sealed {
     ///         (1100, "llo".to_string()),
     ///         (1200, "world".to_string()),
     ///     ],
+    ///     description: "description".to_string()
     /// });
     /// assert_eq!(1, tag.synchronised_lyrics().count());
     /// ```
@@ -1286,6 +1287,7 @@ pub trait TagLike: private::Sealed {
     ///         (1100, "llo".to_string()),
     ///         (1200, "world".to_string()),
     ///     ],
+    ///     description: "description".to_string()
     /// });
     /// assert_eq!(1, tag.synchronised_lyrics().count());
     /// tag.remove_all_synchronised_lyrics();
