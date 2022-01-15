@@ -1,3 +1,7 @@
+## Version 1.0.1
+
+* Fix missing description field and incorrect text encoding in SYLT content.
+
 # Version 1.0
 
 This is the first stable release of rust-id3! This release adds a few new features but mainly
