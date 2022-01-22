@@ -8,6 +8,31 @@ use std::string;
 /// Type alias for the result of tag operations.
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// Takes a tag result and maps any partial tag to Ok. An Ok result is left untouched. An Err
+/// without partial tag is returned as the initial error.
+///
+/// # Example
+/// ```
+/// use id3::{Tag, Error, ErrorKind, partial_tag_ok};
+///
+/// let rs = Err(Error{
+///     kind: ErrorKind::Parsing,
+///     description: "frame 12 could not be decoded".to_string(),
+///     partial_tag: Some(Tag::new()),
+/// });
+/// assert!(partial_tag_ok(rs).is_ok());
+/// ```
+pub fn partial_tag_ok(rs: Result<Tag>) -> Result<Tag> {
+    match rs {
+        Ok(tag) => Ok(tag),
+        Err(Error {
+            partial_tag: Some(tag),
+            ..
+        }) => Ok(tag),
+        Err(err) => Err(err),
+    }
+}
+
 /// Kinds of errors that may occur while performing metadata operations.
 #[derive(Debug)]
 pub enum ErrorKind {
