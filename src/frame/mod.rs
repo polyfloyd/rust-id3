@@ -48,7 +48,7 @@ impl Frame {
         };
         // The matching groups must match the decoding groups of stream/frame/content.rs:decode().
         match (id.as_str(), &self.content) {
-            ("GRP1", Content::Text(_)) if id.starts_with('T') => Ok(()),
+            ("GRP1", Content::Text(_)) => Ok(()),
             (id, Content::Text(_)) if id.starts_with('T') => Ok(()),
             ("TXXX", Content::ExtendedText(_)) => Ok(()),
             (id, Content::Link(_)) if id.starts_with('W') => Ok(()),
