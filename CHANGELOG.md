@@ -1,3 +1,7 @@
+## Version 1.0.2
+
+* Fix GRP1 frames from being erroneously rejected as invalid (#78).
+
 ## Version 1.0.1
 
 * Fix missing description field and incorrect text encoding in SYLT content.
