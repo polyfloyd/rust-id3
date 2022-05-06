@@ -52,6 +52,7 @@ pub fn write_id3_chunk_file<F: ChunkFormat>(
     {
         let mut storage;
         let mut writer;
+        let mut offset = 0;
 
         // If there is a ID3 chunk, use it. Otherwise, create one.
         id3_chunk = if let Some(chunk) = id3_chunk_option {
@@ -101,17 +102,20 @@ pub fn write_id3_chunk_file<F: ChunkFormat>(
                     Error::new(ErrorKind::InvalidInput, "root chunk max size reached")
                 })?;
 
+            // The AIFF header shouldn't be included in the chunk length
+            offset = CHUNK_HEADER_LEN;
+
             chunk
         };
 
         // Write the tag:
-
         tag.write_to(&mut writer, version)?;
 
         id3_chunk.size = writer
             .stream_position()?
             .try_into()
             .expect("ID3 chunk max size reached");
+        id3_chunk.size -= offset;
 
         // Add padding if necessary.
         if id3_chunk.size % 2 == 1 {
