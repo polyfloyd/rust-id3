@@ -71,7 +71,10 @@ impl<W: io::Write> Encoder<W> {
 
     fn text_content(&mut self, content: &str) -> crate::Result<()> {
         self.encoding()?;
-        self.string(content)
+        match self.version {
+            Version::Id3v22 | Version::Id3v23 => self.string(&content.replace('\0', "/")),
+            Version::Id3v24 => self.string(content),
+        }
     }
 
     fn extended_text_content(&mut self, content: &ExtendedText) -> crate::Result<()> {
@@ -427,6 +430,10 @@ impl<'a> Decoder<'a> {
             },
         };
         let text = encoding.decode(self.bytes(end)?)?;
+        let text = match self.version {
+            Version::Id3v22 | Version::Id3v23 => text.replace('/', "\0"),
+            Version::Id3v24 => text,
+        };
         Ok(Content::Text(text))
     }
 
@@ -1072,40 +1079,6 @@ mod tests {
                 .unwrap();
                 assert_eq!(data, data_out);
             }
-        }
-    }
-
-    #[test]
-    fn test_null_terminated_text_v3() {
-        assert!(decode("TRCK", Version::Id3v23, &[][..]).is_err());
-        let text = "text\u{0}test\u{0}";
-        for encoding in &[
-            Encoding::Latin1,
-            Encoding::UTF8,
-            Encoding::UTF16,
-            Encoding::UTF16BE,
-        ] {
-            println!("`{}`, `{:?}`", text, encoding);
-            let mut data = Vec::new();
-            data.push(*encoding as u8);
-            data.extend(bytes_for_encoding(text, *encoding).into_iter());
-
-            assert_eq!(
-                decode("TALB", Version::Id3v23, &data[..])
-                    .unwrap()
-                    .text()
-                    .unwrap(),
-                "text"
-            );
-            let mut data_out = Vec::new();
-            encode(
-                &mut data_out,
-                &Content::Text(text.to_string()),
-                Version::Id3v23,
-                *encoding,
-            )
-            .unwrap();
-            assert_eq!(data, data_out);
         }
     }
 
