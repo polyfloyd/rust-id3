@@ -496,6 +496,17 @@ mod tests {
     }
 
     #[test]
+    fn github_issue_82() {
+        let mut tag = Tag::new();
+        tag.set_artist("artist 1\0artist 2\0artist 3");
+        assert_eq!(tag.artist(), Some("artist 1\0artist 2\0artist 3"));
+        let mut buf = Vec::new();
+        tag.write_to(&mut buf, Version::Id3v22).unwrap();
+        let tag = Tag::read_from(&buf[..]).unwrap();
+        assert_eq!(tag.artist(), Some("artist 1\0artist 2\0artist 3"));
+    }
+
+    #[test]
     fn aiff_read_and_write() {
         // Copy
         let tmp = tempfile::NamedTempFile::new().unwrap();
