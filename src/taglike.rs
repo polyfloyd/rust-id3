@@ -21,6 +21,20 @@ pub trait TagLike: private::Sealed {
         self.get(id).and_then(|frame| frame.content().text())
     }
 
+    /// Returns the (potential) multiple `Content::Text` strings for the frame with the specified identifier.
+    /// Returns `None` if the frame with the specified ID can't be found or if the content is not
+    /// `Content::Text`.
+    #[doc(hidden)]
+    fn text_values_for_frame_id(&self, id: &str) -> Option<Vec<&str>> {
+        let values = self.get(id).and_then(|frame| frame.content().text_values());
+
+        if values.is_none() {
+            None
+        } else {
+            Some(Vec::from_iter(values.unwrap()))
+        }
+    }
+
     #[doc(hidden)]
     fn read_timestamp_frame(&self, id: &str) -> Option<Timestamp> {
         self.get(id)
@@ -337,6 +351,12 @@ pub trait TagLike: private::Sealed {
         self.text_for_frame_id("TPE1")
     }
 
+    /// Returns the (potential) multiple artists (TPE1).
+    /// ```
+    fn artists(&self) -> Option<Vec<&str>> {
+        self.text_values_for_frame_id("TPE1")
+    }
+
     /// Sets the artist (TPE1).
     ///
     /// # Example
@@ -566,6 +586,12 @@ pub trait TagLike: private::Sealed {
     /// ```
     fn genre(&self) -> Option<&str> {
         self.text_for_frame_id("TCON")
+    }
+
+    /// Returns the (potential) multiple genres (TCON).
+    /// ```
+    fn genres(&self) -> Option<Vec<&str>> {
+        self.text_values_for_frame_id("TCON")
     }
 
     /// Sets the genre (TCON).

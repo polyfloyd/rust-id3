@@ -769,4 +769,19 @@ mod tests {
         let lyrics = tag.synchronised_lyrics().next().unwrap();
         assert_eq!(lyrics.description, "Description");
     }
+
+    #[test]
+    fn test_multiple_tags() {
+        // Create temp file
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        fs::copy("testdata/multi-tags.mp3", &tmp).unwrap();
+
+        // Read multiple tags from the file
+        let tag = Tag::read_from_path(tmp.path()).unwrap();
+        let genres = tag.genres();
+        let artists = tag.artists();
+
+        assert_eq!(genres, Some(vec!["Pop", "Trip-Hop"]));
+        assert_eq!(artists, Some(vec!["First", "Secondary"]));
+    }
 }
