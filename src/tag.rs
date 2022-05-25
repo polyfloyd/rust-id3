@@ -771,13 +771,9 @@ mod tests {
     }
 
     #[test]
-    fn test_multiple_tags() {
-        // Create temp file
-        let tmp = tempfile::NamedTempFile::new().unwrap();
-        fs::copy("testdata/multi-tags.mp3", &tmp).unwrap();
-
+    fn test_issue_84() {
         // Read multiple tags from the file
-        let tag = Tag::read_from_path(tmp.path()).unwrap();
+        let tag = Tag::read_from_path("testdata/multi-tags.mp3").unwrap();
         let genres = tag.genres();
         let artists = tag.artists();
 
