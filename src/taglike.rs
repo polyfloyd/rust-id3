@@ -26,13 +26,9 @@ pub trait TagLike: private::Sealed {
     /// `Content::Text`.
     #[doc(hidden)]
     fn text_values_for_frame_id(&self, id: &str) -> Option<Vec<&str>> {
-        let values = self.get(id).and_then(|frame| frame.content().text_values());
-
-        if values.is_none() {
-            None
-        } else {
-            Some(Vec::from_iter(values.unwrap()))
-        }
+        self.get(id)
+            .and_then(|frame| frame.content().text_values())
+            .map(|v| Vec::from_iter(v))
     }
 
     #[doc(hidden)]
