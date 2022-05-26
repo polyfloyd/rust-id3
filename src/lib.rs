@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
-#![warn(missing_docs)]
+#![deny(missing_docs)]
+#![deny(clippy::all)]
 
 // Resources:
 // * ID3v2.2 <http://id3.org/id3v2-00>

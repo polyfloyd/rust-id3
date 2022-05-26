@@ -28,7 +28,7 @@ pub trait TagLike: private::Sealed {
     fn text_values_for_frame_id(&self, id: &str) -> Option<Vec<&str>> {
         self.get(id)
             .and_then(|frame| frame.content().text_values())
-            .map(|v| Vec::from_iter(v))
+            .map(Vec::from_iter)
     }
 
     #[doc(hidden)]
