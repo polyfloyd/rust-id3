@@ -1,3 +1,13 @@
+## Version 1.1.0
+
+* Add partial_tag_ok
+* Add helpers to decode multiple artists/genre (when a file has some) (#87)
+
+## Version 1.0.3
+
+* Translate text frame nulls to '/' (fixes #82)
+* Fix chunk length when creating new ID3 for AIFF files (#83)
+
 ## Version 1.0.2
 
 * Fix GRP1 frames from being erroneously rejected as invalid (#78).
