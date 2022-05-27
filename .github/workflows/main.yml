@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
     - run: sudo apt update
     - run: sudo apt install ffmpeg -y # Install ffmpeg for ffprobe, so issue #39 test can pass
     - run: rustup default ${{ matrix.toolchain }}
@@ -30,6 +30,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
     - run: cargo fmt -- --check
     - run: cargo clippy
