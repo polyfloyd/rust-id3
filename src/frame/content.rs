@@ -15,7 +15,7 @@ use std::io;
 /// changes. Hence, the non_exhaustive attribute is set.
 ///
 /// However, when a new frame type variant is added, frames that would previously decode to
-/// [`Unknown`] are now decoded to their new variants. This would break code user, such as custom
+/// [`Unknown`] are now decoded to their new variants. This would break user code, such as custom
 /// decoders, that was expecting [`Unknown`].
 ///
 /// In order to prevent breakage when this library adds a new frame type, users must use the
@@ -50,8 +50,8 @@ pub enum Content {
     MpegLocationLookupTable(MpegLocationLookupTable),
     /// A value containing the bytes of a currently unknown frame type.
     ///
-    /// Users that wish to write custom decoders must use as_raw instead of matching on this
-    /// variant. See the compatibility note in the top level enum docs.
+    /// Users that wish to write custom decoders must use [`Content::to_unknown`] instead of
+    /// matching on this variant. See the compatibility note in the top level enum docs.
     Unknown(Unknown),
 }
 
