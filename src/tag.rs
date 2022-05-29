@@ -507,6 +507,12 @@ mod tests {
     }
 
     #[test]
+    fn github_issue_86a() {
+        // File has frame header flag bits set that are not known to the standard.
+        let _tag = Tag::read_from_path("testdata/github-issue-86a.id3").unwrap();
+    }
+
+    #[test]
     fn aiff_read_and_write() {
         // Copy
         let tmp = tempfile::NamedTempFile::new().unwrap();

@@ -32,8 +32,7 @@ pub fn decode(
     let id = frame::str_from_utf8(&frame_header[0..4])?;
 
     let content_size = BigEndian::read_u32(&frame_header[4..8]) as usize;
-    let flags = Flags::from_bits(BigEndian::read_u16(&frame_header[8..10]))
-        .ok_or_else(|| Error::new(ErrorKind::Parsing, "unknown frame header flags are set"))?;
+    let flags = Flags::from_bits_truncate(BigEndian::read_u16(&frame_header[8..10]));
     if flags.contains(Flags::ENCRYPTION) {
         return Err(Error::new(
             ErrorKind::UnsupportedFeature,
