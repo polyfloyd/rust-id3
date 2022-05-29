@@ -1,7 +1,6 @@
 use crate::frame::Frame;
 use crate::stream::encoding::Encoding;
-use crate::stream::frame;
-use crate::stream::unsynch;
+use crate::stream::{frame, unsynch};
 use crate::tag::Version;
 use crate::{Error, ErrorKind};
 use bitflags::bitflags;
@@ -9,7 +8,6 @@ use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use std::io;
-use std::str;
 
 bitflags! {
     pub struct Flags: u16 {
@@ -30,7 +28,7 @@ pub fn decode(mut reader: impl io::Read) -> crate::Result<Option<(usize, Frame)>
     if nread < frame_header.len() || frame_header[0] == 0x00 {
         return Ok(None);
     }
-    let id = str::from_utf8(&frame_header[0..4])?;
+    let id = frame::str_from_utf8(&frame_header[0..4])?;
     let content_size = unsynch::decode_u32(BigEndian::read_u32(&frame_header[4..8])) as usize;
     let flags = Flags::from_bits(BigEndian::read_u16(&frame_header[8..10]))
         .ok_or_else(|| Error::new(ErrorKind::Parsing, "unknown frame header flags are set"))?;

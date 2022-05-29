@@ -4,6 +4,7 @@ use crate::stream::unsynch;
 use crate::tag::Version;
 use flate2::read::ZlibDecoder;
 use std::io;
+use std::str;
 
 pub mod content;
 pub mod v2;
@@ -77,6 +78,18 @@ pub fn encode(
             v4::encode(writer, frame, flags)
         }
     }
+}
+
+/// Helper for str::from_utf8 that preserves any problematic pattern if applicable.
+pub fn str_from_utf8(b: &[u8]) -> crate::Result<&str> {
+    str::from_utf8(b).map_err(|err| {
+        let bad = b[err.valid_up_to()..].to_vec();
+        crate::Error {
+            kind: crate::ErrorKind::StringDecoding(bad.to_vec()),
+            description: "data is not valid utf-8".to_string(),
+            partial_tag: None,
+        }
+    })
 }
 
 #[cfg(test)]

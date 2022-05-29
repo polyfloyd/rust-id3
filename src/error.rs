@@ -2,7 +2,6 @@ use crate::tag::Tag;
 use std::error;
 use std::fmt;
 use std::io;
-use std::str;
 use std::string;
 
 /// Type alias for the result of tag operations.
@@ -103,16 +102,6 @@ impl From<string::FromUtf8Error> for Error {
     fn from(err: string::FromUtf8Error) -> Error {
         Error {
             kind: ErrorKind::StringDecoding(err.into_bytes()),
-            description: "data is not valid utf-8".to_string(),
-            partial_tag: None,
-        }
-    }
-}
-
-impl From<str::Utf8Error> for Error {
-    fn from(_: str::Utf8Error) -> Error {
-        Error {
-            kind: ErrorKind::StringDecoding(vec![]),
             description: "data is not valid utf-8".to_string(),
             partial_tag: None,
         }

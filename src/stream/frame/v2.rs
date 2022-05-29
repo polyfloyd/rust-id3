@@ -5,7 +5,6 @@ use crate::tag::Version;
 use crate::{Error, ErrorKind};
 use byteorder::{BigEndian, ByteOrder};
 use std::io;
-use std::str;
 
 pub fn decode(mut reader: impl io::Read) -> crate::Result<Option<(usize, Frame)>> {
     let mut frame_header = [0; 6];
@@ -13,7 +12,7 @@ pub fn decode(mut reader: impl io::Read) -> crate::Result<Option<(usize, Frame)>
     if nread < frame_header.len() || frame_header[0] == 0x00 {
         return Ok(None);
     }
-    let id = str::from_utf8(&frame_header[0..3])?;
+    let id = frame::str_from_utf8(&frame_header[0..3])?;
     let sizebytes = &frame_header[3..6];
     let read_size =
         (u32::from(sizebytes[0]) << 16) | (u32::from(sizebytes[1]) << 8) | u32::from(sizebytes[2]);
