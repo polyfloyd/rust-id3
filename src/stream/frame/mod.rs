@@ -8,18 +8,14 @@ use std::str;
 
 pub mod content;
 pub mod v2;
-mod v3;
-mod v4;
+pub mod v3;
+pub mod v4;
 
-pub fn decode(
-    mut reader: impl io::Read,
-    version: Version,
-    unsynchronization: bool,
-) -> crate::Result<Option<(usize, Frame)>> {
+pub fn decode(reader: impl io::Read, version: Version) -> crate::Result<Option<(usize, Frame)>> {
     match version {
-        Version::Id3v22 => unreachable!(), //We handled this already
-        Version::Id3v23 => v3::decode(&mut reader, unsynchronization),
-        Version::Id3v24 => v4::decode(&mut reader),
+        Version::Id3v22 => unimplemented!(),
+        Version::Id3v23 => v3::decode(reader),
+        Version::Id3v24 => v4::decode(reader),
     }
 }
 
@@ -62,7 +58,7 @@ pub fn encode(
                 v3::Flags::FILE_ALTER_PRESERVATION,
                 frame.file_alter_preservation(),
             );
-            v3::encode(writer, frame, flags, unsynchronization)
+            v3::encode(writer, frame, flags)
         }
         Version::Id3v24 => {
             let mut flags = v4::Flags::empty();

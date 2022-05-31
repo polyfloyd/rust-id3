@@ -1,6 +1,6 @@
 use crate::frame::Frame;
 use crate::stream::encoding::Encoding;
-use crate::stream::{frame, unsynch};
+use crate::stream::frame;
 use crate::tag::Version;
 use crate::{Error, ErrorKind};
 use bitflags::bitflags;
@@ -20,10 +20,7 @@ bitflags! {
     }
 }
 
-pub fn decode(
-    mut reader: impl io::Read,
-    unsynchronisation: bool,
-) -> crate::Result<Option<(usize, Frame)>> {
+pub fn decode(mut reader: impl io::Read) -> crate::Result<Option<(usize, Frame)>> {
     let mut frame_header = [0; 10];
     let nread = reader.read(&mut frame_header)?;
     if nread < frame_header.len() || frame_header[0] == 0x00 {
@@ -51,47 +48,40 @@ pub fn decode(
     } else {
         content_size
     };
+    let mut content_buf = vec![0; read_size];
+    reader.read_exact(&mut content_buf)?;
     let content = super::decode_content(
-        reader.take(read_size as u64),
+        &content_buf[..],
         Version::Id3v23,
         id,
         flags.contains(Flags::COMPRESSION),
-        unsynchronisation,
+        false,
     )?;
     let frame = Frame::with_content(id, content);
     Ok(Some((10 + content_size, frame)))
 }
 
-pub fn encode(
-    mut writer: impl io::Write,
-    frame: &Frame,
-    flags: Flags,
-    unsynchronization: bool,
-) -> crate::Result<usize> {
-    let (mut content_buf, comp_hint_delta, decompressed_size) =
-        if flags.contains(Flags::COMPRESSION) {
-            let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-            let content_size = frame::content::encode(
-                &mut encoder,
-                frame.content(),
-                Version::Id3v23,
-                Encoding::UTF16,
-            )?;
-            let content_buf = encoder.finish()?;
-            (content_buf, 4, Some(content_size))
-        } else {
-            let mut content_buf = Vec::new();
-            frame::content::encode(
-                &mut content_buf,
-                frame.content(),
-                Version::Id3v23,
-                Encoding::UTF16,
-            )?;
-            (content_buf, 0, None)
-        };
-    if unsynchronization {
-        unsynch::encode_vec(&mut content_buf);
-    }
+pub fn encode(mut writer: impl io::Write, frame: &Frame, flags: Flags) -> crate::Result<usize> {
+    let (content_buf, comp_hint_delta, decompressed_size) = if flags.contains(Flags::COMPRESSION) {
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+        let content_size = frame::content::encode(
+            &mut encoder,
+            frame.content(),
+            Version::Id3v23,
+            Encoding::UTF16,
+        )?;
+        let content_buf = encoder.finish()?;
+        (content_buf, 4, Some(content_size))
+    } else {
+        let mut content_buf = Vec::new();
+        frame::content::encode(
+            &mut content_buf,
+            frame.content(),
+            Version::Id3v23,
+            Encoding::UTF16,
+        )?;
+        (content_buf, 0, None)
+    };
 
     writer.write_all({
         let id = frame.id().as_bytes();

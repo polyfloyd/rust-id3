@@ -513,6 +513,13 @@ mod tests {
     }
 
     #[test]
+    fn github_issue_86c() {
+        // Unsynchronized bytes on frame boundary exposed that the unsync scheme was applied on the
+        // wrong level.
+        let _tag = Tag::read_from_path("testdata/github-issue-86b.id3").unwrap();
+    }
+
+    #[test]
     fn aiff_read_and_write() {
         // Copy
         let tmp = tempfile::NamedTempFile::new().unwrap();

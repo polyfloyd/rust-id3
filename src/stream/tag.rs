@@ -116,37 +116,59 @@ impl Header {
 pub fn decode(mut reader: impl io::Read) -> crate::Result<Tag> {
     let header = Header::decode(&mut reader)?;
 
-    if header.version == Version::Id3v22 {
-        // Limit the reader only to the given tag_size, don't return any more bytes after that.
-        let v2_reader = reader.take(header.frame_bytes());
+    match header.version {
+        Version::Id3v22 => {
+            // Limit the reader only to the given tag_size, don't return any more bytes after that.
+            let v2_reader = reader.take(header.frame_bytes());
 
-        if header.flags.contains(Flags::UNSYNCHRONISATION) {
-            // Unwrap all 'unsynchronized' bytes in the tag before parsing frames.
-            decode_v2_frames(unsynch::Reader::new(v2_reader))
-        } else {
-            decode_v2_frames(v2_reader)
+            if header.flags.contains(Flags::UNSYNCHRONISATION) {
+                // Unwrap all 'unsynchronized' bytes in the tag before parsing frames.
+                decode_v2_frames(unsynch::Reader::new(v2_reader))
+            } else {
+                decode_v2_frames(v2_reader)
+            }
         }
-    } else {
-        let mut offset = 0;
-        let mut tag = Tag::with_version(header.version);
-        while offset < header.frame_bytes() {
-            let rs = frame::decode(
-                &mut reader,
-                header.version,
-                header.flags.contains(Flags::UNSYNCHRONISATION),
-            );
-            let v = match rs {
-                Ok(v) => v,
-                Err(err) => return Err(err.with_tag(tag)),
+        Version::Id3v23 => {
+            // Unsynchronization is applied to the whole tag, excluding the header.
+            let mut reader: Box<dyn io::Read> = if header.flags.contains(Flags::UNSYNCHRONISATION) {
+                Box::new(unsynch::Reader::new(reader))
+            } else {
+                Box::new(reader)
             };
-            let (bytes_read, frame) = match v {
-                Some(v) => v,
-                None => break, // Padding.
-            };
-            tag.add_frame(frame);
-            offset += bytes_read as u64;
+
+            let mut offset = 0;
+            let mut tag = Tag::with_version(header.version);
+            while offset < header.frame_bytes() {
+                let v = match frame::v3::decode(&mut reader) {
+                    Ok(v) => v,
+                    Err(err) => return Err(err.with_tag(tag)),
+                };
+                let (bytes_read, frame) = match v {
+                    Some(v) => v,
+                    None => break, // Padding.
+                };
+                tag.add_frame(frame);
+                offset += bytes_read as u64;
+            }
+            Ok(tag)
         }
-        Ok(tag)
+        Version::Id3v24 => {
+            let mut offset = 0;
+            let mut tag = Tag::with_version(header.version);
+            while offset < header.frame_bytes() {
+                let v = match frame::v4::decode(&mut reader) {
+                    Ok(v) => v,
+                    Err(err) => return Err(err.with_tag(tag)),
+                };
+                let (bytes_read, frame) = match v {
+                    Some(v) => v,
+                    None => break, // Padding.
+                };
+                tag.add_frame(frame);
+                offset += bytes_read as u64;
+            }
+            Ok(tag)
+        }
     }
 }
 
@@ -265,10 +287,13 @@ impl Encoder {
             frame.validate()?;
             frame::encode(&mut frame_data, frame, self.version, self.unsynchronisation)?;
         }
-        // In ID3v2, Unsynchronization is applied to the whole tag data at once, not for each frame
-        // separately.
-        if self.version == Version::Id3v22 && self.unsynchronisation {
-            unsynch::encode_vec(&mut frame_data)
+        // In ID3v2.2/ID3v2.3, Unsynchronization is applied to the whole tag data at once, not for
+        // each frame separately.
+        if self.unsynchronisation {
+            match self.version {
+                Version::Id3v22 | Version::Id3v23 => unsynch::encode_vec(&mut frame_data),
+                Version::Id3v24 => {}
+            };
         }
         let tag_size = frame_data.len() + self.padding.unwrap_or(0);
         writer.write_all(b"ID3")?;

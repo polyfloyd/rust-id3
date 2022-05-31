@@ -644,7 +644,7 @@ impl<'a> Decoder<'a> {
         let start_offset = self.uint32()?;
         let end_offset = self.uint32()?;
         let mut frames = Vec::new();
-        while let Some((_advance, frame)) = frame::decode(&mut self.r, self.version, false)? {
+        while let Some((_advance, frame)) = frame::decode(&mut self.r, self.version)? {
             frames.push(frame);
         }
         Ok(Content::Chapter(Chapter {
