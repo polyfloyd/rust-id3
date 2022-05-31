@@ -1,3 +1,10 @@
+## Version 1.1.1
+
+* Fix wrong implementation of unsynchronization for ID3v2.3
+* Permit unknown frame header flag bits to be set
+* error: Include problematic data in str::Utf8Error derivative error
+* Fix typos in Content docs
+
 ## Version 1.1.0
 
 * Add partial_tag_ok
