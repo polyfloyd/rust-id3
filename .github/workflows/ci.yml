@@ -12,17 +12,12 @@ on:
 jobs:
 
   build:
-    strategy:
-      matrix:
-        toolchain: [stable, nightly]
-
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
     - run: sudo apt update
-    - run: sudo apt install ffmpeg -y # Install ffmpeg for ffprobe, so issue #39 test can pass
-    - run: rustup default ${{ matrix.toolchain }}
+    - run: sudo apt install -y ffmpeg
     - run: rustup update
     - run: cargo build
     - run: cargo test
