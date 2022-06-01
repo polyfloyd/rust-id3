@@ -1,0 +1,34 @@
+name: Bump
+
+on:
+  workflow_dispatch:
+
+jobs:
+
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  bump:
+    runs-on: ubuntu-latest
+
+    needs:
+      - ci
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        ssh-key: "${{ secrets.DEPLOY_SSH_KEY }}"
+    - run: pip3 install Commitizen==2.27.1
+
+    - run: git config --local user.email "github-actions@users.noreply.github.com"
+    - run: git config --local user.name "github-actions"
+
+    - name: Get new version
+      run: echo "NEW_VERSION=$(cz bump --dry-run | grep -Po 'v\K([0-9]+(\.[0-9]+)+)')" >> $GITHUB_ENV
+    - name: Update Cargo.toml
+      run: sed -i 's/^version =.\+$/version = "${{ env.NEW_VERSION }}"/' Cargo.toml
+    - run: cz bump --changelog
+
+    - run: git push
+    - run: git push --tags
