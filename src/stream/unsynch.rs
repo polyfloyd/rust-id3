@@ -3,7 +3,6 @@
 //! to be processed only by ID3v2 aware software and hardware. Unsynchronisation is only useful
 //! with tags in MPEG 1/2 layer I, II and III, MPEG 2.5 and AAC files.
 use std::io;
-use std::mem;
 
 /// Returns the synchsafe variant of a `u32` value.
 pub fn encode_u32(n: u32) -> u32 {
@@ -99,17 +98,17 @@ pub fn encode_vec(buffer: &mut Vec<u8>) {
     }
 }
 
-/// Undoes the changes done to a byte buffer by the unsynchronization scheme.
-pub fn decode_vec(buffer: &mut Vec<u8>) {
-    let buf_len = buffer.len();
-    let from_buf = mem::replace(buffer, Vec::with_capacity(buf_len));
-    let mut reader = Reader::new(io::Cursor::new(from_buf));
-    io::copy(&mut reader, buffer).unwrap();
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::mem;
+
+    fn decode_vec(buffer: &mut Vec<u8>) {
+        let buf_len = buffer.len();
+        let from_buf = mem::replace(buffer, Vec::with_capacity(buf_len));
+        let mut reader = Reader::new(io::Cursor::new(from_buf));
+        io::copy(&mut reader, buffer).unwrap();
+    }
 
     #[test]
     fn synchsafe() {

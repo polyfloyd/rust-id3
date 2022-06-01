@@ -4,7 +4,7 @@ use crate::tag::{Tag, Version};
 use crate::taglike::TagLike;
 use crate::{Error, ErrorKind};
 use bitflags::bitflags;
-use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
 use std::cmp;
 use std::fs;
 use std::io::{self, Read, Write};
@@ -23,13 +23,21 @@ bitflags! {
         const EXPERIMENTAL      = 0x20; // >ID3v2.3
         const FOOTER            = 0x10; // >ID3v2.4
     }
+
+    struct ExtFlags: u8 {
+        const TAG_IS_UPDATE    = 0x40;
+        const CRC_DATA_PRESENT = 0x20;
+        const TAG_RESTRICTIONS = 0x10;
+    }
 }
 
 struct Header {
     version: Version,
     flags: Flags,
     tag_size: u32,
+
     // TODO: Extended header.
+    ext_header_size: u32,
 }
 
 impl Header {
@@ -38,7 +46,7 @@ impl Header {
     }
 
     fn frame_bytes(&self) -> u64 {
-        u64::from(self.tag_size)
+        u64::from(self.tag_size) - u64::from(self.ext_header_size)
     }
 
     fn tag_size(&self) -> u64 {
@@ -85,30 +93,40 @@ impl Header {
         }
 
         // TODO: actually use the extended header data.
-        if flags.contains(Flags::EXTENDED_HEADER) {
-            let ext_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?) as usize;
-            // the extended header size includes itself
+        dbg!(flags.contains(Flags::EXTENDED_HEADER));
+        let ext_header_size = if flags.contains(Flags::EXTENDED_HEADER) {
+            let mut ext_header = [0; 6];
+            reader.read_exact(&mut ext_header)?;
+            let ext_size = unsynch::decode_u32(BigEndian::read_u32(&ext_header[0..4]));
+            // The extended header size includes itself and always has at least 2 bytes following.
             if ext_size < 6 {
                 return Err(Error::new(
                     ErrorKind::Parsing,
-                    "Extended header has a minimum size of 6",
+                    "Extended header requires has a minimum size of 6",
                 ));
             }
-            let ext_remaining_size = ext_size - 4;
-            let mut ext_header = Vec::with_capacity(cmp::min(ext_remaining_size, 0xffff));
+
+            let _ext_flags = ExtFlags::from_bits_truncate(ext_header[5]);
+
+            let ext_remaining_size = ext_size - ext_header.len() as u32;
+            let mut ext_header = Vec::with_capacity(cmp::min(ext_remaining_size as usize, 0xffff));
             reader
                 .by_ref()
                 .take(ext_remaining_size as u64)
                 .read_to_end(&mut ext_header)?;
-            if flags.contains(Flags::UNSYNCHRONISATION) {
-                unsynch::decode_vec(&mut ext_header);
-            }
-        }
+
+            dbg!(ext_size);
+
+            ext_size
+        } else {
+            0
+        };
 
         Ok(Header {
             version,
             flags,
             tag_size,
+            ext_header_size,
         })
     }
 }
@@ -757,8 +775,7 @@ mod tests {
     #[test]
     fn read_github_issue_60() {
         let mut file = fs::File::open("testdata/github-issue-60.id3").unwrap();
-        let err = decode(&mut file).err().unwrap();
-        err.partial_tag.unwrap();
+        let _tag = decode(&mut file).unwrap();
     }
 
     #[test]

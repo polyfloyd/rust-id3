@@ -520,6 +520,12 @@ mod tests {
     }
 
     #[test]
+    fn github_issue_91() {
+        // Presence of extended header revealed bad calculation of remaining tag length.
+        let _tag = Tag::read_from_path("testdata/github-issue-91.id3").unwrap();
+    }
+
+    #[test]
     fn aiff_read_and_write() {
         // Copy
         let tmp = tempfile::NamedTempFile::new().unwrap();
