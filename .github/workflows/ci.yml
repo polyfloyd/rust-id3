@@ -34,3 +34,14 @@ jobs:
     - uses: actions/checkout@v3
     - run: cargo fmt -- --check
     - run: cargo clippy
+
+  conventional-commits:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - run: pip3 install -U Commitizen
+      # The commit hash here is that of the commit where we started using conventional commits.
+    - run: cz check --rev-range 16610ddb..HEAD
