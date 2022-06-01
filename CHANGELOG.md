@@ -1,3 +1,9 @@
+## v1.1.2 (2022-06-01)
+
+### Fix
+
+- Fix reading of tags with extended headers (fixes #91)
+
 ## Version 1.1.1
 
 * Fix wrong implementation of unsynchronization for ID3v2.3
