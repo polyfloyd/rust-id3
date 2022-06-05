@@ -11,6 +11,8 @@ use std::fs;
 use std::io::{self, Write};
 use std::ops;
 
+const COPY_BUF_SIZE: usize = 65536;
+
 /// Refer to the module documentation.
 pub trait Storage<'a> {
     type Reader: io::Read + io::Seek + 'a;
@@ -191,7 +193,7 @@ where
                 let new_region_end = self.storage.region.start + buf_len;
 
                 self.storage.file.set_len(new_file_end)?;
-                let mut rwbuf = [0; 8192];
+                let mut rwbuf = [0; COPY_BUF_SIZE];
                 let rwbuf_len = rwbuf.len();
                 for i in 1.. {
                     let raw_from = old_file_end as i64 - i as i64 * rwbuf.len() as i64;
@@ -220,7 +222,7 @@ where
                 let new_region_end = self.storage.region.start + buf_len;
                 let new_file_end = old_file_end - (old_region_end - new_region_end);
 
-                let mut rwbuf = [0; 1000];
+                let mut rwbuf = [0; COPY_BUF_SIZE];
                 let rwbuf_len = rwbuf.len();
                 for i in 0.. {
                     let from = old_region_end + i * rwbuf.len() as u64;
