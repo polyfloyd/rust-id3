@@ -1,3 +1,10 @@
+## v1.1.3 (2022-06-05)
+
+### Fix
+
+- Increase storage copy buffer size to 2^16 bytes (fixes #94)
+- Require bitflags >1.3 (fixes #93)
+
 ## v1.1.2 (2022-06-01)
 
 ### Fix
