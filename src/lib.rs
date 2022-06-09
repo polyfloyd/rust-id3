@@ -17,6 +17,8 @@ pub use crate::taglike::TagLike;
 pub mod frame;
 /// Utilities for working with ID3v1 tags.
 pub mod v1;
+/// Combined API that handles both ID3v1 and ID3v2 tags at the same time.
+pub mod v1v2;
 
 mod chunk;
 mod error;

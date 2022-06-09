@@ -343,6 +343,18 @@ impl Tag {
         Ok(truncate_to.is_some())
     }
 
+    /// Removes an ID3v1 tag plus possible extended data if any.
+    ///
+    /// Returns true if the file initially contained a tag.
+    pub fn remove_from_path(path: impl AsRef<Path>) -> crate::Result<bool> {
+        let mut file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(path)
+            .unwrap();
+        Tag::remove(&mut file)
+    }
+
     /// Returns `genre_str`, falling back to translating `genre_id` to a string.
     pub fn genre(&self) -> Option<&str> {
         if let Some(ref g) = self.genre_str {
