@@ -93,7 +93,6 @@ impl Header {
         }
 
         // TODO: actually use the extended header data.
-        dbg!(flags.contains(Flags::EXTENDED_HEADER));
         let ext_header_size = if flags.contains(Flags::EXTENDED_HEADER) {
             let mut ext_header = [0; 6];
             reader.read_exact(&mut ext_header)?;
@@ -114,8 +113,6 @@ impl Header {
                 .by_ref()
                 .take(ext_remaining_size as u64)
                 .read_to_end(&mut ext_header)?;
-
-            dbg!(ext_size);
 
             ext_size
         } else {
