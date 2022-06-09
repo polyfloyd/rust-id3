@@ -10,7 +10,7 @@ static TAG_CHUNK: ops::Range<i64> = -128..0;
 /// Location of the ID3v1 extended tag chunk relative to the end of the file.
 static XTAG_CHUNK: ops::Range<i64> = -355..-128;
 
-static GENRE_LIST: &[&str] = &[
+pub(crate) static GENRE_LIST: &[&str] = &[
     "Blues",
     "Classic Rock",
     "Country",

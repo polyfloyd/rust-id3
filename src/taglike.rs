@@ -3,6 +3,7 @@ use crate::frame::{
     Comment, EncapsulatedObject, ExtendedText, Frame, Lyrics, Picture, PictureType,
     SynchronisedLyrics, Timestamp,
 };
+use std::borrow::Cow;
 use std::mem::swap;
 
 /// TagLike is a trait that provides a set of useful default methods that make manipulation of tag
@@ -569,7 +570,11 @@ pub trait TagLike: private::Sealed {
         self.remove("TLEN");
     }
 
-    /// Returns the genre (TCON).
+    /// Returns the plain genre (TCON) text.
+    ///
+    /// Please be aware that ID3v2 specifies that this frame is permitted to refer to a
+    /// predetermined set of ID3v1 genres by index. To handle such frames, use `genre_parsed`
+    /// instead.
     ///
     /// # Example
     /// ```
@@ -579,18 +584,41 @@ pub trait TagLike: private::Sealed {
     /// let mut tag = Tag::new();
     /// tag.add_frame(Frame::text("TCON", "genre"));
     /// assert_eq!(tag.genre(), Some("genre"));
+    /// tag.set_genre("(31)");
+    /// assert_eq!(tag.genre(), Some("(31)"));
     /// ```
     fn genre(&self) -> Option<&str> {
         self.text_for_frame_id("TCON")
     }
 
-    /// Returns the (potential) multiple genres (TCON).
+    /// Returns the genre (TCON) with ID3v1 genre indices resolved.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::frame::Content;
+    /// use id3::{Frame, Tag, TagLike};
+    /// use std::borrow::Cow;
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.add_frame(Frame::text("TCON", "genre"));
+    /// assert_eq!(tag.genre_parsed(), Some(Cow::Borrowed("genre")));
+    /// tag.set_genre("(31)");
+    /// assert_eq!(tag.genre_parsed(), Some(Cow::Owned("Trance".to_string())));
+    /// ```
+    fn genre_parsed(&self) -> Option<Cow<str>> {
+        let tcon = self.text_for_frame_id("TCON")?;
+        Some(crate::tcon::Parser::parse_tcon(tcon))
+    }
+
+    /// Returns the (potential) multiple plain genres (TCON).
     /// ```
     fn genres(&self) -> Option<Vec<&str>> {
         self.text_values_for_frame_id("TCON")
     }
 
-    /// Sets the genre (TCON).
+    /// Sets the plain genre (TCON).
+    ///
+    /// No attempt is made to interpret and convert ID3v1 indices.
     ///
     /// # Example
     /// ```
