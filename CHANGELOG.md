@@ -1,3 +1,10 @@
+## v1.2.0 (2022-06-10)
+
+### Feat
+
+- Add the v1v2 module for simultaneously handling ID3v1+ID3v2 tags (fixes #92)
+- Add the genre_parsed method (fixes #88)
+
 ## v1.1.4 (2022-06-09)
 
 ### Fix
