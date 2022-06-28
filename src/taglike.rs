@@ -3,6 +3,7 @@ use crate::frame::{
     Comment, EncapsulatedObject, ExtendedText, Frame, Lyrics, Picture, PictureType,
     SynchronisedLyrics, Timestamp,
 };
+use crate::stream::encoding::Encoding;
 use std::borrow::Cow;
 use std::mem::swap;
 
@@ -1171,12 +1172,14 @@ pub trait TagLike: private::Sealed {
         mime_type: impl Into<String>,
         filename: impl Into<String>,
         data: impl Into<Vec<u8>>,
+        encoding: Encoding,
     ) {
         self.add_frame(EncapsulatedObject {
             description: description.into(),
             mime_type: mime_type.into(),
             filename: filename.into(),
             data: data.into(),
+            encoding,
         });
     }
 

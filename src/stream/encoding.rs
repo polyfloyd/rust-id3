@@ -2,7 +2,7 @@ use crate::{Error, ErrorKind};
 use std::convert::TryInto;
 
 /// Types of text encodings used in ID3 frames.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Encoding {
     /// ISO-8859-1 text encoding, also referred to as latin1 encoding.
     Latin1,

@@ -77,7 +77,10 @@ impl Content {
             ],
             Self::Picture(picture) => vec![Cow::Owned(picture.picture_type.to_string())],
             Self::EncapsulatedObject(encapsulated_object) => {
-                vec![Cow::Borrowed(&encapsulated_object.description)]
+                vec![
+                    Cow::Owned(format!("{:?}", encapsulated_object.encoding)),
+                    Cow::Borrowed(&encapsulated_object.description),
+                ]
             }
             Self::Chapter(chapter) => vec![Cow::Borrowed(&chapter.element_id)],
             Self::MpegLocationLookupTable(_) => Vec::new(),
@@ -305,6 +308,7 @@ pub struct EncapsulatedObject {
     pub filename: String,
     pub description: String,
     pub data: Vec<u8>,
+    pub encoding: Encoding,
 }
 
 impl fmt::Display for EncapsulatedObject {
