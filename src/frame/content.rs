@@ -77,7 +77,10 @@ impl Content {
             ],
             Self::Picture(picture) => vec![Cow::Owned(picture.picture_type.to_string())],
             Self::EncapsulatedObject(encapsulated_object) => {
-                vec![Cow::Borrowed(&encapsulated_object.description)]
+                vec![
+                    Cow::Owned(format!("{:?}", encapsulated_object.encoding)),
+                    Cow::Borrowed(&encapsulated_object.description),
+                ]
             }
             Self::Chapter(chapter) => vec![Cow::Borrowed(&chapter.element_id)],
             Self::MpegLocationLookupTable(_) => Vec::new(),
@@ -298,6 +301,8 @@ impl From<ExtendedLink> for Frame {
 }
 
 /// The parsed contents of an general encapsulated object frame.
+///
+/// `EncapsulatedObject` stores its own encoding, rather than using the same encoding as rest of the tag, because some apps (ex. Serato) tend to write multiple GEOB tags with different encodings.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[allow(missing_docs)]
 pub struct EncapsulatedObject {
@@ -305,6 +310,7 @@ pub struct EncapsulatedObject {
     pub filename: String,
     pub description: String,
     pub data: Vec<u8>,
+    pub encoding: Encoding,
 }
 
 impl fmt::Display for EncapsulatedObject {

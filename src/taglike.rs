@@ -3,6 +3,7 @@ use crate::frame::{
     Comment, EncapsulatedObject, ExtendedText, Frame, Lyrics, Picture, PictureType,
     SynchronisedLyrics, Timestamp,
 };
+use crate::stream::encoding::Encoding;
 use std::borrow::Cow;
 use std::mem::swap;
 
@@ -349,7 +350,6 @@ pub trait TagLike: private::Sealed {
     }
 
     /// Returns the (potential) multiple artists (TPE1).
-    /// ```
     fn artists(&self) -> Option<Vec<&str>> {
         self.text_values_for_frame_id("TPE1")
     }
@@ -611,7 +611,6 @@ pub trait TagLike: private::Sealed {
     }
 
     /// Returns the (potential) multiple plain genres (TCON).
-    /// ```
     fn genres(&self) -> Option<Vec<&str>> {
         self.text_values_for_frame_id("TCON")
     }
@@ -1177,6 +1176,7 @@ pub trait TagLike: private::Sealed {
             mime_type: mime_type.into(),
             filename: filename.into(),
             data: data.into(),
+            encoding: Encoding::Latin1,
         });
     }
 

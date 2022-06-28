@@ -96,6 +96,8 @@ impl<W: io::Write> Encoder<W> {
     }
 
     fn encapsulated_object_content(&mut self, content: &EncapsulatedObject) -> crate::Result<()> {
+        let encoding = self.encoding;
+        self.encoding = content.encoding;
         self.encoding()?;
         self.bytes(content.mime_type.as_bytes())?;
         self.byte(0)?;
@@ -103,7 +105,9 @@ impl<W: io::Write> Encoder<W> {
         self.delim()?;
         self.string(&content.description)?;
         self.delim()?;
-        self.bytes(&content.data)
+        self.bytes(&content.data)?;
+        self.encoding = encoding;
+        Ok(())
     }
 
     fn lyrics_content(&mut self, content: &Lyrics) -> crate::Result<()> {
@@ -562,6 +566,7 @@ impl<'a> Decoder<'a> {
             filename,
             description,
             data,
+            encoding,
         }))
     }
 

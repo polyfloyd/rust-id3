@@ -799,4 +799,16 @@ mod tests {
         assert_eq!(genres, Some(vec!["Pop", "Trip-Hop"]));
         assert_eq!(artists, Some(vec!["First", "Secondary"]));
     }
+
+    /// Serato writes its GEOB tags twice with different encoding.
+    #[test]
+    fn test_serato_geob() {
+        let tag = Tag::read_from_path("testdata/geob_serato.id3").unwrap();
+        let count = tag.encapsulated_objects().count();
+        assert_eq!(count, 14);
+        tag.write_to_path("testdata/geob_serato.id3", Version::Id3v24)
+            .unwrap();
+        let tag = Tag::read_from_path("testdata/geob_serato.id3").unwrap();
+        assert_eq!(count, tag.encapsulated_objects().count());
+    }
 }
