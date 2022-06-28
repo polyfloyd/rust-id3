@@ -301,6 +301,8 @@ impl From<ExtendedLink> for Frame {
 }
 
 /// The parsed contents of an general encapsulated object frame.
+///
+/// `EncapsulatedObject` stores its own encoding, rather than using the same encoding as rest of the tag, because some apps (ex. Serato) tend to write multiple GEOB tags with different encodings.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[allow(missing_docs)]
 pub struct EncapsulatedObject {

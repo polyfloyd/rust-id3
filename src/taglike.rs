@@ -350,7 +350,6 @@ pub trait TagLike: private::Sealed {
     }
 
     /// Returns the (potential) multiple artists (TPE1).
-    /// ```
     fn artists(&self) -> Option<Vec<&str>> {
         self.text_values_for_frame_id("TPE1")
     }
@@ -612,7 +611,6 @@ pub trait TagLike: private::Sealed {
     }
 
     /// Returns the (potential) multiple plain genres (TCON).
-    /// ```
     fn genres(&self) -> Option<Vec<&str>> {
         self.text_values_for_frame_id("TCON")
     }
