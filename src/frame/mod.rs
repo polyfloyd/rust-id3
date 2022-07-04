@@ -27,6 +27,7 @@ enum ID {
 ///
 /// The [`Content`] must be accompanied by a matching ID. Although this struct allows for invalid
 /// combinations to exist, attempting to encode them will yield an error.
+#[allow(clippy::derive_hash_xor_eq)]
 #[derive(Clone, Debug, Eq, Ord, PartialOrd, Hash)]
 pub struct Frame {
     id: ID,
@@ -394,7 +395,11 @@ impl Frame {
 
 impl PartialEq for Frame {
     fn eq(&self, other: &Self) -> bool {
-        self.compare(other)
+        self.id == other.id
+            && self.content == other.content
+            && self.tag_alter_preservation == other.tag_alter_preservation
+            && self.file_alter_preservation == other.file_alter_preservation
+            && (self.encoding == None || other.encoding == None || self.encoding == other.encoding)
     }
 }
 
