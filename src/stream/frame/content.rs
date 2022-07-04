@@ -96,8 +96,6 @@ impl<W: io::Write> Encoder<W> {
     }
 
     fn encapsulated_object_content(&mut self, content: &EncapsulatedObject) -> crate::Result<()> {
-        let encoding = self.encoding;
-        self.encoding = content.encoding;
         self.encoding()?;
         self.bytes(content.mime_type.as_bytes())?;
         self.byte(0)?;
@@ -106,7 +104,6 @@ impl<W: io::Write> Encoder<W> {
         self.string(&content.description)?;
         self.delim()?;
         self.bytes(&content.data)?;
-        self.encoding = encoding;
         Ok(())
     }
 
@@ -325,7 +322,11 @@ pub fn encode(
     Ok(buf.len())
 }
 
-pub fn decode(id: &str, version: Version, mut reader: impl io::Read) -> crate::Result<Content> {
+pub fn decode(
+    id: &str,
+    version: Version,
+    mut reader: impl io::Read,
+) -> crate::Result<(Content, Option<Encoding>)> {
     let mut data = Vec::new();
     reader.read_to_end(&mut data)?;
     let decoder = Decoder {
@@ -333,7 +334,8 @@ pub fn decode(id: &str, version: Version, mut reader: impl io::Read) -> crate::R
         version,
     };
 
-    match id {
+    let mut encoding = None;
+    let content = match id {
         "PIC" => decoder.picture_content_v2(),
         "APIC" => decoder.picture_content_v3(),
         "TXXX" | "TXX" => decoder.extended_text_content(),
@@ -342,14 +344,19 @@ pub fn decode(id: &str, version: Version, mut reader: impl io::Read) -> crate::R
         "POPM" | "POP" => decoder.popularimeter_content(),
         "USLT" | "ULT" => decoder.lyrics_content(),
         "SYLT" | "SLT" => decoder.synchronised_lyrics_content(),
-        "GEOB" | "GEO" => decoder.encapsulated_object_content(),
+        "GEOB" | "GEO" => {
+            let (content, enc) = decoder.encapsulated_object_content()?;
+            encoding = Some(enc);
+            Ok(content)
+        }
         id if id.starts_with('T') => decoder.text_content(),
         id if id.starts_with('W') => decoder.link_content(),
         "GRP1" => decoder.text_content(),
         "CHAP" => decoder.chapter_content(),
         "MLLT" => decoder.mpeg_location_lookup_table_content(),
         _ => Ok(Content::Unknown(Unknown { data, version })),
-    }
+    }?;
+    Ok((content, encoding))
 }
 
 struct Decoder<'a> {
@@ -555,19 +562,21 @@ impl<'a> Decoder<'a> {
         Ok(Content::ExtendedLink(ExtendedLink { description, link }))
     }
 
-    fn encapsulated_object_content(mut self) -> crate::Result<Content> {
+    fn encapsulated_object_content(mut self) -> crate::Result<(Content, Encoding)> {
         let encoding = self.encoding()?;
         let mime_type = self.string_delimited(Encoding::Latin1)?;
         let filename = self.string_delimited(encoding)?;
         let description = self.string_delimited(encoding)?;
         let data = self.r.to_vec();
-        Ok(Content::EncapsulatedObject(EncapsulatedObject {
-            mime_type,
-            filename,
-            description,
-            data,
+        Ok((
+            Content::EncapsulatedObject(EncapsulatedObject {
+                mime_type,
+                filename,
+                description,
+                data,
+            }),
             encoding,
-        }))
+        ))
     }
 
     fn lyrics_content(mut self) -> crate::Result<Content> {
@@ -862,6 +871,7 @@ mod tests {
                     assert_eq!(
                         *decode("PIC", Version::Id3v22, &data[..])
                             .unwrap()
+                            .0
                             .picture()
                             .unwrap(),
                         picture
@@ -914,6 +924,7 @@ mod tests {
                     assert_eq!(
                         *decode("APIC", Version::Id3v23, &data[..])
                             .unwrap()
+                            .0
                             .picture()
                             .unwrap(),
                         picture
@@ -961,6 +972,7 @@ mod tests {
                     assert_eq!(
                         *decode("COMM", Version::Id3v23, &data[..])
                             .unwrap()
+                            .0
                             .comment()
                             .unwrap(),
                         content
@@ -1019,6 +1031,7 @@ mod tests {
             assert_eq!(
                 *decode("COMM", Version::Id3v23, &data[..])
                     .unwrap()
+                    .0
                     .comment()
                     .unwrap(),
                 content
@@ -1031,7 +1044,7 @@ mod tests {
         // Counter with 3 bytes
         let bin = b"\x00\xff\xaa\xaa\xaa";
         assert_eq!(
-            decode("POPM", Version::Id3v23, &bin[..]).unwrap(),
+            decode("POPM", Version::Id3v23, &bin[..]).unwrap().0,
             Content::Popularimeter(Popularimeter {
                 user: "".to_string(),
                 rating: 255,
@@ -1042,7 +1055,7 @@ mod tests {
         // Counter with 12 bytes
         let bin = b"\x00\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xbb\xbb\xbb\xbb";
         assert_eq!(
-            decode("POPM", Version::Id3v23, &bin[..]).unwrap(),
+            decode("POPM", Version::Id3v23, &bin[..]).unwrap().0,
             Content::Popularimeter(Popularimeter {
                 user: "".to_string(),
                 rating: 255,
@@ -1070,6 +1083,7 @@ mod tests {
                 assert_eq!(
                     decode("TALB", Version::Id3v23, &data[..])
                         .unwrap()
+                        .0
                         .text()
                         .unwrap(),
                     *text
@@ -1105,6 +1119,7 @@ mod tests {
             assert_eq!(
                 decode("TALB", Version::Id3v24, &data[..])
                     .unwrap()
+                    .0
                     .text()
                     .unwrap(),
                 "text\u{0}text"
@@ -1139,6 +1154,7 @@ mod tests {
             assert_eq!(
                 decode("TALB", Version::Id3v24, &data[..])
                     .unwrap()
+                    .0
                     .text()
                     .unwrap(),
                 "text\u{0}text"
@@ -1182,6 +1198,7 @@ mod tests {
                     assert_eq!(
                         *decode("TXXX", Version::Id3v23, &data[..])
                             .unwrap()
+                            .0
                             .extended_text()
                             .unwrap(),
                         content
@@ -1226,6 +1243,7 @@ mod tests {
             assert_eq!(
                 decode("WOAF", Version::Id3v23, &data[..])
                     .unwrap()
+                    .0
                     .link()
                     .unwrap(),
                 *link
@@ -1269,6 +1287,7 @@ mod tests {
                     assert_eq!(
                         *decode("WXXX", Version::Id3v23, &data[..])
                             .unwrap()
+                            .0
                             .extended_link()
                             .unwrap(),
                         content
@@ -1333,6 +1352,7 @@ mod tests {
                     assert_eq!(
                         *decode("USLT", Version::Id3v23, &data[..])
                             .unwrap()
+                            .0
                             .lyrics()
                             .unwrap(),
                         content
@@ -1396,7 +1416,7 @@ mod tests {
         encode(&mut data_out, &mllt, Version::Id3v23, Encoding::UTF8).unwrap();
         let expect_data = b"\x00\x01\x00\x01\xa2\x00\x00\x0f\x04\x04\x12\x34\x56";
         assert_eq!(format!("{:x?}", data_out), format!("{:x?}", expect_data));
-        let mllt_decoded = decode("MLLT", Version::Id3v23, &*data_out).unwrap();
+        let mllt_decoded = decode("MLLT", Version::Id3v23, &*data_out).unwrap().0;
         assert_eq!(mllt, mllt_decoded);
     }
 
@@ -1427,7 +1447,7 @@ mod tests {
         encode(&mut data_out, &mllt, Version::Id3v23, Encoding::UTF8).unwrap();
         let expect_data = b"\x00\x01\x00\x01\xa2\x00\x00\x0f\x08\x08\x11\x22\x33\x44\x55\x66";
         assert_eq!(format!("{:x?}", data_out), format!("{:x?}", expect_data));
-        let mllt_decoded = decode("MLLT", Version::Id3v23, &*data_out).unwrap();
+        let mllt_decoded = decode("MLLT", Version::Id3v23, &*data_out).unwrap().0;
         assert_eq!(mllt, mllt_decoded);
     }
 
@@ -1459,7 +1479,7 @@ mod tests {
         let expect_data =
             b"\x00\x01\x00\x01\xa2\x00\x00\x0f\x0c\x0c\x11\x12\x22\x33\x34\x44\x55\x56\x66";
         assert_eq!(format!("{:x?}", data_out), format!("{:x?}", expect_data));
-        let mllt_decoded = decode("MLLT", Version::Id3v23, &*data_out).unwrap();
+        let mllt_decoded = decode("MLLT", Version::Id3v23, &*data_out).unwrap().0;
         assert_eq!(mllt, mllt_decoded);
     }
 

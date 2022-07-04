@@ -50,14 +50,14 @@ pub fn decode(mut reader: impl io::Read) -> crate::Result<Option<(usize, Frame)>
     };
     let mut content_buf = vec![0; read_size];
     reader.read_exact(&mut content_buf)?;
-    let content = super::decode_content(
+    let (content, encoding) = super::decode_content(
         &content_buf[..],
         Version::Id3v23,
         id,
         flags.contains(Flags::COMPRESSION),
         false,
     )?;
-    let frame = Frame::with_content(id, content);
+    let frame = Frame::with_content(id, content).set_encoding(encoding);
     Ok(Some((10 + content_size, frame)))
 }
 
@@ -68,7 +68,7 @@ pub fn encode(mut writer: impl io::Write, frame: &Frame, flags: Flags) -> crate:
             &mut encoder,
             frame.content(),
             Version::Id3v23,
-            Encoding::UTF16,
+            frame.encoding().unwrap_or(Encoding::UTF16),
         )?;
         let content_buf = encoder.finish()?;
         (content_buf, 4, Some(content_size))
@@ -78,7 +78,7 @@ pub fn encode(mut writer: impl io::Write, frame: &Frame, flags: Flags) -> crate:
             &mut content_buf,
             frame.content(),
             Version::Id3v23,
-            Encoding::UTF16,
+            frame.encoding().unwrap_or(Encoding::UTF16),
         )?;
         (content_buf, 0, None)
     };

@@ -3,7 +3,6 @@ use crate::frame::{
     Comment, EncapsulatedObject, ExtendedText, Frame, Lyrics, Picture, PictureType,
     SynchronisedLyrics, Timestamp,
 };
-use crate::stream::encoding::Encoding;
 use std::borrow::Cow;
 use std::mem::swap;
 
@@ -107,7 +106,7 @@ pub trait TagLike: private::Sealed {
         let removed = self
             .frames_vec()
             .iter()
-            .position(|frame| frame.unique() == new_frame.unique())
+            .position(|frame| frame.compare(&new_frame))
             .map(|conflict_index| self.frames_vec_mut().remove(conflict_index));
         self.frames_vec_mut().push(new_frame);
         removed
@@ -1176,7 +1175,6 @@ pub trait TagLike: private::Sealed {
             mime_type: mime_type.into(),
             filename: filename.into(),
             data: data.into(),
-            encoding: Encoding::Latin1,
         });
     }
 

@@ -1,4 +1,5 @@
 use crate::error::{Error, ErrorKind};
+use crate::stream::encoding::Encoding;
 use crate::tag::Version;
 use std::fmt;
 use std::str;
@@ -26,17 +27,23 @@ enum ID {
 ///
 /// The [`Content`] must be accompanied by a matching ID. Although this struct allows for invalid
 /// combinations to exist, attempting to encode them will yield an error.
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Debug, Eq, Ord, PartialOrd, Hash)]
 pub struct Frame {
     id: ID,
     content: Content,
     tag_alter_preservation: bool,
     file_alter_preservation: bool,
+    encoding: Option<Encoding>,
 }
 
 impl Frame {
-    pub(crate) fn unique(&self) -> impl Eq + '_ {
-        (&self.id, self.content.unique())
+    /// Check if this Frame is identical to another frame
+    pub(crate) fn compare(&self, other: &Frame) -> bool {
+        self.id == other.id
+            && self.content.unique() == other.content.unique()
+            && (self.encoding.is_none()
+                || other.encoding.is_none()
+                || self.encoding == other.encoding)
     }
 
     pub(crate) fn validate(&self) -> crate::Result<()> {
@@ -113,7 +120,14 @@ impl Frame {
             content,
             tag_alter_preservation: false,
             file_alter_preservation: false,
+            encoding: None,
         }
+    }
+
+    /// Sets the encoding for this frame.
+    pub fn set_encoding(mut self, encoding: Option<Encoding>) -> Self {
+        self.encoding = encoding;
+        self
     }
 
     /// Creates a new text frame with the specified ID and text content.
@@ -191,6 +205,11 @@ impl Frame {
     /// Sets the file_alter_preservation flag.
     pub fn set_file_alter_preservation(&mut self, file_alter_preservation: bool) {
         self.file_alter_preservation = file_alter_preservation;
+    }
+
+    /// Returns the encoding of this frame
+    pub fn encoding(&self) -> Option<Encoding> {
+        self.encoding
     }
 
     /// Returns the name of the frame.
@@ -370,6 +389,12 @@ impl Frame {
 
             v => v,
         }
+    }
+}
+
+impl PartialEq for Frame {
+    fn eq(&self, other: &Self) -> bool {
+        self.compare(other)
     }
 }
 
