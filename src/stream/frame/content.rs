@@ -338,7 +338,11 @@ pub fn decode(
     let content = match id {
         "PIC" => decoder.picture_content_v2(),
         "APIC" => decoder.picture_content_v3(),
-        "TXXX" | "TXX" => decoder.extended_text_content(),
+        "TXXX" | "TXX" => {
+            let (content, enc) = decoder.extended_text_content()?;
+            encoding = Some(enc);
+            Ok(content)
+        }
         "WXXX" | "WXX" => decoder.extended_link_content(),
         "COMM" | "COM" => decoder.comment_content(),
         "POPM" | "POP" => decoder.popularimeter_content(),
@@ -548,11 +552,14 @@ impl<'a> Decoder<'a> {
         }))
     }
 
-    fn extended_text_content(mut self) -> crate::Result<Content> {
+    fn extended_text_content(mut self) -> crate::Result<(Content, Encoding)> {
         let encoding = self.encoding()?;
         let description = self.string_delimited(encoding)?;
         let value = self.string_until_eof(encoding)?;
-        Ok(Content::ExtendedText(ExtendedText { description, value }))
+        Ok((
+            Content::ExtendedText(ExtendedText { description, value }),
+            encoding,
+        ))
     }
 
     fn extended_link_content(mut self) -> crate::Result<Content> {
