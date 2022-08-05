@@ -126,6 +126,20 @@ impl Frame {
     }
 
     /// Sets the encoding for this frame.
+    ///
+    /// The encoding is actually a property of individual content and its serialization format.
+    /// Public interfaces of ID3 typically follow Rust conventions such as UTF-8.
+    ///
+    /// # Caveat
+    /// According to the standard, distinct encodings do not count towards uniqueness. However,
+    /// some applications such as Serato do write multiple frames that should not co-exist in a
+    /// single tag and uses the encoding to distinguish between such frames.
+    ///
+    /// When set using this function, the encoding influences the way uniqueness is determined and
+    /// using other interfaces to alter the tag this frame belongs to has the potential to remove
+    /// this or other tags.
+    ///
+    /// After decoding a tag, the initial encoding is only set for TXXX and GEOB frames.
     pub fn set_encoding(mut self, encoding: Option<Encoding>) -> Self {
         self.encoding = encoding;
         self
@@ -209,6 +223,9 @@ impl Frame {
     }
 
     /// Returns the encoding of this frame
+    ///
+    /// # Caveat
+    /// See [`Frame::set_encoding`].
     pub fn encoding(&self) -> Option<Encoding> {
         self.encoding
     }
