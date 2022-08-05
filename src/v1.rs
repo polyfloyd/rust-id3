@@ -215,10 +215,10 @@ impl Tag {
     pub fn read_from(mut reader: impl io::Read + io::Seek) -> crate::Result<Tag> {
         let mut tag_buf = [0; 355];
         let file_len = reader.seek(io::SeekFrom::End(0))?;
-        if file_len >= XTAG_CHUNK.start.abs() as u64 {
+        if file_len >= XTAG_CHUNK.start.unsigned_abs() {
             reader.seek(io::SeekFrom::End(XTAG_CHUNK.start))?;
             reader.read_exact(&mut tag_buf)?;
-        } else if file_len >= TAG_CHUNK.start.abs() as u64 {
+        } else if file_len >= TAG_CHUNK.start.unsigned_abs() {
             let l = tag_buf.len() as i64;
             reader.seek(io::SeekFrom::End(TAG_CHUNK.start))?;
             reader.read_exact(&mut tag_buf[(l + TAG_CHUNK.start) as usize..])?;
@@ -309,7 +309,7 @@ impl Tag {
     pub fn remove(file: &mut fs::File) -> crate::Result<bool> {
         let cur_pos = file.seek(io::SeekFrom::Current(0))?;
         let file_len = file.metadata()?.len();
-        let has_ext_tag = if file_len >= XTAG_CHUNK.start.abs() as u64 {
+        let has_ext_tag = if file_len >= XTAG_CHUNK.start.unsigned_abs() as u64 {
             file.seek(io::SeekFrom::End(XTAG_CHUNK.start))?;
             let mut b = [0; 4];
             file.read_exact(&mut b)?;
@@ -317,7 +317,7 @@ impl Tag {
         } else {
             false
         };
-        let has_tag = if file_len >= TAG_CHUNK.start.abs() as u64 {
+        let has_tag = if file_len >= TAG_CHUNK.start.unsigned_abs() as u64 {
             file.seek(io::SeekFrom::End(TAG_CHUNK.start))?;
             let mut b = [0; 3];
             file.read_exact(&mut b)?;
@@ -327,9 +327,9 @@ impl Tag {
         };
 
         let truncate_to = if has_ext_tag && has_tag {
-            Some(file_len - XTAG_CHUNK.start.abs() as u64)
+            Some(file_len - XTAG_CHUNK.start.unsigned_abs() as u64)
         } else if has_tag {
-            Some(file_len - TAG_CHUNK.start.abs() as u64)
+            Some(file_len - TAG_CHUNK.start.unsigned_abs() as u64)
         } else {
             None
         };

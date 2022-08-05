@@ -106,7 +106,7 @@ impl Frame {
     /// If the id's length is not 3 or 4 bytes long.
     pub fn with_content(id: impl AsRef<str>, content: Content) -> Self {
         assert!({
-            let l = id.as_ref().bytes().count();
+            let l = id.as_ref().len();
             l == 3 || l == 4
         });
         Frame {
