@@ -1,3 +1,9 @@
+## v1.3.0 (2022-08-05)
+
+### Feat
+
+- Store encoding in Frame for TXXX and GEOB (fixes #97)
+
 ## v1.2.1 (2022-06-28)
 
 ### Fix
