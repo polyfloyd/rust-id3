@@ -50,14 +50,14 @@ pub fn decode(mut reader: impl io::Read) -> crate::Result<Option<(usize, Frame)>
         content_size
     };
 
-    let content = super::decode_content(
+    let (content, encoding) = super::decode_content(
         reader.take(read_size as u64),
         Version::Id3v24,
         id,
         flags.contains(Flags::COMPRESSION),
         flags.contains(Flags::UNSYNCHRONISATION),
     )?;
-    let frame = Frame::with_content(id, content);
+    let frame = Frame::with_content(id, content).set_encoding(encoding);
     Ok(Some((10 + content_size, frame)))
 }
 
@@ -69,7 +69,7 @@ pub fn encode(mut writer: impl io::Write, frame: &Frame, flags: Flags) -> crate:
                 &mut encoder,
                 frame.content(),
                 Version::Id3v24,
-                Encoding::UTF8,
+                frame.encoding().unwrap_or(Encoding::UTF8),
             )?;
             let content_buf = encoder.finish()?;
             let cd = if flags.contains(Flags::DATA_LENGTH_INDICATOR) {
@@ -84,7 +84,7 @@ pub fn encode(mut writer: impl io::Write, frame: &Frame, flags: Flags) -> crate:
                 &mut content_buf,
                 frame.content(),
                 Version::Id3v24,
-                Encoding::UTF8,
+                frame.encoding().unwrap_or(Encoding::UTF8),
             )?;
             (content_buf, 0, None)
         };

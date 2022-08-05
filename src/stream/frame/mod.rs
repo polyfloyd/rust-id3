@@ -1,5 +1,6 @@
 use crate::frame::Content;
 use crate::frame::Frame;
+use crate::stream::encoding::Encoding;
 use crate::stream::unsynch;
 use crate::tag::Version;
 use flate2::read::ZlibDecoder;
@@ -25,7 +26,7 @@ fn decode_content(
     id: &str,
     compression: bool,
     unsynchronisation: bool,
-) -> crate::Result<Content> {
+) -> crate::Result<(Content, Option<Encoding>)> {
     if unsynchronisation {
         let reader_unsynch = unsynch::Reader::new(reader);
         if compression {
@@ -114,7 +115,9 @@ mod tests {
         data.push(encoding as u8);
         data.extend(Encoding::UTF16.encode(text).into_iter());
 
-        let content = decode_content(&data[..], Version::Id3v22, id, false, false).unwrap();
+        let content = decode_content(&data[..], Version::Id3v22, id, false, false)
+            .unwrap()
+            .0;
         let frame = Frame::with_content(id, content);
 
         let mut bytes = Vec::new();
@@ -137,7 +140,9 @@ mod tests {
         data.push(encoding as u8);
         data.extend(Encoding::UTF16.encode(text).into_iter());
 
-        let content = decode_content(&data[..], Version::Id3v23, id, false, false).unwrap();
+        let content = decode_content(&data[..], Version::Id3v23, id, false, false)
+            .unwrap()
+            .0;
         let frame = Frame::with_content(id, content);
 
         let mut bytes = Vec::new();
@@ -161,7 +166,9 @@ mod tests {
         data.push(encoding as u8);
         data.extend(text.bytes());
 
-        let content = decode_content(&data[..], Version::Id3v24, id, false, false).unwrap();
+        let content = decode_content(&data[..], Version::Id3v24, id, false, false)
+            .unwrap()
+            .0;
         let mut frame = Frame::with_content(id, content);
         frame.set_tag_alter_preservation(true);
         frame.set_file_alter_preservation(true);

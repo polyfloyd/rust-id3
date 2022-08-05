@@ -16,8 +16,9 @@ pub fn decode(mut reader: impl io::Read) -> crate::Result<Option<(usize, Frame)>
     let sizebytes = &frame_header[3..6];
     let read_size =
         (u32::from(sizebytes[0]) << 16) | (u32::from(sizebytes[1]) << 8) | u32::from(sizebytes[2]);
-    let content = super::content::decode(id, Version::Id3v22, reader.take(u64::from(read_size)))?;
-    let frame = Frame::with_content(id, content);
+    let (content, encoding) =
+        super::content::decode(id, Version::Id3v22, reader.take(u64::from(read_size)))?;
+    let frame = Frame::with_content(id, content).set_encoding(encoding);
     Ok(Some((6 + read_size as usize, frame)))
 }
 
@@ -27,7 +28,7 @@ pub fn encode(mut writer: impl io::Write, frame: &Frame) -> crate::Result<usize>
         &mut content_buf,
         frame.content(),
         Version::Id3v22,
-        Encoding::UTF16,
+        frame.encoding().unwrap_or(Encoding::UTF16),
     )?;
     assert_ne!(0, content_buf.len());
     let id = frame.id_for_version(Version::Id3v22).ok_or_else(|| {

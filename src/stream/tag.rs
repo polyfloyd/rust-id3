@@ -376,7 +376,6 @@ mod tests {
         MpegLocationLookupTableReference, Picture, PictureType, Popularimeter, SynchronisedLyrics,
         SynchronisedLyricsType, TimestampFormat, Unknown,
     };
-    use crate::stream::encoding::Encoding;
     use std::fs;
     use std::io::{self, Read};
 
@@ -395,7 +394,6 @@ mod tests {
             filename: "application/octet-stream".to_string(),
             description: "".to_string(),
             data: b"\xC0\xFF\xEE\x00".to_vec(),
-            encoding: Encoding::UTF8,
         });
         let mut image_data = Vec::new();
         fs::File::open("testdata/image.jpg")
