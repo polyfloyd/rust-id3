@@ -1,3 +1,4 @@
+#[cfg(feature = "encode")]
 use crate::error::{Error, ErrorKind};
 use crate::stream::encoding::Encoding;
 use crate::tag::Version;
@@ -47,6 +48,7 @@ impl Frame {
                 || self.encoding == other.encoding)
     }
 
+    #[cfg(feature = "encode")]
     pub(crate) fn validate(&self) -> crate::Result<()> {
         // The valid/invalid ID enum exists to be able to read and write back unknown and possibly
         // invalid IDs. If it can be read, it can also be written again.

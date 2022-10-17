@@ -6,25 +6,31 @@
 //! "RIFF-chunk" which stores an ID3 tag.
 
 use std::cmp;
-use std::cmp::Ordering;
 use std::fs;
-use std::io::{self, Write};
+use std::io;
+#[cfg(feature = "encode")]
+use std::io::Write;
 use std::ops;
 
+#[cfg(feature = "encode")]
 const COPY_BUF_SIZE: usize = 65536;
 
 /// Refer to the module documentation.
 pub trait Storage<'a> {
     type Reader: io::Read + io::Seek + 'a;
+
+    #[cfg(feature = "encode")]
     type Writer: io::Write + io::Seek + 'a;
 
     /// Opens the storage for reading.
     fn reader(&'a mut self) -> io::Result<Self::Reader>;
+
     /// Opens the storage for writing.
     ///
     /// The written data is comitted to persistent storage when the
     /// writer is dropped, altough this will ignore any errors. The caller must manually commit by
     /// using `io::Write::flush` to check for errors.
+    #[cfg(feature = "encode")]
     fn writer(&'a mut self) -> io::Result<Self::Writer>;
 }
 
@@ -74,6 +80,8 @@ where
     F: StorageFile,
 {
     /// Creates a new storage.
+    // This is marked as unused without the `encode` feature
+    #[allow(dead_code)]
     pub fn new(file: F, region: ops::Range<u64>) -> PlainStorage<F> {
         PlainStorage { file, region }
     }
@@ -84,6 +92,8 @@ where
     F: StorageFile + 'a,
 {
     type Reader = PlainReader<'a, F>;
+
+    #[cfg(feature = "encode")]
     type Writer = PlainWriter<'a, F>;
 
     fn reader(&'a mut self) -> io::Result<Self::Reader> {
@@ -91,6 +101,7 @@ where
         Ok(PlainReader::<'a, F> { storage: self })
     }
 
+    #[cfg(feature = "encode")]
     fn writer(&'a mut self) -> io::Result<Self::Writer> {
         self.file.seek(io::SeekFrom::Start(self.region.start))?;
         Ok(PlainWriter::<'a, F> {
@@ -151,6 +162,7 @@ where
     }
 }
 
+#[cfg(feature = "encode")]
 pub struct PlainWriter<'a, F>
 where
     F: StorageFile + 'a,
@@ -162,6 +174,7 @@ where
     buffer_changed: bool,
 }
 
+#[cfg(feature = "encode")]
 impl<'a, F> io::Write for PlainWriter<'a, F>
 where
     F: StorageFile,
@@ -173,6 +186,8 @@ where
     }
 
     fn flush(&mut self) -> io::Result<()> {
+        use std::cmp::Ordering;
+
         // Check whether the buffer and file are out of sync.
         if !self.buffer_changed {
             return Ok(());
@@ -258,6 +273,7 @@ where
     }
 }
 
+#[cfg(feature = "encode")]
 impl<'a, F> io::Seek for PlainWriter<'a, F>
 where
     F: StorageFile,
@@ -267,6 +283,7 @@ where
     }
 }
 
+#[cfg(feature = "encode")]
 impl<'a, F> Drop for PlainWriter<'a, F>
 where
     F: StorageFile,

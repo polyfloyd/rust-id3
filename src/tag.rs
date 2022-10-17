@@ -3,15 +3,20 @@ use crate::frame::{
     Chapter, Comment, EncapsulatedObject, ExtendedLink, ExtendedText, Frame, Lyrics, Picture,
     SynchronisedLyrics,
 };
-use crate::storage::{PlainStorage, Storage};
 use crate::stream;
 use crate::taglike::TagLike;
 use crate::v1;
 use std::fmt;
 use std::fs::{self, File};
-use std::io::{self, BufReader, Write};
+use std::io::{self, BufReader};
 use std::iter::{FromIterator, Iterator};
 use std::path::Path;
+
+#[cfg(feature = "encode")]
+use {
+    crate::storage::{PlainStorage, Storage},
+    std::io::Write,
+};
 
 /// Denotes the version of a tag.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -108,6 +113,7 @@ impl<'a> Tag {
     /// Removes an ID3v2 tag from the file at the specified path.
     ///
     /// Returns true if the file initially contained a tag.
+    #[cfg(feature = "encode")]
     pub fn remove_from_path(path: impl AsRef<Path>) -> crate::Result<bool> {
         let mut file = fs::OpenOptions::new()
             .read(true)
@@ -121,6 +127,7 @@ impl<'a> Tag {
     /// Removes an ID3v2 tag from the specified file.
     ///
     /// Returns true if the file initially contained a tag.
+    #[cfg(feature = "encode")]
     pub fn remove_from_file(mut file: &mut fs::File) -> crate::Result<bool> {
         let location = match stream::tag::locate_id3v2(&mut file)? {
             Some(l) => l,
@@ -180,6 +187,7 @@ impl<'a> Tag {
     ///
     /// Note that the plain tag is written, regardless of the original contents. To safely encode a
     /// tag to an MP3 file, use `Tag::write_to_path`.
+    #[cfg(feature = "encode")]
     pub fn write_to(&self, writer: impl io::Write, version: Version) -> crate::Result<()> {
         stream::tag::Encoder::new()
             .version(version)
@@ -189,6 +197,7 @@ impl<'a> Tag {
     /// Attempts to write the ID3 tag from the file at the indicated path. If the specified path is
     /// the same path which the tag was read from, then the tag will be written to the padding if
     /// possible.
+    #[cfg(feature = "encode")]
     pub fn write_to_path(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
         let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
         #[allow(clippy::reversed_empty_ranges)]
@@ -204,6 +213,7 @@ impl<'a> Tag {
     }
 
     /// Overwrite WAV file ID3 chunk in a file
+    #[cfg(feature = "encode")]
     pub fn write_to_aiff_path(
         &self,
         path: impl AsRef<Path>,
@@ -221,11 +231,13 @@ impl<'a> Tag {
     }
 
     /// Overwrite AIFF file ID3 chunk in a file. The file must be opened read/write.
+    #[cfg(feature = "encode")]
     pub fn write_to_aiff_file(&self, file: &mut fs::File, version: Version) -> crate::Result<()> {
         chunk::write_id3_chunk_file::<chunk::AiffFormat>(file, self, version)
     }
 
     /// Overwrite WAV file ID3 chunk
+    #[cfg(feature = "encode")]
     pub fn write_to_wav_path(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
         let mut file = fs::OpenOptions::new()
             .read(true)
@@ -239,6 +251,7 @@ impl<'a> Tag {
     }
 
     /// Overwrite AIFF file ID3 chunk in a file. The file must be opened read/write.
+    #[cfg(feature = "encode")]
     pub fn write_to_wav_file(&self, file: &mut fs::File, version: Version) -> crate::Result<()> {
         chunk::write_id3_chunk_file::<chunk::WavFormat>(file, self, version)
     }

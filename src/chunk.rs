@@ -1,12 +1,16 @@
-use crate::storage::{PlainStorage, Storage};
-use crate::{Error, ErrorKind, Tag, Version};
+use crate::{Error, ErrorKind, Tag};
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
 use std::convert::TryFrom;
 use std::fmt;
-use std::fs;
-use std::io::prelude::*;
-use std::io::{BufReader, Seek, SeekFrom};
+use std::io::SeekFrom;
 use std::{convert::TryInto, io};
+#[cfg(feature = "encode")]
+use {
+    crate::storage::{PlainStorage, Storage},
+    std::fs,
+    std::io::prelude::*,
+    std::io::{BufReader, Seek},
+};
 
 const TAG_LEN: u32 = 4; // Size of a tag.
 const SIZE_LEN: u32 = 4; // Size of a 32 bits integer.
@@ -35,10 +39,11 @@ where
 
 /// Writes a tag to the given file. If the file contains no previous tag data, a new ID3
 /// chunk is created. Otherwise, the tag is overwritten in place.
+#[cfg(feature = "encode")]
 pub fn write_id3_chunk_file<F: ChunkFormat>(
     mut file: &mut fs::File,
     tag: &Tag,
-    version: Version,
+    version: crate::Version,
 ) -> crate::Result<()> {
     // Locate relevant chunks:
     let (mut root_chunk, id3_chunk_option) = locate_relevant_chunks::<F, _>(&mut file)?;
@@ -149,6 +154,7 @@ pub fn write_id3_chunk_file<F: ChunkFormat>(
 
 /// Locates the root and ID3 chunks, returning their headers. The ID3 chunk may not be
 /// present. Returns a pair of (root chunk header, ID3 header).
+#[cfg(feature = "encode")]
 fn locate_relevant_chunks<F, R>(mut input: R) -> crate::Result<(ChunkHeader, Option<ChunkHeader>)>
 where
     F: ChunkFormat,
@@ -363,6 +369,7 @@ impl ChunkHeader {
     /// |-------+------+-------------------------------|
     /// | tag   |    4 | chunk type                    |
     /// | size  |    4 | 32 bits little endian integer |
+    #[cfg(feature = "encode")]
     pub fn write_to<F, W>(&self, mut writer: W) -> io::Result<()>
     where
         F: ChunkFormat,

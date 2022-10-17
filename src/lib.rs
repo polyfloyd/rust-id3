@@ -1,4 +1,6 @@
 #![doc = include_str!("../README.md")]
+//! ## Crate feature flags
+#![doc = document_features::document_features!()]
 #![deny(missing_docs)]
 #![deny(clippy::all)]
 
@@ -9,7 +11,9 @@
 
 pub use crate::error::{partial_tag_ok, Error, ErrorKind, Result};
 pub use crate::frame::{Content, Frame, Timestamp};
+#[cfg(feature = "encode")]
 pub use crate::stream::encoding::Encoding;
+#[cfg(feature = "encode")]
 pub use crate::stream::tag::Encoder;
 pub use crate::tag::{Tag, Version};
 pub use crate::taglike::TagLike;

@@ -1,16 +1,22 @@
-use crate::storage::{PlainStorage, Storage};
 use crate::stream::{frame, unsynch};
 use crate::tag::{Tag, Version};
 use crate::taglike::TagLike;
 use crate::{Error, ErrorKind};
 use bitflags::bitflags;
-use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
+use byteorder::{BigEndian, ByteOrder};
 use std::cmp;
-use std::fs;
-use std::io::{self, Read, Write};
+use std::io::{self, Read};
 use std::ops::Range;
-use std::path::Path;
+#[cfg(feature = "encode")]
+use {
+    crate::storage::{PlainStorage, Storage},
+    byteorder::WriteBytesExt,
+    std::fs,
+    std::io::Write,
+    std::path::Path,
+};
 
+#[cfg(feature = "encode")]
 static DEFAULT_FILE_DISCARD: &[&str] = &[
     "AENC", "ETCO", "EQUA", "MLLT", "POSS", "SYLT", "SYTC", "RVAD", "TENC", "TLEN", "TSIZ",
 ];
@@ -207,6 +213,7 @@ pub fn decode_v2_frames(mut reader: impl io::Read) -> crate::Result<Tag> {
 
 /// The `Encoder` may be used to encode tags with custom settings.
 #[derive(Clone, Debug)]
+#[cfg(feature = "encode")]
 pub struct Encoder {
     version: Version,
     unsynchronisation: bool,
@@ -215,6 +222,7 @@ pub struct Encoder {
     padding: Option<usize>,
 }
 
+#[cfg(feature = "encode")]
 impl Encoder {
     /// Constructs a new `Encoder` with the following configuration:
     ///
@@ -344,6 +352,7 @@ impl Encoder {
     }
 }
 
+#[cfg(feature = "encode")]
 impl Default for Encoder {
     fn default() -> Self {
         Self::new()

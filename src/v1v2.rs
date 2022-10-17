@@ -1,4 +1,4 @@
-use crate::{v1, Error, ErrorKind, Tag, Version};
+use crate::{v1, Error, ErrorKind, Tag};
 use std::fs::File;
 use std::path::Path;
 
@@ -48,7 +48,12 @@ pub fn read_from_path(path: impl AsRef<Path>) -> crate::Result<Tag> {
 ///
 /// If any ID3v1 tag is present it will be REMOVED as it is not able to fully represent a ID3v2
 /// tag.
-pub fn write_to_path(path: impl AsRef<Path>, tag: &Tag, version: Version) -> crate::Result<()> {
+#[cfg(feature = "encode")]
+pub fn write_to_path(
+    path: impl AsRef<Path>,
+    tag: &Tag,
+    version: crate::Version,
+) -> crate::Result<()> {
     tag.write_to_path(&path, version)?;
     v1::Tag::remove_from_path(path)?;
     Ok(())
@@ -57,6 +62,7 @@ pub fn write_to_path(path: impl AsRef<Path>, tag: &Tag, version: Version) -> cra
 /// Ensures that both ID3v1 and ID3v2 are not present in the specified file.
 ///
 /// Returns [`FormatVersion`] representing the previous state.
+#[cfg(feature = "encode")]
 pub fn remove_from_path(path: impl AsRef<Path>) -> crate::Result<FormatVersion> {
     let v2 = Tag::remove_from_path(&path)?;
     let v1 = v1::Tag::remove_from_path(path)?;
@@ -135,7 +141,7 @@ mod tests {
 
         let mut tag = read_from_path(&tmp).unwrap();
         tag.set_artist("High Contrast");
-        write_to_path(&tmp, &tag, Version::Id3v24).unwrap();
+        write_to_path(&tmp, &tag, crate::Version::Id3v24).unwrap();
 
         assert_eq!(is_candidate_path(&tmp).unwrap(), FormatVersion::Id3v2);
     }
