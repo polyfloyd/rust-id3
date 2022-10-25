@@ -138,10 +138,25 @@ impl<'a> Tag {
         stream::tag::decode(reader)
     }
 
+    /// Attempts to read an ID3 tag via Tokio from the reader.
+    #[cfg(feature = "tokio")]
+    pub async fn async_read_from(
+        reader: impl tokio::io::AsyncRead + std::marker::Unpin,
+    ) -> crate::Result<Tag> {
+        stream::tag::async_decode(reader).await
+    }
+
     /// Attempts to read an ID3 tag from the file at the indicated path.
     pub fn read_from_path(path: impl AsRef<Path>) -> crate::Result<Tag> {
         let file = BufReader::new(File::open(path)?);
         Tag::read_from(file)
+    }
+
+    /// Attempts to read an ID3 tag via Tokio from the file at the indicated path.
+    #[cfg(feature = "tokio")]
+    pub async fn async_read_from_path(path: impl AsRef<Path>) -> crate::Result<Tag> {
+        let file = tokio::io::BufReader::new(tokio::fs::File::open(path).await?);
+        stream::tag::async_decode(file).await
     }
 
     /// Reads an AIFF stream and returns any present ID3 tag.
