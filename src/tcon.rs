@@ -5,10 +5,12 @@ use std::mem::swap;
 #[derive(Copy, Clone)]
 pub struct Parser<'a>(&'a str);
 
+type ParseFunc<P, T> = dyn Fn(&mut P) -> Result<T, ()>;
+
 impl<'a> Parser<'a> {
     pub fn parse_tcon(s: &'a str) -> Cow<str> {
         let mut parser = Parser(s);
-        let v1_genre_ids = match parser.one_or_more(Self::content_type) {
+        let v1_genre_ids = match parser.one_or_more(&Self::content_type) {
             Ok(v) => v,
             Err(_) => return Cow::Borrowed(parser.0),
         };
@@ -64,7 +66,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn one_or_more<T>(&mut self, func: impl Fn(&mut Self) -> Result<T, ()>) -> Result<Vec<T>, ()> {
+    fn one_or_more<T>(&mut self, func: &ParseFunc<Self, T>) -> Result<Vec<T>, ()> {
         let mut values = Vec::new();
         while let Ok(v) = func(self) {
             values.push(v);
@@ -75,10 +77,7 @@ impl<'a> Parser<'a> {
         Ok(values)
     }
 
-    fn first_of<T, const N: usize>(
-        &mut self,
-        funcs: [&dyn Fn(&mut Self) -> Result<T, ()>; N],
-    ) -> Result<T, ()> {
+    fn first_of<T, const N: usize>(&mut self, funcs: [&ParseFunc<Self, T>; N]) -> Result<T, ()> {
         for func in funcs {
             let mut p = *self;
             if let Ok(v) = func(&mut p) {

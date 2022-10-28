@@ -109,8 +109,8 @@ impl Content {
 
     /// Returns the `Text` or None if the value is not `Text`.
     pub fn text(&self) -> Option<&str> {
-        match *self {
-            Content::Text(ref content) => Some(&*content),
+        match self {
+            Content::Text(content) => Some(content),
             _ => None,
         }
     }
@@ -124,64 +124,64 @@ impl Content {
 
     /// Returns the `ExtendedText` or None if the value is not `ExtendedText`.
     pub fn extended_text(&self) -> Option<&ExtendedText> {
-        match *self {
-            Content::ExtendedText(ref content) => Some(content),
+        match self {
+            Content::ExtendedText(content) => Some(content),
             _ => None,
         }
     }
 
     /// Returns the `Link` or None if the value is not `Link`.
     pub fn link(&self) -> Option<&str> {
-        match *self {
-            Content::Link(ref content) => Some(content),
+        match self {
+            Content::Link(content) => Some(content),
             _ => None,
         }
     }
 
     /// Returns the `ExtendedLink` or None if the value is not `ExtendedLink`.
     pub fn extended_link(&self) -> Option<&ExtendedLink> {
-        match *self {
-            Content::ExtendedLink(ref content) => Some(content),
+        match self {
+            Content::ExtendedLink(content) => Some(content),
             _ => None,
         }
     }
 
     /// Returns the `EncapsulatedObject` or None if the value is not `EncapsulatedObject`.
     pub fn encapsulated_object(&self) -> Option<&EncapsulatedObject> {
-        match *self {
-            Content::EncapsulatedObject(ref content) => Some(content),
+        match self {
+            Content::EncapsulatedObject(content) => Some(content),
             _ => None,
         }
     }
 
     /// Returns the `Comment` or None if the value is not `Comment`.
     pub fn comment(&self) -> Option<&Comment> {
-        match *self {
-            Content::Comment(ref content) => Some(content),
+        match self {
+            Content::Comment(content) => Some(content),
             _ => None,
         }
     }
 
     /// Returns the `Lyrics` or None if the value is not `Lyrics`.
     pub fn lyrics(&self) -> Option<&Lyrics> {
-        match *self {
-            Content::Lyrics(ref content) => Some(content),
+        match self {
+            Content::Lyrics(content) => Some(content),
             _ => None,
         }
     }
 
     /// Returns the `SynchronisedLyrics` or None if the value is not `SynchronisedLyrics`.
     pub fn synchronised_lyrics(&self) -> Option<&SynchronisedLyrics> {
-        match *self {
-            Content::SynchronisedLyrics(ref content) => Some(content),
+        match self {
+            Content::SynchronisedLyrics(content) => Some(content),
             _ => None,
         }
     }
 
     /// Returns the `Picture` or None if the value is not `Picture`.
     pub fn picture(&self) -> Option<&Picture> {
-        match *self {
-            Content::Picture(ref picture) => Some(picture),
+        match self {
+            Content::Picture(picture) => Some(picture),
             _ => None,
         }
     }
