@@ -76,14 +76,7 @@ impl Header {
     fn decode(mut reader: impl io::Read) -> crate::Result<Header> {
         let mut header = [0; 10];
         let nread = reader.read(&mut header)?;
-        if nread < header.len() {
-            return Err(Error::new(
-                ErrorKind::NoTag,
-                "reader is not large enough to contain a id3 tag",
-            ));
-        }
-
-        let base_header = Self::decode_base_header(header)?;
+        let base_header = Self::decode_base_header(&header[..nread])?;
 
         // TODO: actually use the extended header data.
         let ext_header_size = if base_header.flags.contains(Flags::EXTENDED_HEADER) {
@@ -123,14 +116,7 @@ impl Header {
 
         let mut header = [0; 10];
         let nread = reader.read(&mut header).await?;
-        if nread < header.len() {
-            return Err(Error::new(
-                ErrorKind::NoTag,
-                "reader is not large enough to contain a id3 tag",
-            ));
-        }
-
-        let base_header = Self::decode_base_header(header)?;
+        let base_header = Self::decode_base_header(&header[..nread])?;
 
         // TODO: actually use the extended header data.
         let ext_header_size = if base_header.flags.contains(Flags::EXTENDED_HEADER) {
@@ -162,7 +148,14 @@ impl Header {
         Ok(base_header.with_ext_header(ext_header_size))
     }
 
-    fn decode_base_header(header: [u8; 10]) -> crate::Result<HeaderBuilder> {
+    fn decode_base_header(header: &[u8]) -> crate::Result<HeaderBuilder> {
+        if header.len() != 10 {
+            return Err(Error::new(
+                ErrorKind::NoTag,
+                "reader is not large enough to contain a id3 tag",
+            ));
+        }
+
         if &header[0..3] != b"ID3" {
             return Err(Error::new(
                 ErrorKind::NoTag,
