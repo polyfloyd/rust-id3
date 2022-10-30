@@ -31,6 +31,24 @@ bitflags! {
     }
 }
 
+/// Used for sharing code between sync/async parsers, which is mainly complicated by ext_headers.
+struct HeaderBuilder {
+    version: Version,
+    flags: Flags,
+    tag_size: u32,
+}
+
+impl HeaderBuilder {
+    fn with_ext_header(self, size: u32) -> Header {
+        Header {
+            version: self.version,
+            flags: self.flags,
+            tag_size: self.tag_size,
+            ext_header_size: size,
+        }
+    }
+}
+
 struct Header {
     version: Version,
     flags: Flags,
@@ -58,7 +76,87 @@ impl Header {
     fn decode(mut reader: impl io::Read) -> crate::Result<Header> {
         let mut header = [0; 10];
         let nread = reader.read(&mut header)?;
-        if nread < header.len() || &header[0..3] != b"ID3" {
+        let base_header = Self::decode_base_header(&header[..nread])?;
+
+        // TODO: actually use the extended header data.
+        let ext_header_size = if base_header.flags.contains(Flags::EXTENDED_HEADER) {
+            let mut ext_header = [0; 6];
+            reader.read_exact(&mut ext_header)?;
+            let ext_size = unsynch::decode_u32(BigEndian::read_u32(&ext_header[0..4]));
+            // The extended header size includes itself and always has at least 2 bytes following.
+            if ext_size < 6 {
+                return Err(Error::new(
+                    ErrorKind::Parsing,
+                    "Extended header requires has a minimum size of 6",
+                ));
+            }
+
+            let _ext_flags = ExtFlags::from_bits_truncate(ext_header[5]);
+
+            let ext_remaining_size = ext_size - ext_header.len() as u32;
+            let mut ext_header = Vec::with_capacity(cmp::min(ext_remaining_size as usize, 0xffff));
+            reader
+                .by_ref()
+                .take(ext_remaining_size as u64)
+                .read_to_end(&mut ext_header)?;
+
+            ext_size
+        } else {
+            0
+        };
+
+        Ok(base_header.with_ext_header(ext_header_size))
+    }
+
+    #[cfg(any(feature = "tokio", test))]
+    async fn async_decode(
+        mut reader: impl tokio::io::AsyncRead + std::marker::Unpin,
+    ) -> crate::Result<Header> {
+        use tokio::io::AsyncReadExt;
+
+        let mut header = [0; 10];
+        let nread = reader.read(&mut header).await?;
+        let base_header = Self::decode_base_header(&header[..nread])?;
+
+        // TODO: actually use the extended header data.
+        let ext_header_size = if base_header.flags.contains(Flags::EXTENDED_HEADER) {
+            let mut ext_header = [0; 6];
+            reader.read_exact(&mut ext_header).await?;
+            let ext_size = unsynch::decode_u32(BigEndian::read_u32(&ext_header[0..4]));
+            // The extended header size includes itself and always has at least 2 bytes following.
+            if ext_size < 6 {
+                return Err(Error::new(
+                    ErrorKind::Parsing,
+                    "Extended header requires has a minimum size of 6",
+                ));
+            }
+
+            let _ext_flags = ExtFlags::from_bits_truncate(ext_header[5]);
+
+            let ext_remaining_size = ext_size - ext_header.len() as u32;
+            let mut ext_header = Vec::with_capacity(cmp::min(ext_remaining_size as usize, 0xffff));
+            reader
+                .take(ext_remaining_size as u64)
+                .read_to_end(&mut ext_header)
+                .await?;
+
+            ext_size
+        } else {
+            0
+        };
+
+        Ok(base_header.with_ext_header(ext_header_size))
+    }
+
+    fn decode_base_header(header: &[u8]) -> crate::Result<HeaderBuilder> {
+        if header.len() != 10 {
+            return Err(Error::new(
+                ErrorKind::NoTag,
+                "reader is not large enough to contain a id3 tag",
+            ));
+        }
+
+        if &header[0..3] != b"ID3" {
             return Err(Error::new(
                 ErrorKind::NoTag,
                 "reader does not contain an id3 tag",
@@ -92,38 +190,10 @@ impl Header {
             ));
         }
 
-        // TODO: actually use the extended header data.
-        let ext_header_size = if flags.contains(Flags::EXTENDED_HEADER) {
-            let mut ext_header = [0; 6];
-            reader.read_exact(&mut ext_header)?;
-            let ext_size = unsynch::decode_u32(BigEndian::read_u32(&ext_header[0..4]));
-            // The extended header size includes itself and always has at least 2 bytes following.
-            if ext_size < 6 {
-                return Err(Error::new(
-                    ErrorKind::Parsing,
-                    "Extended header requires has a minimum size of 6",
-                ));
-            }
-
-            let _ext_flags = ExtFlags::from_bits_truncate(ext_header[5]);
-
-            let ext_remaining_size = ext_size - ext_header.len() as u32;
-            let mut ext_header = Vec::with_capacity(cmp::min(ext_remaining_size as usize, 0xffff));
-            reader
-                .by_ref()
-                .take(ext_remaining_size as u64)
-                .read_to_end(&mut ext_header)?;
-
-            ext_size
-        } else {
-            0
-        };
-
-        Ok(Header {
+        Ok(HeaderBuilder {
             version,
             flags,
             tag_size,
-            ext_header_size,
         })
     }
 }
@@ -131,6 +201,31 @@ impl Header {
 pub fn decode(mut reader: impl io::Read) -> crate::Result<Tag> {
     let header = Header::decode(&mut reader)?;
 
+    decode_remaining(reader, header)
+}
+
+#[cfg(any(feature = "tokio", test))]
+pub async fn async_decode(
+    mut reader: impl tokio::io::AsyncRead + std::marker::Unpin,
+) -> crate::Result<Tag> {
+    let header = Header::async_decode(&mut reader).await?;
+
+    let reader = {
+        use tokio::io::AsyncReadExt;
+
+        let mut buf = Vec::new();
+
+        reader
+            .take(header.frame_bytes())
+            .read_to_end(&mut buf)
+            .await?;
+        std::io::Cursor::new(buf)
+    };
+
+    decode_remaining(reader, header)
+}
+
+fn decode_remaining(mut reader: impl io::Read, header: Header) -> crate::Result<Tag> {
     match header.version {
         Version::Id3v22 => {
             // Limit the reader only to the given tag_size, don't return any more bytes after that.
@@ -170,6 +265,7 @@ pub fn decode(mut reader: impl io::Read) -> crate::Result<Tag> {
         Version::Id3v24 => {
             let mut offset = 0;
             let mut tag = Tag::with_version(header.version);
+
             while offset < header.frame_bytes() {
                 let v = match frame::v4::decode(&mut reader) {
                     Ok(v) => v,
@@ -473,10 +569,41 @@ mod tests {
         assert_eq!("image/jpeg", tag.pictures().nth(0).unwrap().mime_type);
     }
 
+    #[tokio::test]
+    async fn read_id3v22_tokio() {
+        let mut file = tokio::fs::File::open("testdata/id3v22.id3").await.unwrap();
+        let tag: Tag = async_decode(&mut file).await.unwrap();
+        assert_eq!("Henry Frottey INTRO", tag.title().unwrap());
+        assert_eq!("Hörbuch & Gesprochene Inhalte", tag.genre().unwrap());
+        assert_eq!(1, tag.disc().unwrap());
+        assert_eq!(27, tag.total_discs().unwrap());
+        assert_eq!(2015, tag.year().unwrap());
+        assert_eq!(
+            PictureType::Other,
+            tag.pictures().nth(0).unwrap().picture_type
+        );
+        assert_eq!("", tag.pictures().nth(0).unwrap().description);
+        assert_eq!("image/jpeg", tag.pictures().nth(0).unwrap().mime_type);
+    }
+
     #[test]
     fn read_id3v23() {
         let mut file = fs::File::open("testdata/id3v23.id3").unwrap();
         let tag = decode(&mut file).unwrap();
+        assert_eq!("Title", tag.title().unwrap());
+        assert_eq!("Genre", tag.genre().unwrap());
+        assert_eq!(1, tag.disc().unwrap());
+        assert_eq!(1, tag.total_discs().unwrap());
+        assert_eq!(
+            PictureType::CoverFront,
+            tag.pictures().nth(0).unwrap().picture_type
+        );
+    }
+
+    #[tokio::test]
+    async fn read_id3v23_tokio() {
+        let mut file = tokio::fs::File::open("testdata/id3v23.id3").await.unwrap();
+        let tag = async_decode(&mut file).await.unwrap();
         assert_eq!("Title", tag.title().unwrap());
         assert_eq!("Genre", tag.genre().unwrap());
         assert_eq!(1, tag.disc().unwrap());
@@ -577,6 +704,19 @@ mod tests {
     fn read_id3v24_extended() {
         let mut file = fs::File::open("testdata/id3v24_ext.id3").unwrap();
         let tag = decode(&mut file).unwrap();
+        assert_eq!("Title", tag.title().unwrap());
+        assert_eq!("Genre", tag.genre().unwrap());
+        assert_eq!("Artist", tag.artist().unwrap());
+        assert_eq!("Album", tag.album().unwrap());
+        assert_eq!(2, tag.track().unwrap());
+    }
+
+    #[tokio::test]
+    async fn read_id3v24_extended_tokio() {
+        let mut file = tokio::fs::File::open("testdata/id3v24_ext.id3")
+            .await
+            .unwrap();
+        let tag = async_decode(&mut file).await.unwrap();
         assert_eq!("Title", tag.title().unwrap());
         assert_eq!("Genre", tag.genre().unwrap());
         assert_eq!("Artist", tag.artist().unwrap());

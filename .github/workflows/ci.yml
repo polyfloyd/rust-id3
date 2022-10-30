@@ -20,7 +20,7 @@ jobs:
     - run: sudo apt install -y ffmpeg
     - run: rustup update
     - run: cargo build
-    - run: cargo test
+    - run: cargo test --all-features
 
   style:
     runs-on: ubuntu-latest
