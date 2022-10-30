@@ -1,3 +1,9 @@
+## v1.4.0 (2022-10-30)
+
+### Feat
+
+- Add tokio support for parsing (#102)
+
 ## v1.3.0 (2022-08-05)
 
 ### Feat
