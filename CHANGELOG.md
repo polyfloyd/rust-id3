@@ -1,3 +1,9 @@
+## v1.5.0 (2022-11-16)
+
+### Feat
+
+- Adds support for reading/writing TDOR frames
+
 ## v1.4.0 (2022-10-30)
 
 ### Feat
