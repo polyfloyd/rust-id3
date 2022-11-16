@@ -563,10 +563,10 @@ mod tests {
         assert_eq!(2015, tag.year().unwrap());
         assert_eq!(
             PictureType::Other,
-            tag.pictures().nth(0).unwrap().picture_type
+            tag.pictures().next().unwrap().picture_type
         );
-        assert_eq!("", tag.pictures().nth(0).unwrap().description);
-        assert_eq!("image/jpeg", tag.pictures().nth(0).unwrap().mime_type);
+        assert_eq!("", tag.pictures().next().unwrap().description);
+        assert_eq!("image/jpeg", tag.pictures().next().unwrap().mime_type);
     }
 
     #[tokio::test]
@@ -580,10 +580,10 @@ mod tests {
         assert_eq!(2015, tag.year().unwrap());
         assert_eq!(
             PictureType::Other,
-            tag.pictures().nth(0).unwrap().picture_type
+            tag.pictures().next().unwrap().picture_type
         );
-        assert_eq!("", tag.pictures().nth(0).unwrap().description);
-        assert_eq!("image/jpeg", tag.pictures().nth(0).unwrap().mime_type);
+        assert_eq!("", tag.pictures().next().unwrap().description);
+        assert_eq!("image/jpeg", tag.pictures().next().unwrap().mime_type);
     }
 
     #[test]
@@ -596,7 +596,7 @@ mod tests {
         assert_eq!(1, tag.total_discs().unwrap());
         assert_eq!(
             PictureType::CoverFront,
-            tag.pictures().nth(0).unwrap().picture_type
+            tag.pictures().next().unwrap().picture_type
         );
     }
 
@@ -610,7 +610,7 @@ mod tests {
         assert_eq!(1, tag.total_discs().unwrap());
         assert_eq!(
             PictureType::CoverFront,
-            tag.pictures().nth(0).unwrap().picture_type
+            tag.pictures().next().unwrap().picture_type
         );
     }
 
@@ -620,7 +620,7 @@ mod tests {
         let tag = decode(&mut file).unwrap();
         assert_eq!(tag.encapsulated_objects().count(), 7);
 
-        let geob = tag.encapsulated_objects().nth(0).unwrap();
+        let geob = tag.encapsulated_objects().next().unwrap();
         assert_eq!(geob.description, "Serato Overview");
         assert_eq!(geob.mime_type, "application/octet-stream");
         assert_eq!(geob.filename, "");
@@ -696,7 +696,7 @@ mod tests {
         assert_eq!(1, tag.total_discs().unwrap());
         assert_eq!(
             PictureType::CoverFront,
-            tag.pictures().nth(0).unwrap().picture_type
+            tag.pictures().next().unwrap().picture_type
         );
     }
 
