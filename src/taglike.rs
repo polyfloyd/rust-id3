@@ -333,6 +333,52 @@ pub trait TagLike: private::Sealed {
         self.remove("TDRL");
     }
 
+    /// Return the content of the TDOR frame, if any
+    ///
+    /// # Example
+    /// ```
+    /// use id3::{Tag, TagLike, Timestamp};
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_original_date_released(Timestamp{ year: 2014, month: None, day: None, hour: None, minute: None, second: None });
+    /// assert_eq!(tag.original_date_released().map(|t| t.year), Some(2014));
+    /// ```
+    fn original_date_released(&self) -> Option<Timestamp> {
+        self.read_timestamp_frame("TDOR")
+    }
+
+    /// Sets the content of the TDOR frame
+    ///
+    /// # Example
+    /// ```
+    /// use id3::{Tag, TagLike, Timestamp};
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_original_date_released(Timestamp{ year: 2014, month: None, day: None, hour: None, minute: None, second: None });
+    /// assert_eq!(tag.original_date_released().map(|t| t.year), Some(2014));
+    /// ```
+    fn set_original_date_released(&mut self, timestamp: Timestamp) {
+        let time_string = timestamp.to_string();
+        self.set_text("TDOR", time_string);
+    }
+
+    /// Remove the content of the TDOR frame
+    ///
+    /// # Example
+    /// ```
+    /// use id3::{Tag, TagLike, Timestamp};
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.set_original_date_released(Timestamp{ year: 2014, month: None, day: None, hour: None, minute: None, second: None });
+    /// assert!(tag.original_date_released().is_some());
+    ///
+    /// tag.remove_original_date_released();
+    /// assert!(tag.original_date_released().is_none());
+    /// ```
+    fn remove_original_date_released(&mut self) {
+        self.remove("TDOR");
+    }
+
     /// Returns the artist (TPE1).
     ///
     /// # Example
