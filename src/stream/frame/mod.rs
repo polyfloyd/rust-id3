@@ -122,7 +122,7 @@ mod tests {
 
         let mut bytes = Vec::new();
         bytes.extend(id.bytes());
-        bytes.extend((&u32_to_bytes(data.len() as u32)[1..]).iter().cloned());
+        bytes.extend((u32_to_bytes(data.len() as u32)[1..]).iter().cloned());
         bytes.extend(data.into_iter());
 
         let mut writer = Vec::new();

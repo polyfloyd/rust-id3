@@ -26,7 +26,7 @@ impl<W: io::Write> Encoder<W> {
     }
 
     fn byte(&mut self, b: u8) -> crate::Result<()> {
-        self.bytes(&[b])
+        self.bytes([b])
     }
 
     fn uint16(&mut self, int: u16) -> crate::Result<()> {

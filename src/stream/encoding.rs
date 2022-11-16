@@ -97,10 +97,10 @@ fn string_to_latin1(text: &str) -> Vec<u8> {
 fn string_to_utf16(text: &str) -> Vec<u8> {
     let mut out = Vec::with_capacity(2 + text.len() * 2);
     if cfg!(target_endian = "little") {
-        out.extend(&[0xFF, 0xFE]); // add little endian BOM
+        out.extend([0xFF, 0xFE]); // add little endian BOM
         out.extend(string_to_utf16le(text));
     } else {
-        out.extend(&[0xFE, 0xFF]); // add big endian BOM
+        out.extend([0xFE, 0xFF]); // add big endian BOM
         out.extend(string_to_utf16be(text));
     }
     out

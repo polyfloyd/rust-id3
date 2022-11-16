@@ -416,7 +416,9 @@ impl PartialEq for Frame {
             && self.content == other.content
             && self.tag_alter_preservation == other.tag_alter_preservation
             && self.file_alter_preservation == other.file_alter_preservation
-            && (self.encoding == None || other.encoding == None || self.encoding == other.encoding)
+            && (self.encoding.is_none()
+                || other.encoding.is_none()
+                || self.encoding == other.encoding)
     }
 }
 
