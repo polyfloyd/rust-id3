@@ -1,3 +1,4 @@
+use crate::frame::content_cmp::ContentCmp::{Comparable, Incomparable, Same};
 use crate::frame::Frame;
 use crate::stream::encoding::Encoding;
 use crate::tag::Version;
@@ -56,32 +57,48 @@ pub enum Content {
 }
 
 impl Content {
-    pub(crate) fn unique(&self) -> impl Eq + '_ {
+    pub(crate) fn unique(&self) -> impl PartialEq + '_ {
         match self {
-            Self::Text(_) => Vec::new(),
-            Self::ExtendedText(extended_text) => vec![Cow::Borrowed(&extended_text.description)],
-            Self::Link(_) => Vec::new(),
-            Self::ExtendedLink(extended_link) => vec![Cow::Borrowed(&extended_link.description)],
-            Self::Popularimeter(popularimeter) => vec![Cow::Borrowed(&popularimeter.user)],
-            Self::Comment(comment) => vec![
-                Cow::Borrowed(&comment.lang),
-                Cow::Borrowed(&comment.description),
-            ],
-            Self::Lyrics(lyrics) => vec![
-                Cow::Borrowed(&lyrics.lang),
-                Cow::Borrowed(&lyrics.description),
-            ],
-            Self::SynchronisedLyrics(synchronised_lyrics) => vec![
-                Cow::Borrowed(&synchronised_lyrics.lang),
-                Cow::Owned(synchronised_lyrics.content_type.to_string()),
-            ],
-            Self::Picture(picture) => vec![Cow::Owned(picture.picture_type.to_string())],
-            Self::EncapsulatedObject(encapsulated_object) => {
-                vec![Cow::Borrowed(&encapsulated_object.description)]
+            Self::Text(_) => Same,
+            Self::ExtendedText(extended_text) => {
+                Comparable(vec![Cow::Borrowed(extended_text.description.as_bytes())])
             }
-            Self::Chapter(chapter) => vec![Cow::Borrowed(&chapter.element_id)],
-            Self::MpegLocationLookupTable(_) => Vec::new(),
-            Self::Unknown(_) => Vec::new(),
+            Self::Link(_) => Same,
+            Self::ExtendedLink(extended_link) => {
+                Comparable(vec![Cow::Borrowed(extended_link.description.as_bytes())])
+            }
+            Self::Popularimeter(popularimeter) => {
+                Comparable(vec![Cow::Borrowed(popularimeter.user.as_bytes())])
+            }
+            Self::Comment(comment) => Comparable(vec![
+                Cow::Borrowed(comment.lang.as_bytes()),
+                Cow::Borrowed(comment.description.as_bytes()),
+            ]),
+            Self::Lyrics(lyrics) => Comparable(vec![
+                Cow::Borrowed(lyrics.lang.as_bytes()),
+                Cow::Borrowed(lyrics.description.as_bytes()),
+            ]),
+            Self::SynchronisedLyrics(synchronised_lyrics) => Comparable(vec![
+                Cow::Borrowed(synchronised_lyrics.lang.as_bytes()),
+                Cow::Owned(
+                    synchronised_lyrics
+                        .content_type
+                        .to_string()
+                        .as_bytes()
+                        .to_owned(),
+                ),
+            ]),
+            Self::Picture(picture) => Comparable(vec![Cow::Owned(
+                picture.picture_type.to_string().as_bytes().to_owned(),
+            )]),
+            Self::EncapsulatedObject(encapsulated_object) => Comparable(vec![Cow::Borrowed(
+                encapsulated_object.description.as_bytes(),
+            )]),
+            Self::Chapter(chapter) => {
+                Comparable(vec![Cow::Borrowed(chapter.element_id.as_bytes())])
+            }
+            Self::MpegLocationLookupTable(_) => Same,
+            Self::Unknown(_) => Incomparable,
         }
     }
 
