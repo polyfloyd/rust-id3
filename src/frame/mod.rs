@@ -40,11 +40,23 @@ pub struct Frame {
 impl Frame {
     /// Check if this Frame is identical to another frame
     pub(crate) fn compare(&self, other: &Frame) -> bool {
-        self.id == other.id
-            && self.content.unique() == other.content.unique()
-            && (self.encoding.is_none()
-                || other.encoding.is_none()
-                || self.encoding == other.encoding)
+        if self.id == other.id {
+            let content_eq = if let ID::Valid(id) = &self.id {
+                let cmp_deeper = if id == "WCOM" || id == "WOAR" {
+                    true
+                } else {
+                    false
+                };
+                self.content.unique(cmp_deeper) == other.content.unique(cmp_deeper)
+            } else {
+                true
+            };
+            content_eq
+                && (self.encoding.is_none()
+                || other.encoding.is_none() || self.encoding == other.encoding)
+        } else {
+            false
+        }
     }
 
     pub(crate) fn validate(&self) -> crate::Result<()> {

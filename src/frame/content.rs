@@ -56,32 +56,61 @@ pub enum Content {
 }
 
 impl Content {
-    pub(crate) fn unique(&self) -> impl Eq + '_ {
-        match self {
-            Self::Text(_) => Vec::new(),
-            Self::ExtendedText(extended_text) => vec![Cow::Borrowed(extended_text.description.as_bytes())],
-            Self::Link(_) => Vec::new(),
-            Self::ExtendedLink(extended_link) => vec![Cow::Borrowed(extended_link.description.as_bytes())],
-            Self::Popularimeter(popularimeter) => vec![Cow::Borrowed(popularimeter.user.as_bytes())],
-            Self::Comment(comment) => vec![
-                Cow::Borrowed(comment.lang.as_bytes()),
-                Cow::Borrowed(comment.description.as_bytes()),
-            ],
-            Self::Lyrics(lyrics) => vec![
-                Cow::Borrowed(lyrics.lang.as_bytes()),
-                Cow::Borrowed(lyrics.description.as_bytes()),
-            ],
-            Self::SynchronisedLyrics(synchronised_lyrics) => vec![
-                Cow::Borrowed(synchronised_lyrics.lang.as_bytes()),
-                Cow::Owned(synchronised_lyrics.content_type.to_string().as_bytes().to_owned()),
-            ],
-            Self::Picture(picture) => vec![Cow::Owned(picture.picture_type.to_string().as_bytes().to_owned())],
-            Self::EncapsulatedObject(encapsulated_object) => {
-                vec![Cow::Borrowed(encapsulated_object.description.as_bytes())]
+    pub(crate) fn unique(&self, deeper: bool) -> impl Eq + '_ {
+        if deeper {
+            match self {
+                Self::Text(text) => vec![Cow::Borrowed(text.as_bytes())],
+                Self::ExtendedText(extended_text) => vec![Cow::Borrowed(extended_text.description.as_bytes())],
+                Self::Link(text) => vec![Cow::Borrowed(text.as_bytes())],
+                Self::ExtendedLink(extended_link) => vec![Cow::Borrowed(extended_link.description.as_bytes())],
+                Self::Popularimeter(popularimeter) => vec![Cow::Borrowed(popularimeter.user.as_bytes())],
+                Self::Comment(comment) => vec![
+                    Cow::Borrowed(comment.lang.as_bytes()),
+                    Cow::Borrowed(comment.description.as_bytes()),
+                ],
+                Self::Lyrics(lyrics) => vec![
+                    Cow::Borrowed(lyrics.lang.as_bytes()),
+                    Cow::Borrowed(lyrics.description.as_bytes()),
+                ],
+                Self::SynchronisedLyrics(synchronised_lyrics) => vec![
+                    Cow::Borrowed(synchronised_lyrics.lang.as_bytes()),
+                    Cow::Owned(synchronised_lyrics.content_type.to_string().as_bytes().to_owned()),
+                ],
+                Self::Picture(picture) => vec![Cow::Owned(picture.picture_type.to_string().as_bytes().to_owned())],
+                Self::EncapsulatedObject(encapsulated_object) => {
+                    vec![Cow::Borrowed(encapsulated_object.description.as_bytes())]
+                }
+                Self::Chapter(chapter) => vec![Cow::Borrowed(chapter.element_id.as_bytes())],
+                Self::MpegLocationLookupTable(_) => Vec::new(),
+                Self::Unknown(unknown) => vec![Cow::Borrowed(unknown.data.as_slice())],
             }
-            Self::Chapter(chapter) => vec![Cow::Borrowed(chapter.element_id.as_bytes())],
-            Self::MpegLocationLookupTable(_) => Vec::new(),
-            Self::Unknown(unknown) => vec![Cow::Borrowed(unknown.data.as_slice())],
+        } else {
+            match self {
+                Self::Text(_) => Vec::new(),
+                Self::ExtendedText(extended_text) => vec![Cow::Borrowed(extended_text.description.as_bytes())],
+                Self::Link(_) => Vec::new(),
+                Self::ExtendedLink(extended_link) => vec![Cow::Borrowed(extended_link.description.as_bytes())],
+                Self::Popularimeter(popularimeter) => vec![Cow::Borrowed(popularimeter.user.as_bytes())],
+                Self::Comment(comment) => vec![
+                    Cow::Borrowed(comment.lang.as_bytes()),
+                    Cow::Borrowed(comment.description.as_bytes()),
+                ],
+                Self::Lyrics(lyrics) => vec![
+                    Cow::Borrowed(lyrics.lang.as_bytes()),
+                    Cow::Borrowed(lyrics.description.as_bytes()),
+                ],
+                Self::SynchronisedLyrics(synchronised_lyrics) => vec![
+                    Cow::Borrowed(synchronised_lyrics.lang.as_bytes()),
+                    Cow::Owned(synchronised_lyrics.content_type.to_string().as_bytes().to_owned()),
+                ],
+                Self::Picture(picture) => vec![Cow::Owned(picture.picture_type.to_string().as_bytes().to_owned())],
+                Self::EncapsulatedObject(encapsulated_object) => {
+                    vec![Cow::Borrowed(encapsulated_object.description.as_bytes())]
+                }
+                Self::Chapter(chapter) => vec![Cow::Borrowed(chapter.element_id.as_bytes())],
+                Self::MpegLocationLookupTable(_) => Vec::new(),
+                Self::Unknown(unknown) => vec![Cow::Borrowed(unknown.data.as_slice())],
+            }
         }
     }
 
