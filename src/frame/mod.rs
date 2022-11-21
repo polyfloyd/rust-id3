@@ -42,14 +42,22 @@ impl Frame {
     pub(crate) fn compare(&self, other: &Frame) -> bool {
         if self.id == other.id {
             let content_eq = if let ID::Valid(id) = &self.id {
-                let cmp_deeper = if id == "WCOM" || id == "WOAR" {
+                let cmp_deeper = if id == "UFID"
+                    || id == "WCOM"
+                    || id == "WOAR"
+                    || id == "RVA2"
+                    || id == "EQU2"
+                    || id == "USER"
+                    || id == "COMR"
+                    || id == "PRIV"
+                    || id == "SIGN" {
                     true
                 } else {
                     false
                 };
                 self.content.unique(cmp_deeper) == other.content.unique(cmp_deeper)
             } else {
-                true
+                self.content.unique(false) == other.content.unique(false)
             };
             content_eq
                 && (self.encoding.is_none()

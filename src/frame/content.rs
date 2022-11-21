@@ -109,7 +109,7 @@ impl Content {
                 }
                 Self::Chapter(chapter) => vec![Cow::Borrowed(chapter.element_id.as_bytes())],
                 Self::MpegLocationLookupTable(_) => Vec::new(),
-                Self::Unknown(unknown) => vec![Cow::Borrowed(unknown.data.as_slice())],
+                Self::Unknown(_) => Vec::new(),
             }
         }
     }
