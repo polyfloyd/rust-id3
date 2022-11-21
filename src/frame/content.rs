@@ -203,6 +203,15 @@ impl Content {
         }
     }
 
+    /// Returns the `Popularimeter` or None if the value is not
+    /// `Popularimeter`
+    pub fn popularimeter(&self) -> Option<&Popularimeter> {
+        match self {
+            Content::Popularimeter(popularimeter) => Some(popularimeter),
+            _ => None,
+        }
+    }
+
     /// Returns the `Unknown` or None if the value is not `Unknown`.
     #[deprecated(note = "Use to_unknown")]
     pub fn unknown(&self) -> Option<&[u8]> {
