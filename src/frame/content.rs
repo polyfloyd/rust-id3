@@ -5,6 +5,7 @@ use crate::taglike::TagLike;
 use std::borrow::Cow;
 use std::fmt;
 use std::io;
+use crate::frame::content_cmp::ContentCmp::{Comparable, Incomparable, Same};
 
 /// The decoded contents of a [`Frame`].
 ///
@@ -56,60 +57,60 @@ pub enum Content {
 }
 
 impl Content {
-    pub(crate) fn unique(&self, deeper: bool) -> impl Eq + '_ {
+    pub(crate) fn unique(&self, deeper: bool) -> impl PartialEq + '_ {
         if deeper {
             match self {
-                Self::Text(text) => vec![Cow::Borrowed(text.as_bytes())],
-                Self::ExtendedText(extended_text) => vec![Cow::Borrowed(extended_text.description.as_bytes())],
-                Self::Link(text) => vec![Cow::Borrowed(text.as_bytes())],
-                Self::ExtendedLink(extended_link) => vec![Cow::Borrowed(extended_link.description.as_bytes())],
-                Self::Popularimeter(popularimeter) => vec![Cow::Borrowed(popularimeter.user.as_bytes())],
-                Self::Comment(comment) => vec![
+                Self::Text(text) => Comparable(vec![Cow::Borrowed(text.as_bytes())]),
+                Self::ExtendedText(extended_text) => Comparable(vec![Cow::Borrowed(extended_text.description.as_bytes())]),
+                Self::Link(text) => Comparable(vec![Cow::Borrowed(text.as_bytes())]),
+                Self::ExtendedLink(extended_link) => Comparable(vec![Cow::Borrowed(extended_link.description.as_bytes())]),
+                Self::Popularimeter(popularimeter) => Comparable(vec![Cow::Borrowed(popularimeter.user.as_bytes())]),
+                Self::Comment(comment) => Comparable(vec![
                     Cow::Borrowed(comment.lang.as_bytes()),
                     Cow::Borrowed(comment.description.as_bytes()),
-                ],
-                Self::Lyrics(lyrics) => vec![
+                ]),
+                Self::Lyrics(lyrics) => Comparable(vec![
                     Cow::Borrowed(lyrics.lang.as_bytes()),
                     Cow::Borrowed(lyrics.description.as_bytes()),
-                ],
-                Self::SynchronisedLyrics(synchronised_lyrics) => vec![
+                ]),
+                Self::SynchronisedLyrics(synchronised_lyrics) => Comparable(vec![
                     Cow::Borrowed(synchronised_lyrics.lang.as_bytes()),
                     Cow::Owned(synchronised_lyrics.content_type.to_string().as_bytes().to_owned()),
-                ],
-                Self::Picture(picture) => vec![Cow::Owned(picture.picture_type.to_string().as_bytes().to_owned())],
+                ]),
+                Self::Picture(picture) => Comparable(vec![Cow::Owned(picture.picture_type.to_string().as_bytes().to_owned())]),
                 Self::EncapsulatedObject(encapsulated_object) => {
-                    vec![Cow::Borrowed(encapsulated_object.description.as_bytes())]
+                    Comparable(vec![Cow::Borrowed(encapsulated_object.description.as_bytes())])
                 }
-                Self::Chapter(chapter) => vec![Cow::Borrowed(chapter.element_id.as_bytes())],
-                Self::MpegLocationLookupTable(_) => Vec::new(),
-                Self::Unknown(unknown) => vec![Cow::Borrowed(unknown.data.as_slice())],
+                Self::Chapter(chapter) => Comparable(vec![Cow::Borrowed(chapter.element_id.as_bytes())]),
+                Self::MpegLocationLookupTable(_) => Same,
+                Self::Unknown(_) => Incomparable,
             }
         } else {
             match self {
-                Self::Text(_) => Vec::new(),
-                Self::ExtendedText(extended_text) => vec![Cow::Borrowed(extended_text.description.as_bytes())],
-                Self::Link(_) => Vec::new(),
-                Self::ExtendedLink(extended_link) => vec![Cow::Borrowed(extended_link.description.as_bytes())],
-                Self::Popularimeter(popularimeter) => vec![Cow::Borrowed(popularimeter.user.as_bytes())],
-                Self::Comment(comment) => vec![
+                Self::Text(_) => Same,
+                Self::ExtendedText(extended_text) => Comparable(vec![Cow::Borrowed(extended_text.description.as_bytes())]),
+                Self::Link(_) => Same,
+                Self::ExtendedLink(extended_link) => Comparable(vec![Cow::Borrowed(extended_link.description.as_bytes())]),
+                Self::Popularimeter(popularimeter) => Comparable(vec![Cow::Borrowed(popularimeter.user.as_bytes())]),
+                Self::Comment(comment) => Comparable(vec![
                     Cow::Borrowed(comment.lang.as_bytes()),
                     Cow::Borrowed(comment.description.as_bytes()),
-                ],
-                Self::Lyrics(lyrics) => vec![
+                ]),
+                Self::Lyrics(lyrics) => Comparable(vec![
                     Cow::Borrowed(lyrics.lang.as_bytes()),
                     Cow::Borrowed(lyrics.description.as_bytes()),
-                ],
-                Self::SynchronisedLyrics(synchronised_lyrics) => vec![
+                ]),
+                Self::SynchronisedLyrics(synchronised_lyrics) => Comparable(vec![
                     Cow::Borrowed(synchronised_lyrics.lang.as_bytes()),
                     Cow::Owned(synchronised_lyrics.content_type.to_string().as_bytes().to_owned()),
-                ],
-                Self::Picture(picture) => vec![Cow::Owned(picture.picture_type.to_string().as_bytes().to_owned())],
+                ]),
+                Self::Picture(picture) => Comparable(vec![Cow::Owned(picture.picture_type.to_string().as_bytes().to_owned())]),
                 Self::EncapsulatedObject(encapsulated_object) => {
-                    vec![Cow::Borrowed(encapsulated_object.description.as_bytes())]
+                    Comparable(vec![Cow::Borrowed(encapsulated_object.description.as_bytes())])
                 }
-                Self::Chapter(chapter) => vec![Cow::Borrowed(chapter.element_id.as_bytes())],
-                Self::MpegLocationLookupTable(_) => Vec::new(),
-                Self::Unknown(_) => Vec::new(),
+                Self::Chapter(chapter) => Comparable(vec![Cow::Borrowed(chapter.element_id.as_bytes())]),
+                Self::MpegLocationLookupTable(_) => Same,
+                Self::Unknown(_) => Incomparable,
             }
         }
     }

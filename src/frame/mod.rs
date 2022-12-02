@@ -13,6 +13,7 @@ pub use self::timestamp::Timestamp;
 
 mod content;
 mod timestamp;
+mod content_cmp;
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 enum ID {
@@ -42,20 +43,15 @@ impl Frame {
     pub(crate) fn compare(&self, other: &Frame) -> bool {
         if self.id == other.id {
             let content_eq = if let ID::Valid(id) = &self.id {
-                let cmp_deeper = if id == "UFID"
-                    || id == "WCOM"
-                    || id == "WOAR"
-                    || id == "RVA2"
-                    || id == "EQU2"
-                    || id == "USER"
-                    || id == "COMR"
-                    || id == "PRIV"
-                    || id == "SIGN" {
+                // some link frames are allowed to have the same id as long their content is different
+                let cmp_deeper = if id == "WCOM" || id == "WOAR" {
                     true
                 } else {
                     false
                 };
-                self.content.unique(cmp_deeper) == other.content.unique(cmp_deeper)
+                let a = self.content.unique(cmp_deeper) == other.content.unique(cmp_deeper);
+                let b = self.content.unique(cmp_deeper) == self.content.unique(cmp_deeper);
+                a
             } else {
                 self.content.unique(false) == other.content.unique(false)
             };
