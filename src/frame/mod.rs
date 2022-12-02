@@ -49,9 +49,7 @@ impl Frame {
                 } else {
                     false
                 };
-                let a = self.content.unique(cmp_deeper) == other.content.unique(cmp_deeper);
-                let b = self.content.unique(cmp_deeper) == self.content.unique(cmp_deeper);
-                a
+                self.content.unique(cmp_deeper) == other.content.unique(cmp_deeper)
             } else {
                 self.content.unique(false) == other.content.unique(false)
             };
