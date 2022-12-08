@@ -562,4 +562,71 @@ mod tests {
             "User defined text information frame = description: value"
         );
     }
+
+    #[test]
+    fn test_frame_cmp_text() {
+        let frame_a = Frame::with_content("TIT2", Content::Text("A".to_owned()));
+        let frame_b = Frame::with_content("TIT2", Content::Text("B".to_owned()));
+
+        assert!(
+            frame_a.compare(&frame_b),
+            "frames should be counted as equal"
+        );
+    }
+
+    #[test]
+    fn test_frame_cmp_wcom() {
+        let frame_a = Frame::with_content("WCOM", Content::Link("A".to_owned()));
+        let frame_b = Frame::with_content("WCOM", Content::Link("B".to_owned()));
+
+        assert!(
+            !frame_a.compare(&frame_b),
+            "frames should not be counted as equal"
+        );
+    }
+
+    #[test]
+    fn test_frame_cmp_priv() {
+        let frame_a = Frame::with_content("PRIV", Content::Unknown(Unknown{
+            data: vec![1, 2, 3],
+            version: Version::Id3v24
+        }));
+        let frame_b = Frame::with_content("PRIV", Content::Unknown(Unknown{
+            data: vec![1, 2, 3],
+            version: Version::Id3v24
+        }));
+
+        assert!(
+            !frame_a.compare(&frame_b),
+            "frames should not be counted as equal"
+        );
+    }
+
+    #[test]
+    fn test_frame_cmp_popularimeter() {
+        let frame_a = Frame::with_content("POPM", Content::Popularimeter(Popularimeter{
+            user: "A".to_owned(),
+            rating: 1,
+            counter: 1
+        }));
+        let frame_b = Frame::with_content("POPM", Content::Popularimeter(Popularimeter{
+            user: "A".to_owned(),
+            rating: 1,
+            counter: 1
+        }));
+        let frame_c = Frame::with_content("POPM", Content::Popularimeter(Popularimeter{
+            user: "C".to_owned(),
+            rating: 1,
+            counter: 1
+        }));
+
+        assert!(
+            frame_a.compare(&frame_b),
+            "frames should be counted as equal"
+        );
+        assert!(
+            !frame_a.compare(&frame_c),
+            "frames should not be counted as equal"
+        );
+    }
 }
