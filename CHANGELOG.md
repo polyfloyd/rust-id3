@@ -1,3 +1,10 @@
+## v1.5.1 (2022-12-08)
+
+### Fix
+
+- modify Content::unique() so that duplicates of frames with unknown type but identical ID are allowed
+- add missing conversation method for Popularimeter in Content
+
 ## v1.5.0 (2022-11-16)
 
 ### Feat
