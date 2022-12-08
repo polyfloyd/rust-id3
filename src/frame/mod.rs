@@ -44,14 +44,13 @@ impl Frame {
         if self.id == other.id {
             let content_eq = if let ID::Valid(id) = &self.id {
                 // some link frames are allowed to have the same id as long their content is different
-                let cmp_deeper = if id == "WCOM" || id == "WOAR" {
-                    true
+                if id == "WCOM" || id == "WOAR" {
+                    self.content.link() == other.content.link()
                 } else {
-                    false
-                };
-                self.content.unique(cmp_deeper) == other.content.unique(cmp_deeper)
+                    self.content.unique() == other.content.unique()
+                }
             } else {
-                self.content.unique(false) == other.content.unique(false)
+                self.content.unique() == other.content.unique()
             };
             content_eq
                 && (self.encoding.is_none()

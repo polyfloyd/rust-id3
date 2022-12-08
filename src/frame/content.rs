@@ -57,61 +57,32 @@ pub enum Content {
 }
 
 impl Content {
-    pub(crate) fn unique(&self, deeper: bool) -> impl PartialEq + '_ {
-        if deeper {
-            match self {
-                Self::Text(text) => Comparable(vec![Cow::Borrowed(text.as_bytes())]),
-                Self::ExtendedText(extended_text) => Comparable(vec![Cow::Borrowed(extended_text.description.as_bytes())]),
-                Self::Link(text) => Comparable(vec![Cow::Borrowed(text.as_bytes())]),
-                Self::ExtendedLink(extended_link) => Comparable(vec![Cow::Borrowed(extended_link.description.as_bytes())]),
-                Self::Popularimeter(popularimeter) => Comparable(vec![Cow::Borrowed(popularimeter.user.as_bytes())]),
-                Self::Comment(comment) => Comparable(vec![
-                    Cow::Borrowed(comment.lang.as_bytes()),
-                    Cow::Borrowed(comment.description.as_bytes()),
-                ]),
-                Self::Lyrics(lyrics) => Comparable(vec![
-                    Cow::Borrowed(lyrics.lang.as_bytes()),
-                    Cow::Borrowed(lyrics.description.as_bytes()),
-                ]),
-                Self::SynchronisedLyrics(synchronised_lyrics) => Comparable(vec![
-                    Cow::Borrowed(synchronised_lyrics.lang.as_bytes()),
-                    Cow::Owned(synchronised_lyrics.content_type.to_string().as_bytes().to_owned()),
-                ]),
-                Self::Picture(picture) => Comparable(vec![Cow::Owned(picture.picture_type.to_string().as_bytes().to_owned())]),
-                Self::EncapsulatedObject(encapsulated_object) => {
-                    Comparable(vec![Cow::Borrowed(encapsulated_object.description.as_bytes())])
-                }
-                Self::Chapter(chapter) => Comparable(vec![Cow::Borrowed(chapter.element_id.as_bytes())]),
-                Self::MpegLocationLookupTable(_) => Same,
-                Self::Unknown(_) => Incomparable,
+    pub(crate) fn unique(&self) -> impl PartialEq + '_ {
+        match self {
+            Self::Text(_) => Same,
+            Self::ExtendedText(extended_text) => Comparable(vec![Cow::Borrowed(extended_text.description.as_bytes())]),
+            Self::Link(_) => Same,
+            Self::ExtendedLink(extended_link) => Comparable(vec![Cow::Borrowed(extended_link.description.as_bytes())]),
+            Self::Popularimeter(popularimeter) => Comparable(vec![Cow::Borrowed(popularimeter.user.as_bytes())]),
+            Self::Comment(comment) => Comparable(vec![
+                Cow::Borrowed(comment.lang.as_bytes()),
+                Cow::Borrowed(comment.description.as_bytes()),
+            ]),
+            Self::Lyrics(lyrics) => Comparable(vec![
+                Cow::Borrowed(lyrics.lang.as_bytes()),
+                Cow::Borrowed(lyrics.description.as_bytes()),
+            ]),
+            Self::SynchronisedLyrics(synchronised_lyrics) => Comparable(vec![
+                Cow::Borrowed(synchronised_lyrics.lang.as_bytes()),
+                Cow::Owned(synchronised_lyrics.content_type.to_string().as_bytes().to_owned()),
+            ]),
+            Self::Picture(picture) => Comparable(vec![Cow::Owned(picture.picture_type.to_string().as_bytes().to_owned())]),
+            Self::EncapsulatedObject(encapsulated_object) => {
+                Comparable(vec![Cow::Borrowed(encapsulated_object.description.as_bytes())])
             }
-        } else {
-            match self {
-                Self::Text(_) => Same,
-                Self::ExtendedText(extended_text) => Comparable(vec![Cow::Borrowed(extended_text.description.as_bytes())]),
-                Self::Link(_) => Same,
-                Self::ExtendedLink(extended_link) => Comparable(vec![Cow::Borrowed(extended_link.description.as_bytes())]),
-                Self::Popularimeter(popularimeter) => Comparable(vec![Cow::Borrowed(popularimeter.user.as_bytes())]),
-                Self::Comment(comment) => Comparable(vec![
-                    Cow::Borrowed(comment.lang.as_bytes()),
-                    Cow::Borrowed(comment.description.as_bytes()),
-                ]),
-                Self::Lyrics(lyrics) => Comparable(vec![
-                    Cow::Borrowed(lyrics.lang.as_bytes()),
-                    Cow::Borrowed(lyrics.description.as_bytes()),
-                ]),
-                Self::SynchronisedLyrics(synchronised_lyrics) => Comparable(vec![
-                    Cow::Borrowed(synchronised_lyrics.lang.as_bytes()),
-                    Cow::Owned(synchronised_lyrics.content_type.to_string().as_bytes().to_owned()),
-                ]),
-                Self::Picture(picture) => Comparable(vec![Cow::Owned(picture.picture_type.to_string().as_bytes().to_owned())]),
-                Self::EncapsulatedObject(encapsulated_object) => {
-                    Comparable(vec![Cow::Borrowed(encapsulated_object.description.as_bytes())])
-                }
-                Self::Chapter(chapter) => Comparable(vec![Cow::Borrowed(chapter.element_id.as_bytes())]),
-                Self::MpegLocationLookupTable(_) => Same,
-                Self::Unknown(_) => Incomparable,
-            }
+            Self::Chapter(chapter) => Comparable(vec![Cow::Borrowed(chapter.element_id.as_bytes())]),
+            Self::MpegLocationLookupTable(_) => Same,
+            Self::Unknown(_) => Incomparable,
         }
     }
 
