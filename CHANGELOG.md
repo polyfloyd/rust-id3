@@ -1,3 +1,9 @@
+## v1.6.0 (2023-01-01)
+
+### Feat
+
+- Add Default to Timestamp
+
 ## v1.5.1 (2022-12-08)
 
 ### Fix
