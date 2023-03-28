@@ -23,6 +23,10 @@ tokio = { version = "1.21", default-features = false, features = ["rt", "macros"
 tempfile = "3"
 
 [features]
+default = ["decode_picture"]
 
 ## Support parsing ID3 tags with Tokio
 tokio = ["dep:tokio"]
+
+## Picture decoding takes ~20% of time. Allow disabling it if it's unneeded.
+decode_picture = []

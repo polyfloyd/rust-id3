@@ -336,8 +336,20 @@ pub fn decode(
 
     let mut encoding = None;
     let content = match id {
-        "PIC" => decoder.picture_content_v2(),
-        "APIC" => decoder.picture_content_v3(),
+        "PIC" => {
+            if cfg!(feature = "decode_picture") {
+                decoder.picture_content_v2()
+            } else {
+                Ok(Content::Unknown(Unknown { data, version }))
+            }
+        }
+        "APIC" => {
+            if cfg!(feature = "decode_picture") {
+                decoder.picture_content_v3()
+            } else {
+                Ok(Content::Unknown(Unknown { data, version }))
+            }
+        }
         "TXXX" | "TXX" => {
             let (content, enc) = decoder.extended_text_content()?;
             encoding = Some(enc);
@@ -848,6 +860,10 @@ mod tests {
 
     #[test]
     fn test_apic_v2() {
+        if !cfg!(feature = "decode_picture") {
+            return;
+        }
+
         assert!(decode("PIC", Version::Id3v22, &[][..]).is_err());
 
         let mut format_map = HashMap::new();
@@ -899,6 +915,10 @@ mod tests {
 
     #[test]
     fn test_apic_v3() {
+        if !cfg!(feature = "decode_picture") {
+            return;
+        }
+
         assert!(decode("APIC", Version::Id3v23, &[][..]).is_err());
 
         for mime_type in &["", "image/jpeg"] {
