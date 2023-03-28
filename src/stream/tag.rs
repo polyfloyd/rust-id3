@@ -561,12 +561,14 @@ mod tests {
         assert_eq!(1, tag.disc().unwrap());
         assert_eq!(27, tag.total_discs().unwrap());
         assert_eq!(2015, tag.year().unwrap());
-        assert_eq!(
-            PictureType::Other,
-            tag.pictures().next().unwrap().picture_type
-        );
-        assert_eq!("", tag.pictures().next().unwrap().description);
-        assert_eq!("image/jpeg", tag.pictures().next().unwrap().mime_type);
+        if cfg!(feature = "decode_picture") {
+            assert_eq!(
+                PictureType::Other,
+                tag.pictures().next().unwrap().picture_type
+            );
+            assert_eq!("", tag.pictures().next().unwrap().description);
+            assert_eq!("image/jpeg", tag.pictures().next().unwrap().mime_type);
+        }
     }
 
     #[tokio::test]
@@ -578,12 +580,14 @@ mod tests {
         assert_eq!(1, tag.disc().unwrap());
         assert_eq!(27, tag.total_discs().unwrap());
         assert_eq!(2015, tag.year().unwrap());
-        assert_eq!(
-            PictureType::Other,
-            tag.pictures().next().unwrap().picture_type
-        );
-        assert_eq!("", tag.pictures().next().unwrap().description);
-        assert_eq!("image/jpeg", tag.pictures().next().unwrap().mime_type);
+        if cfg!(feature = "decode_picture") {
+            assert_eq!(
+                PictureType::Other,
+                tag.pictures().next().unwrap().picture_type
+            );
+            assert_eq!("", tag.pictures().next().unwrap().description);
+            assert_eq!("image/jpeg", tag.pictures().next().unwrap().mime_type);
+        }
     }
 
     #[test]
@@ -594,10 +598,12 @@ mod tests {
         assert_eq!("Genre", tag.genre().unwrap());
         assert_eq!(1, tag.disc().unwrap());
         assert_eq!(1, tag.total_discs().unwrap());
-        assert_eq!(
-            PictureType::CoverFront,
-            tag.pictures().next().unwrap().picture_type
-        );
+        if cfg!(feature = "decode_picture") {
+            assert_eq!(
+                PictureType::CoverFront,
+                tag.pictures().next().unwrap().picture_type
+            );
+        }
     }
 
     #[tokio::test]
@@ -608,10 +614,12 @@ mod tests {
         assert_eq!("Genre", tag.genre().unwrap());
         assert_eq!(1, tag.disc().unwrap());
         assert_eq!(1, tag.total_discs().unwrap());
-        assert_eq!(
-            PictureType::CoverFront,
-            tag.pictures().next().unwrap().picture_type
-        );
+        if cfg!(feature = "decode_picture") {
+            assert_eq!(
+                PictureType::CoverFront,
+                tag.pictures().next().unwrap().picture_type
+            );
+        }
     }
 
     #[test]
@@ -694,10 +702,12 @@ mod tests {
         assert_eq!("Title", tag.title().unwrap());
         assert_eq!(1, tag.disc().unwrap());
         assert_eq!(1, tag.total_discs().unwrap());
-        assert_eq!(
-            PictureType::CoverFront,
-            tag.pictures().next().unwrap().picture_type
-        );
+        if cfg!(feature = "decode_picture") {
+            assert_eq!(
+                PictureType::CoverFront,
+                tag.pictures().next().unwrap().picture_type
+            );
+        }
     }
 
     #[test]
@@ -726,6 +736,10 @@ mod tests {
 
     #[test]
     fn write_id3v22() {
+        if !cfg!(feature = "decode_picture") {
+            return;
+        }
+
         let tag = make_tag(Version::Id3v22);
         let mut buffer = Vec::new();
         Encoder::new()
@@ -738,6 +752,10 @@ mod tests {
 
     #[test]
     fn write_id3v22_unsynch() {
+        if !cfg!(feature = "decode_picture") {
+            return;
+        }
+
         let tag = make_tag(Version::Id3v22);
         let mut buffer = Vec::new();
         Encoder::new()
@@ -751,6 +769,10 @@ mod tests {
 
     #[test]
     fn write_id3v22_invalid_id() {
+        if !cfg!(feature = "decode_picture") {
+            return;
+        }
+
         let mut tag = make_tag(Version::Id3v22);
         tag.add_frame(Frame::with_content(
             "XXX",
@@ -784,6 +806,10 @@ mod tests {
 
     #[test]
     fn write_id3v23() {
+        if !cfg!(feature = "decode_picture") {
+            return;
+        }
+
         let tag = make_tag(Version::Id3v23);
         let mut buffer = Vec::new();
         Encoder::new()
@@ -796,6 +822,10 @@ mod tests {
 
     #[test]
     fn write_id3v23_compression() {
+        if !cfg!(feature = "decode_picture") {
+            return;
+        }
+
         let tag = make_tag(Version::Id3v23);
         let mut buffer = Vec::new();
         Encoder::new()
@@ -809,6 +839,10 @@ mod tests {
 
     #[test]
     fn write_id3v23_unsynch() {
+        if !cfg!(feature = "decode_picture") {
+            return;
+        }
+
         let tag = make_tag(Version::Id3v23);
         let mut buffer = Vec::new();
         Encoder::new()
@@ -822,6 +856,10 @@ mod tests {
 
     #[test]
     fn write_id3v24() {
+        if !cfg!(feature = "decode_picture") {
+            return;
+        }
+
         let tag = make_tag(Version::Id3v24);
         let mut buffer = Vec::new();
         Encoder::new()
@@ -834,6 +872,10 @@ mod tests {
 
     #[test]
     fn write_id3v24_compression() {
+        if !cfg!(feature = "decode_picture") {
+            return;
+        }
+
         let tag = make_tag(Version::Id3v24);
         let mut buffer = Vec::new();
         Encoder::new()
@@ -847,6 +889,10 @@ mod tests {
 
     #[test]
     fn write_id3v24_unsynch() {
+        if !cfg!(feature = "decode_picture") {
+            return;
+        }
+
         let tag = make_tag(Version::Id3v24);
         let mut buffer = Vec::new();
         Encoder::new()
@@ -860,6 +906,10 @@ mod tests {
 
     #[test]
     fn write_id3v24_alter_file() {
+        if !cfg!(feature = "decode_picture") {
+            return;
+        }
+
         let mut tag = Tag::new();
         tag.set_duration(1337);
 

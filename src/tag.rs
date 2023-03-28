@@ -598,7 +598,9 @@ mod tests {
 
         assert_eq!(tag.title(), Some("Some Great Song"));
         assert_eq!(tag.artist(), Some("Some Great Band"));
-        assert!(tag.pictures().next().is_some())
+        if cfg!(feature = "decode_picture") {
+            assert!(tag.pictures().next().is_some())
+        }
     }
 
     #[test]
@@ -607,7 +609,9 @@ mod tests {
 
         assert_eq!(tag.title(), Some("Some Great Song"));
         assert_eq!(tag.artist(), Some("Some Great Band"));
-        assert!(tag.pictures().next().is_some())
+        if cfg!(feature = "decode_picture") {
+            assert!(tag.pictures().next().is_some())
+        }
     }
 
     #[test]
