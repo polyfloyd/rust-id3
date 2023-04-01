@@ -203,7 +203,7 @@ impl Tag {
     ///
     /// The reader position will be reset back to the previous position before returning.
     pub fn is_candidate(mut reader: impl io::Read + io::Seek) -> crate::Result<bool> {
-        let initial_position = reader.seek(io::SeekFrom::Current(0))?;
+        let initial_position = reader.stream_position()?;
         reader.seek(io::SeekFrom::End(TAG_CHUNK.start))?;
         let mut buf = [0; 3];
         let nread = reader.read(&mut buf)?;
@@ -307,9 +307,9 @@ impl Tag {
     ///
     /// Returns true if the file initially contained a tag.
     pub fn remove(file: &mut fs::File) -> crate::Result<bool> {
-        let cur_pos = file.seek(io::SeekFrom::Current(0))?;
+        let cur_pos = file.stream_position()?;
         let file_len = file.metadata()?.len();
-        let has_ext_tag = if file_len >= XTAG_CHUNK.start.unsigned_abs() as u64 {
+        let has_ext_tag = if file_len >= XTAG_CHUNK.start.unsigned_abs() {
             file.seek(io::SeekFrom::End(XTAG_CHUNK.start))?;
             let mut b = [0; 4];
             file.read_exact(&mut b)?;
@@ -317,7 +317,7 @@ impl Tag {
         } else {
             false
         };
-        let has_tag = if file_len >= TAG_CHUNK.start.unsigned_abs() as u64 {
+        let has_tag = if file_len >= TAG_CHUNK.start.unsigned_abs() {
             file.seek(io::SeekFrom::End(TAG_CHUNK.start))?;
             let mut b = [0; 3];
             file.read_exact(&mut b)?;
@@ -327,9 +327,9 @@ impl Tag {
         };
 
         let truncate_to = if has_ext_tag && has_tag {
-            Some(file_len - XTAG_CHUNK.start.unsigned_abs() as u64)
+            Some(file_len - XTAG_CHUNK.start.unsigned_abs())
         } else if has_tag {
-            Some(file_len - TAG_CHUNK.start.unsigned_abs() as u64)
+            Some(file_len - TAG_CHUNK.start.unsigned_abs())
         } else {
             None
         };

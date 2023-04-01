@@ -28,7 +28,7 @@ enum ID {
 ///
 /// The [`Content`] must be accompanied by a matching ID. Although this struct allows for invalid
 /// combinations to exist, attempting to encode them will yield an error.
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Clone, Debug, Eq, Ord, PartialOrd, Hash)]
 pub struct Frame {
     id: ID,
@@ -203,11 +203,11 @@ impl Frame {
     /// that version.
     pub fn id_for_version(&self, version: Version) -> Option<&str> {
         match (version, &self.id) {
-            (Version::Id3v22, &ID::Valid(ref id)) => convert_id_3_to_2(id),
-            (Version::Id3v23, &ID::Valid(ref id))
-            | (Version::Id3v24, &ID::Valid(ref id))
-            | (Version::Id3v22, &ID::Invalid(ref id)) => Some(id),
-            (_, &ID::Invalid(_)) => None,
+            (Version::Id3v22, ID::Valid(id)) => convert_id_3_to_2(id),
+            (Version::Id3v23, ID::Valid(id))
+            | (Version::Id3v24, ID::Valid(id))
+            | (Version::Id3v22, ID::Invalid(id)) => Some(id),
+            (_, ID::Invalid(_)) => None,
         }
     }
 

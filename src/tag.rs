@@ -14,13 +14,14 @@ use std::iter::{FromIterator, Iterator};
 use std::path::Path;
 
 /// Denotes the version of a tag.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Clone, Default, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Version {
     /// ID3v2.2
     Id3v22,
     /// ID3v2.3
     Id3v23,
     /// ID3v2.4
+    #[default]
     Id3v24,
 }
 
@@ -39,12 +40,6 @@ impl Version {
             Version::Id3v23 => 3,
             Version::Id3v24 => 4,
         }
-    }
-}
-
-impl Default for Version {
-    fn default() -> Self {
-        Version::Id3v24
     }
 }
 
@@ -89,7 +84,7 @@ impl<'a> Tag {
     /// Will return true if the reader is a candidate for an ID3 tag. The reader position will be
     /// reset back to the previous position before returning.
     pub fn is_candidate(mut reader: impl io::Read + io::Seek) -> crate::Result<bool> {
-        let initial_position = reader.seek(io::SeekFrom::Current(0))?;
+        let initial_position = reader.stream_position()?;
         let rs = stream::tag::locate_id3v2(&mut reader);
         reader.seek(io::SeekFrom::Start(initial_position))?;
         Ok(rs?.is_some())
@@ -98,7 +93,7 @@ impl<'a> Tag {
     /// Detects the presence of an ID3v2 tag at the current position of the reader and skips it
     /// if is found. Returns true if a tag was found.
     pub fn skip(mut reader: impl io::Read + io::Seek) -> crate::Result<bool> {
-        let initial_position = reader.seek(io::SeekFrom::Current(0))?;
+        let initial_position = reader.stream_position()?;
         let range = stream::tag::locate_id3v2(&mut reader)?;
         let end = range.as_ref().map(|r| r.end).unwrap_or(0);
         reader.seek(io::SeekFrom::Start(initial_position + end))?;

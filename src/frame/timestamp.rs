@@ -125,7 +125,7 @@ impl Parser<'_> {
     fn parse_number(&mut self) -> Result<u32, ()> {
         let mut ok = false;
         let mut r = 0u32;
-        while self.0.starts_with(|c| ('0'..='9').contains(&c)) {
+        while self.0.starts_with(|c: char| c.is_ascii_digit()) {
             ok = true;
             r = if let Some(r) = r
                 .checked_mul(10)

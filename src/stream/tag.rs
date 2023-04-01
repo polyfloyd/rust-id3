@@ -408,7 +408,7 @@ impl Encoder {
         }
         let tag_size = frame_data.len() + self.padding.unwrap_or(0);
         writer.write_all(b"ID3")?;
-        writer.write_all(&[self.version.minor() as u8, 0])?;
+        writer.write_all(&[self.version.minor(), 0])?;
         writer.write_u8(flags.bits())?;
         writer.write_u32::<BigEndian>(unsynch::encode_u32(tag_size as u32))?;
         writer.write_all(&frame_data[..])?;

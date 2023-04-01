@@ -113,7 +113,7 @@ where
     F: StorageFile,
 {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let cur_pos = self.storage.file.seek(io::SeekFrom::Current(0))?;
+        let cur_pos = self.storage.file.stream_position()?;
         assert!(self.storage.region.start <= cur_pos);
         if self.storage.region.end <= cur_pos {
             return Ok(0);
@@ -131,7 +131,7 @@ where
     F: StorageFile,
 {
     fn seek(&mut self, rel_pos: io::SeekFrom) -> io::Result<u64> {
-        let abs_cur_pos = self.storage.file.seek(io::SeekFrom::Current(0))?;
+        let abs_cur_pos = self.storage.file.stream_position()?;
         let abs_pos = match rel_pos {
             io::SeekFrom::Start(i) => (self.storage.region.start + i) as i64,
             io::SeekFrom::End(i) => self.storage.region.end as i64 + i,
