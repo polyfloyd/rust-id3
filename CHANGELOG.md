@@ -1,3 +1,9 @@
+## v1.7.0 (2023-04-13)
+
+### Feat
+
+- Allow disabling expensive picture decoding
+
 ## v1.6.0 (2023-01-01)
 
 ### Feat
