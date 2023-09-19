@@ -49,6 +49,8 @@ pub enum Content {
     Chapter(Chapter),
     /// MPEG location lookup table content (MLLT).
     MpegLocationLookupTable(MpegLocationLookupTable),
+    /// A private frame (PRIV)
+    Private(Private),
     /// A value containing the bytes of a currently unknown frame type.
     ///
     /// Users that wish to write custom decoders must use [`Content::to_unknown`] instead of
@@ -98,6 +100,10 @@ impl Content {
                 Comparable(vec![Cow::Borrowed(chapter.element_id.as_bytes())])
             }
             Self::MpegLocationLookupTable(_) => Same,
+            Self::Private(private) => Comparable(vec![
+                Cow::Borrowed(private.owner_identifier.as_bytes()),
+                Cow::Borrowed(private.private_data.as_slice()),
+            ]),
             Self::Unknown(_) => Incomparable,
         }
     }
@@ -270,6 +276,7 @@ impl fmt::Display for Content {
             Content::Picture(picture) => write!(f, "{}", picture),
             Content::Chapter(chapter) => write!(f, "{}", chapter),
             Content::MpegLocationLookupTable(mpeg_table) => write!(f, "{}", mpeg_table),
+            Content::Private(private) => write!(f, "{}", private),
             Content::Unknown(unknown) => write!(f, "{}", unknown),
         }
     }
@@ -761,6 +768,27 @@ impl fmt::Display for MpegLocationLookupTable {
 impl From<MpegLocationLookupTable> for Frame {
     fn from(c: MpegLocationLookupTable) -> Self {
         Self::with_content("MLLT", Content::MpegLocationLookupTable(c))
+    }
+}
+
+/// The parsed contents of a private frame.
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct Private {
+    /// Owner identifier
+    pub owner_identifier: String,
+    /// Private data
+    pub private_data: Vec<u8>,
+}
+
+impl fmt::Display for Private {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: {:x?}", self.owner_identifier, self.private_data)
+    }
+}
+
+impl From<Private> for Frame {
+    fn from(c: Private) -> Self {
+        Self::with_content("PRIV", Content::Private(c))
     }
 }
 
