@@ -1,3 +1,9 @@
+## v1.8.0 (2023-09-21)
+
+### Feat
+
+- Added support for Private Frames (PRIV)
+
 ## v1.7.0 (2023-04-13)
 
 ### Feat
