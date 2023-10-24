@@ -470,7 +470,7 @@ mod tests {
     use crate::frame::{
         Chapter, Content, EncapsulatedObject, Frame, MpegLocationLookupTable,
         MpegLocationLookupTableReference, Picture, PictureType, Popularimeter, SynchronisedLyrics,
-        SynchronisedLyricsType, TimestampFormat, Unknown,
+        SynchronisedLyricsType, TimestampFormat, Unknown, TableOfContents,
     };
     use std::fs;
     use std::io::{self, Read};
@@ -530,6 +530,13 @@ mod tests {
                     Frame::with_content("TALB", Content::Text("Bar".to_string())),
                     Frame::with_content("TCON", Content::Text("Baz".to_string())),
                 ],
+            });
+            tag.add_frame(TableOfContents {
+                element_id: "table01".to_string(),
+                top_level: true,
+                ordered: true,
+                elements: vec!["01".to_string()],
+                frames: Vec::new(),
             });
             tag.add_frame(MpegLocationLookupTable {
                 frames_between_reference: 1,

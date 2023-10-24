@@ -1,7 +1,7 @@
 use crate::chunk;
 use crate::frame::{
     Chapter, Comment, EncapsulatedObject, ExtendedLink, ExtendedText, Frame, Lyrics, Picture,
-    SynchronisedLyrics,
+    SynchronisedLyrics, TableOfContents,
 };
 use crate::storage::{PlainStorage, Storage};
 use crate::stream;
@@ -385,6 +385,42 @@ impl<'a> Tag {
     pub fn chapters(&self) -> impl Iterator<Item = &Chapter> {
         self.frames().filter_map(|frame| frame.content().chapter())
     }
+
+    /// Returns an iterator over all tables of contents (CTOC) in the tag.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::{Tag, TagLike};
+    /// use id3::frame::{Chapter, TableOfContents, Content, Frame};
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.add_frame(Chapter{
+    ///     element_id: "chap01".to_string(),
+    ///     start_time: 1000,
+    ///     end_time: 2000,
+    ///     start_offset: 0xff,
+    ///     end_offset: 0xff,
+    ///     frames: Vec::new(),
+    /// });
+    /// tag.add_frame(TableOfContents{
+    ///     element_id: "internalTable01".to_string(),
+    ///     top_level: false,
+    ///     ordered: false,
+    ///     elements: Vec::new(),
+    ///     frames: Vec::new(),
+    /// });
+    /// tag.add_frame(TableOfContents{
+    ///     element_id: "01".to_string(),
+    ///     top_level: true,
+    ///     ordered: true,
+    ///     elements: ["internalTable01".to_string(),"chap01".to_string()],
+    ///     frames: Vec::new(),
+    /// });
+    /// assert_eq!(2, tag.tables_of_contents().count());
+    /// ```
+    pub fn tables_of_contents(&self) -> impl Iterator<Item = &TableOfContents> {
+    self.frames().filter_map(|frame| frame.content().table_of_contents())
+}
 }
 
 impl PartialEq for Tag {

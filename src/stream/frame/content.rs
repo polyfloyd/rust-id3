@@ -1,7 +1,7 @@
 use crate::frame::{
     Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics,
     MpegLocationLookupTable, MpegLocationLookupTableReference, Picture, PictureType, Popularimeter,
-    Private, SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat, Unknown,
+    Private, SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat, Unknown, TableOfContents,
 };
 use crate::stream::encoding::Encoding;
 use crate::stream::frame;
@@ -293,6 +293,10 @@ impl<W: io::Write> Encoder<W> {
         self.bytes(content.private_data.as_slice())?;
         Ok(())
     }
+
+    fn table_of_contents_content(&mut self, content: &TableOfContents) -> crate::Result<()> {
+        todo!()
+    }
 }
 
 pub fn encode(
@@ -322,6 +326,7 @@ pub fn encode(
         Content::Chapter(c) => encoder.chapter_content(c)?,
         Content::MpegLocationLookupTable(c) => encoder.mpeg_location_lookup_table_content(c)?,
         Content::Private(c) => encoder.private_content(c)?,
+        Content::TableOfContents(c) => encoder.table_of_contents_content(c)?,
         Content::Unknown(c) => encoder.bytes(&c.data)?,
     };
 
@@ -378,6 +383,7 @@ pub fn decode(
         "CHAP" => decoder.chapter_content(),
         "MLLT" => decoder.mpeg_location_lookup_table_content(),
         "PRIV" => decoder.private_content(),
+        "CTOC" => decoder.table_of_contents_content(),
         _ => Ok(Content::Unknown(Unknown { data, version })),
     }?;
     Ok((content, encoding))
@@ -776,6 +782,9 @@ impl<'a> Decoder<'a> {
             owner_identifier,
             private_data,
         }))
+    }
+    fn table_of_contents_content(mut self) -> crate::Result<Content> {
+        todo!()
     }
 }
 

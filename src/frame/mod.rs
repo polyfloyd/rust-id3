@@ -7,7 +7,7 @@ use std::str;
 pub use self::content::{
     Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics,
     MpegLocationLookupTable, MpegLocationLookupTableReference, Picture, PictureType, Popularimeter,
-    Private, SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat, Unknown,
+    Private, SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat, TableOfContents, Unknown,
 };
 pub use self::timestamp::Timestamp;
 
@@ -84,6 +84,7 @@ impl Frame {
             ("CHAP", Content::Chapter(_)) => Ok(()),
             ("MLLT", Content::MpegLocationLookupTable(_)) => Ok(()),
             ("PRIV", Content::Private(_)) => Ok(()),
+            ("CTOC", Content::TableOfContents(_)) => Ok(()),
             (_, Content::Unknown(_)) => Ok(()),
             (id, content) => {
                 let content_kind = match content {
@@ -100,6 +101,7 @@ impl Frame {
                     Content::Chapter(_) => "Chapter",
                     Content::MpegLocationLookupTable(_) => "MpegLocationLookupTable",
                     Content::Private(_) => "PrivateFrame",
+                    Content::TableOfContents(_) => "TableOfContents",
                     Content::Unknown(_) => "Unknown",
                 };
                 Err(Error::new(
