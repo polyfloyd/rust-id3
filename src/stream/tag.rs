@@ -470,7 +470,7 @@ mod tests {
     use crate::frame::{
         Chapter, Content, EncapsulatedObject, Frame, MpegLocationLookupTable,
         MpegLocationLookupTableReference, Picture, PictureType, Popularimeter, SynchronisedLyrics,
-        SynchronisedLyricsType, TimestampFormat, Unknown,
+        SynchronisedLyricsType, TableOfContents, TimestampFormat, Unknown,
     };
     use std::fs;
     use std::io::{self, Read};
@@ -530,6 +530,13 @@ mod tests {
                     Frame::with_content("TALB", Content::Text("Bar".to_string())),
                     Frame::with_content("TCON", Content::Text("Baz".to_string())),
                 ],
+            });
+            tag.add_frame(TableOfContents {
+                element_id: "table01".to_string(),
+                top_level: true,
+                ordered: true,
+                elements: vec!["01".to_string()],
+                frames: Vec::new(),
             });
             tag.add_frame(MpegLocationLookupTable {
                 frames_between_reference: 1,
@@ -693,6 +700,28 @@ mod tests {
                 "Apple’s September"
             ]
         );
+    }
+
+    #[test]
+    fn read_id3v23_ctoc() {
+        let mut file = fs::File::open("testdata/id3v23_chap.id3").unwrap();
+        let tag = decode(&mut file).unwrap();
+        assert_eq!(tag.tables_of_contents().count(), 1);
+
+        for x in tag.tables_of_contents() {
+            println!("{:?}", x);
+        }
+
+        let ctoc = tag.tables_of_contents().last().unwrap();
+
+        assert_eq!(ctoc.element_id, "toc");
+        assert!(ctoc.top_level);
+        assert!(ctoc.ordered);
+        assert_eq!(
+            ctoc.elements,
+            &["chp0", "chp1", "chp2", "chp3", "chp4", "chp5", "chp6"]
+        );
+        assert!(ctoc.frames.is_empty());
     }
 
     #[test]

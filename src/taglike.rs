@@ -1391,7 +1391,7 @@ pub trait TagLike: private::Sealed {
         self.remove("SYLT");
     }
 
-    /// Adds a single chapter (CHAP) to the farme.
+    /// /// Removes all chapters (CHAP) frames from the tag.
     ///
     /// # Example
     /// ```
@@ -1414,15 +1414,48 @@ pub trait TagLike: private::Sealed {
     fn remove_all_chapters(&mut self) {
         self.remove("CHAP");
     }
+
+    /// /// Removes all tables of contents (CTOC) frames from the tag.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::{Tag, TagLike};
+    /// use id3::frame::{Chapter, TableOfContents, Content, Frame};
+    ///
+    /// let mut tag = Tag::new();
+    /// tag.add_frame(Chapter{
+    ///     element_id: "chap01".to_string(),
+    ///     start_time: 1000,
+    ///     end_time: 2000,
+    ///     start_offset: 0xff,
+    ///     end_offset: 0xff,
+    ///     frames: Vec::new(),
+    /// });
+    /// tag.add_frame(TableOfContents{
+    ///     element_id: "01".to_string(),
+    ///     top_level: true,
+    ///     ordered: true,
+    ///     elements: vec!["chap01".to_string()],
+    ///     frames: Vec::new(),
+    /// });
+    /// assert_eq!(1, tag.tables_of_contents().count());
+    /// tag.remove_all_tables_of_contents();
+    /// assert_eq!(0, tag.tables_of_contents().count());
+    /// ```
+    fn remove_all_tables_of_contents(&mut self) {
+        self.remove("CTOC");
+    }
 }
 
 // https://rust-lang.github.io/api-guidelines/future-proofing.html#c-sealed
 mod private {
     use crate::frame::Chapter;
+    use crate::frame::TableOfContents;
     use crate::tag::Tag;
 
     pub trait Sealed {}
 
     impl Sealed for Tag {}
     impl Sealed for Chapter {}
+    impl Sealed for TableOfContents {}
 }

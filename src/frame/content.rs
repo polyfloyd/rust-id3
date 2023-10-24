@@ -51,6 +51,8 @@ pub enum Content {
     MpegLocationLookupTable(MpegLocationLookupTable),
     /// A private frame (PRIV)
     Private(Private),
+    /// A value containing the parsed contents of a table of contents frame (CTOC).
+    TableOfContents(TableOfContents),
     /// A value containing the bytes of a currently unknown frame type.
     ///
     /// Users that wish to write custom decoders must use [`Content::to_unknown`] instead of
@@ -104,6 +106,9 @@ impl Content {
                 Cow::Borrowed(private.owner_identifier.as_bytes()),
                 Cow::Borrowed(private.private_data.as_slice()),
             ]),
+            Self::TableOfContents(table_of_contents) => {
+                Comparable(vec![Cow::Borrowed(table_of_contents.element_id.as_bytes())])
+            }
             Self::Unknown(_) => Incomparable,
         }
     }
@@ -235,6 +240,14 @@ impl Content {
         }
     }
 
+    /// Returns the `TableOfContents` or None if the value is not `TableOfContents`.
+    pub fn table_of_contents(&self) -> Option<&TableOfContents> {
+        match self {
+            Content::TableOfContents(table_of_contents) => Some(table_of_contents),
+            _ => None,
+        }
+    }
+
     /// Returns the `Unknown` or None if the value is not `Unknown`.
     #[deprecated(note = "Use to_unknown")]
     pub fn unknown(&self) -> Option<&[u8]> {
@@ -277,6 +290,7 @@ impl fmt::Display for Content {
             Content::Chapter(chapter) => write!(f, "{}", chapter),
             Content::MpegLocationLookupTable(mpeg_table) => write!(f, "{}", mpeg_table),
             Content::Private(private) => write!(f, "{}", private),
+            Content::TableOfContents(table_of_contents) => write!(f, "{}", table_of_contents),
             Content::Unknown(unknown) => write!(f, "{}", unknown),
         }
     }
@@ -789,6 +803,52 @@ impl fmt::Display for Private {
 impl From<Private> for Frame {
     fn from(c: Private) -> Self {
         Self::with_content("PRIV", Content::Private(c))
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[allow(missing_docs)]
+pub struct TableOfContents {
+    pub element_id: String,
+    pub top_level: bool,
+    pub ordered: bool,
+    pub elements: Vec<String>,
+    pub frames: Vec<Frame>,
+}
+
+impl fmt::Display for TableOfContents {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let frames: Vec<&str> = self.frames.iter().map(|f| f.id()).collect();
+        write!(
+            f,
+            "isTopLevel:{top_level}, isOrdered:{ordered}, childList: []: {elements}, frames:{frames}",
+            top_level = self.top_level,
+            ordered = self.ordered,
+            elements = self.elements.join(", "),
+            frames = frames.join(", "),
+        )
+    }
+}
+
+impl Extend<Frame> for TableOfContents {
+    fn extend<I: IntoIterator<Item = Frame>>(&mut self, iter: I) {
+        self.frames.extend(iter)
+    }
+}
+
+impl TagLike for TableOfContents {
+    fn frames_vec(&self) -> &Vec<Frame> {
+        &self.frames
+    }
+
+    fn frames_vec_mut(&mut self) -> &mut Vec<Frame> {
+        &mut self.frames
+    }
+}
+
+impl From<TableOfContents> for Frame {
+    fn from(c: TableOfContents) -> Self {
+        Self::with_content("CTOC", Content::TableOfContents(c))
     }
 }
 
