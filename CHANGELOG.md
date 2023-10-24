@@ -1,3 +1,9 @@
+## v1.9.0 (2023-10-24)
+
+### Feat
+
+- Added support for Table of contents frame (CTOC) (#116)
+
 ## v1.8.0 (2023-09-21)
 
 ### Feat
