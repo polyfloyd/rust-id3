@@ -295,7 +295,28 @@ impl<W: io::Write> Encoder<W> {
     }
 
     fn table_of_contents_content(&mut self, content: &TableOfContents) -> crate::Result<()> {
-        todo!()
+        self.string_with_other_encoding(Encoding::Latin1, &content.element_id)?;
+        self.byte(0)?;
+        let top_level_flag = match content.top_level {
+            true => 2,
+            false => 0,
+        };
+
+        let ordered_flag = match content.ordered {
+            true => 1,
+            false => 0,
+        };
+        self.byte(top_level_flag | ordered_flag)?;
+        self.byte(content.elements.len() as u8)?;
+
+        for element in &content.elements {
+            self.string_with_other_encoding(Encoding::Latin1, element)?;
+            self.byte(0)?;
+        }
+        for frame in &content.frames {
+            frame::encode(&mut self.w, frame, self.version, false)?;
+        }
+        Ok(())
     }
 }
 
@@ -784,7 +805,27 @@ impl<'a> Decoder<'a> {
         }))
     }
     fn table_of_contents_content(mut self) -> crate::Result<Content> {
-        todo!()
+        let element_id = self.string_delimited(Encoding::Latin1)?;
+        let flags = self.byte()?;
+        let top_level = matches!(!!(flags & 2), 2);
+        let ordered = matches!(!!(flags & 1), 1);
+        let element_count = self.byte()?;
+        let mut elements = Vec::new();
+        for _ in 0 ..element_count {
+            elements.push(self.string_delimited(Encoding::Latin1)?);
+        }
+        let mut frames = Vec::new();
+        while let Some((_advance, frame)) = frame::decode(&mut self.r, self.version)? {
+            frames.push(frame);
+        }
+        Ok(Content::TableOfContents(TableOfContents{
+            element_id,
+            top_level,
+            ordered,
+            elements,
+            frames,
+        }))
+
     }
 }
 

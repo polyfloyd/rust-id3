@@ -1435,7 +1435,7 @@ pub trait TagLike: private::Sealed {
     ///     element_id: "01".to_string(),
     ///     top_level: true,
     ///     ordered: true,
-    ///     elements: ["chap01".to_string()],
+    ///     elements: vec!["chap01".to_string()],
     ///     frames: Vec::new(),
     /// });
     /// assert_eq!(1, tag.tables_of_contents().count());
