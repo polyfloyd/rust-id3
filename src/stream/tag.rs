@@ -470,7 +470,7 @@ mod tests {
     use crate::frame::{
         Chapter, Content, EncapsulatedObject, Frame, MpegLocationLookupTable,
         MpegLocationLookupTableReference, Picture, PictureType, Popularimeter, SynchronisedLyrics,
-        SynchronisedLyricsType, TimestampFormat, Unknown, TableOfContents,
+        SynchronisedLyricsType, TableOfContents, TimestampFormat, Unknown,
     };
     use std::fs;
     use std::io::{self, Read};
@@ -683,7 +683,7 @@ mod tests {
         let mut file = fs::File::open("testdata/id3v23_chap.id3").unwrap();
         let tag = decode(&mut file).unwrap();
         assert_eq!(tag.chapters().count(), 7);
-        
+
         let chapter_titles = tag
             .chapters()
             .map(|chap| chap.frames.first().unwrap().content().text().unwrap())
@@ -707,30 +707,19 @@ mod tests {
         let mut file = fs::File::open("testdata/id3v23_chap.id3").unwrap();
         let tag = decode(&mut file).unwrap();
         assert_eq!(tag.tables_of_contents().count(), 1);
-        
-        for x in tag.tables_of_contents(){
-            println!("{:?}",x);
+
+        for x in tag.tables_of_contents() {
+            println!("{:?}", x);
         }
 
-        let ctoc = tag
-            .tables_of_contents()
-            .last()
-            .unwrap();
+        let ctoc = tag.tables_of_contents().last().unwrap();
 
         assert_eq!(ctoc.element_id, "toc");
         assert!(ctoc.top_level);
         assert!(ctoc.ordered);
         assert_eq!(
             ctoc.elements,
-            &[
-                "chp0",
-                "chp1",
-                "chp2",
-                "chp3",
-                "chp4",
-                "chp5",
-                "chp6"
-            ]
+            &["chp0", "chp1", "chp2", "chp3", "chp4", "chp5", "chp6"]
         );
         assert!(ctoc.frames.is_empty());
     }

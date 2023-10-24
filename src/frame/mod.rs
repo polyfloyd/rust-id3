@@ -7,7 +7,7 @@ use std::str;
 pub use self::content::{
     Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics,
     MpegLocationLookupTable, MpegLocationLookupTableReference, Picture, PictureType, Popularimeter,
-    Private, SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat, TableOfContents, Unknown,
+    Private, SynchronisedLyrics, SynchronisedLyricsType, TableOfContents, TimestampFormat, Unknown,
 };
 pub use self::timestamp::Timestamp;
 

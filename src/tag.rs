@@ -419,8 +419,9 @@ impl<'a> Tag {
     /// assert_eq!(2, tag.tables_of_contents().count());
     /// ```
     pub fn tables_of_contents(&self) -> impl Iterator<Item = &TableOfContents> {
-    self.frames().filter_map(|frame| frame.content().table_of_contents())
-}
+        self.frames()
+            .filter_map(|frame| frame.content().table_of_contents())
+    }
 }
 
 impl PartialEq for Tag {

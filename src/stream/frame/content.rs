@@ -1,7 +1,7 @@
 use crate::frame::{
     Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics,
     MpegLocationLookupTable, MpegLocationLookupTableReference, Picture, PictureType, Popularimeter,
-    Private, SynchronisedLyrics, SynchronisedLyricsType, TimestampFormat, Unknown, TableOfContents,
+    Private, SynchronisedLyrics, SynchronisedLyricsType, TableOfContents, TimestampFormat, Unknown,
 };
 use crate::stream::encoding::Encoding;
 use crate::stream::frame;
@@ -811,21 +811,20 @@ impl<'a> Decoder<'a> {
         let ordered = matches!(!!(flags & 1), 1);
         let element_count = self.byte()?;
         let mut elements = Vec::new();
-        for _ in 0 ..element_count {
+        for _ in 0..element_count {
             elements.push(self.string_delimited(Encoding::Latin1)?);
         }
         let mut frames = Vec::new();
         while let Some((_advance, frame)) = frame::decode(&mut self.r, self.version)? {
             frames.push(frame);
         }
-        Ok(Content::TableOfContents(TableOfContents{
+        Ok(Content::TableOfContents(TableOfContents {
             element_id,
             top_level,
             ordered,
             elements,
             frames,
         }))
-
     }
 }
 
