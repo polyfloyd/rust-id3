@@ -19,7 +19,7 @@ jobs:
       with:
         fetch-depth: 0
         ssh-key: "${{ secrets.DEPLOY_SSH_KEY }}"
-    - run: pip3 install Commitizen==2.27.1
+    - run: pip3 install Commitizen==3.12.0 setuptools-scm>=8.0
 
     - run: git config --local user.email "github-actions@users.noreply.github.com"
     - run: git config --local user.name "github-actions"
