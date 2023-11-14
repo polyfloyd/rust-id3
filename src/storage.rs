@@ -64,7 +64,7 @@ impl StorageFile for fs::File {
 
 impl StorageFile for io::Cursor<Vec<u8>> {
     fn set_len(&mut self, new_len: u64) -> io::Result<()> {
-        self.get_mut().resize(new_len as usize, 0xff);
+        self.get_mut().resize(new_len as usize, 0);
         Ok(())
     }
 }
