@@ -43,7 +43,10 @@ where
     region: ops::Range<u64>,
 }
 
-pub trait StorageFile: io::Read + io::Write + io::Seek {
+/// This trait is the combination of the [`std::io`] stream traits with an additional method to resize the
+/// file.
+pub trait StorageFile: io::Read + io::Write + io::Seek + private::Sealed {
+    /// Performs the resize. Assumes the same behaviour as [`std::fs::File::set_len`].
     fn set_len(&mut self, new_len: u64) -> io::Result<()>;
 }
 
@@ -274,6 +277,15 @@ where
     fn drop(&mut self) {
         let _ = self.flush();
     }
+}
+
+// https://rust-lang.github.io/api-guidelines/future-proofing.html#c-sealed
+mod private {
+    pub trait Sealed {}
+
+    impl<'a, T: Sealed> Sealed for &'a mut T {}
+    impl Sealed for std::fs::File {}
+    impl Sealed for std::io::Cursor<Vec<u8>> {}
 }
 
 #[cfg(test)]

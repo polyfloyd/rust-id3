@@ -1,7 +1,7 @@
-use crate::{Error, ErrorKind};
+use crate::{Error, ErrorKind, StorageFile};
 use std::cmp;
 use std::fs;
-use std::io::{self, Read, Seek};
+use std::io;
 use std::ops;
 use std::path::Path;
 
@@ -306,9 +306,19 @@ impl Tag {
     /// The file cursor position will be reset back to the previous position before returning.
     ///
     /// Returns true if the file initially contained a tag.
+    #[deprecated(note = "Use remove_from_file")]
     pub fn remove(file: &mut fs::File) -> crate::Result<bool> {
+        Self::remove_from_file(file)
+    }
+
+    /// Removes an ID3v1 tag plus possible extended data if any.
+    ///
+    /// The file cursor position will be reset back to the previous position before returning.
+    ///
+    /// Returns true if the file initially contained a tag.
+    pub fn remove_from_file(mut file: impl StorageFile) -> crate::Result<bool> {
         let cur_pos = file.stream_position()?;
-        let file_len = file.metadata()?.len();
+        let file_len = file.seek(io::SeekFrom::End(0))?;
         let has_ext_tag = if file_len >= XTAG_CHUNK.start.unsigned_abs() {
             file.seek(io::SeekFrom::End(XTAG_CHUNK.start))?;
             let mut b = [0; 4];
@@ -348,7 +358,7 @@ impl Tag {
     /// Returns true if the file initially contained a tag.
     pub fn remove_from_path(path: impl AsRef<Path>) -> crate::Result<bool> {
         let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
-        Tag::remove(&mut file)
+        Tag::remove_from_file(&mut file)
     }
 
     /// Returns `genre_str`, falling back to translating `genre_id` to a string.
@@ -366,6 +376,7 @@ impl Tag {
 mod tests {
     use super::*;
     use std::fs;
+    use std::io::Seek;
     use tempfile::tempdir;
 
     #[test]
@@ -401,8 +412,8 @@ mod tests {
             .open(&tmp_name)
             .unwrap();
         tag_file.seek(io::SeekFrom::Start(0)).unwrap();
-        assert!(Tag::remove(&mut tag_file).unwrap());
+        assert!(Tag::remove_from_file(&mut tag_file).unwrap());
         tag_file.seek(io::SeekFrom::Start(0)).unwrap();
-        assert!(!Tag::remove(&mut tag_file).unwrap());
+        assert!(!Tag::remove_from_file(&mut tag_file).unwrap());
     }
 }

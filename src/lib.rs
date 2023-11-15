@@ -9,6 +9,7 @@
 
 pub use crate::error::{partial_tag_ok, Error, ErrorKind, Result};
 pub use crate::frame::{Content, Frame, Timestamp};
+pub use crate::storage::StorageFile;
 pub use crate::stream::encoding::Encoding;
 pub use crate::stream::tag::Encoder;
 pub use crate::tag::{Tag, Version};

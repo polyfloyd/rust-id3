@@ -1,4 +1,4 @@
-use crate::storage::{PlainStorage, Storage};
+use crate::storage::{PlainStorage, Storage, StorageFile};
 use crate::stream::{frame, unsynch};
 use crate::tag::{Tag, Version};
 use crate::taglike::TagLike;
@@ -420,7 +420,7 @@ impl Encoder {
     }
 
     /// Encodes a [`Tag`] and replaces any existing tag in the file.
-    pub fn encode_to_file(&self, tag: &Tag, mut file: &mut fs::File) -> crate::Result<()> {
+    pub fn write_to_file(&self, tag: &Tag, mut file: impl StorageFile) -> crate::Result<()> {
         #[allow(clippy::reversed_empty_ranges)]
         let location = locate_id3v2(&mut file)?.unwrap_or(0..0); // Create a new tag if none could be located.
 
@@ -431,12 +431,24 @@ impl Encoder {
         Ok(())
     }
 
+    /// Encodes a [`Tag`] and replaces any existing tag in the file.
+    #[deprecated(note = "Use write_to_file")]
+    pub fn encode_to_file(&self, tag: &Tag, file: &mut fs::File) -> crate::Result<()> {
+        self.write_to_file(tag, file)
+    }
+
     /// Encodes a [`Tag`] and replaces any existing tag in the file pointed to by the specified path.
-    pub fn encode_to_path(&self, tag: &Tag, path: impl AsRef<Path>) -> crate::Result<()> {
+    pub fn write_to_path(&self, tag: &Tag, path: impl AsRef<Path>) -> crate::Result<()> {
         let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
-        self.encode_to_file(tag, &mut file)?;
+        self.write_to_file(tag, &mut file)?;
         file.flush()?;
         Ok(())
+    }
+
+    /// Encodes a [`Tag`] and replaces any existing tag in the file pointed to by the specified path.
+    #[deprecated(note = "Use write_to_path")]
+    pub fn encode_to_path(&self, tag: &Tag, path: impl AsRef<Path>) -> crate::Result<()> {
+        self.write_to_path(tag, path)
     }
 }
 
