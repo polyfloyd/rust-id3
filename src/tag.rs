@@ -7,6 +7,7 @@ use crate::storage::{PlainStorage, Storage};
 use crate::stream;
 use crate::taglike::TagLike;
 use crate::v1;
+use crate::StorageFile;
 use std::fmt;
 use std::fs::{self, File};
 use std::io::{self, BufReader, Write};
@@ -189,7 +190,7 @@ impl<'a> Tag {
     /// Attempts to write the ID3 tag to the writer using the specified version.
     ///
     /// Note that the plain tag is written, regardless of the original contents. To safely encode a
-    /// tag to an MP3 file, use `Tag::write_to_path`.
+    /// tag to an MP3 file, use `Tag::write_to_file`.
     pub fn write_to(&self, writer: impl io::Write, version: Version) -> crate::Result<()> {
         stream::tag::Encoder::new()
             .version(version)
@@ -199,8 +200,7 @@ impl<'a> Tag {
     /// Attempts to write the ID3 tag from the file at the indicated path. If the specified path is
     /// the same path which the tag was read from, then the tag will be written to the padding if
     /// possible.
-    pub fn write_to_path(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
-        let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
+    pub fn write_to_file(&self, mut file: impl StorageFile, version: Version) -> crate::Result<()> {
         #[allow(clippy::reversed_empty_ranges)]
         let location = stream::tag::locate_id3v2(&mut file)?.unwrap_or(0..0); // Create a new tag if none could be located.
 
@@ -211,6 +211,12 @@ impl<'a> Tag {
             .encode(self, &mut w)?;
         w.flush()?;
         Ok(())
+    }
+
+    /// Conventience function for [`write_to_file`].
+    pub fn write_to_path(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
+        let file = fs::OpenOptions::new().read(true).write(true).open(path)?;
+        self.write_to_file(file, version)
     }
 
     /// Overwrite WAV file ID3 chunk in a file

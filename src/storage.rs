@@ -43,7 +43,10 @@ where
     region: ops::Range<u64>,
 }
 
+/// This trait is the combination of the [`std::io`] stream traits with an additional method to resize the
+/// file.
 pub trait StorageFile: io::Read + io::Write + io::Seek {
+    /// Performs the resize. Assumes the same behaviour as [`std::fs::File::set_len`].
     fn set_len(&mut self, new_len: u64) -> io::Result<()>;
 }
 

@@ -1,4 +1,4 @@
-use crate::storage::{PlainStorage, Storage};
+use crate::storage::{PlainStorage, Storage, StorageFile};
 use crate::stream::{frame, unsynch};
 use crate::tag::{Tag, Version};
 use crate::taglike::TagLike;
@@ -420,7 +420,7 @@ impl Encoder {
     }
 
     /// Encodes a [`Tag`] and replaces any existing tag in the file.
-    pub fn encode_to_file(&self, tag: &Tag, mut file: &mut fs::File) -> crate::Result<()> {
+    pub fn encode_to_file(&self, tag: &Tag, mut file: impl StorageFile) -> crate::Result<()> {
         #[allow(clippy::reversed_empty_ranges)]
         let location = locate_id3v2(&mut file)?.unwrap_or(0..0); // Create a new tag if none could be located.
 
