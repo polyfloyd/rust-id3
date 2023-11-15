@@ -347,11 +347,7 @@ impl Tag {
     ///
     /// Returns true if the file initially contained a tag.
     pub fn remove_from_path(path: impl AsRef<Path>) -> crate::Result<bool> {
-        let mut file = fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(path)
-            .unwrap();
+        let mut file = fs::OpenOptions::new().read(true).write(true).open(path)?;
         Tag::remove(&mut file)
     }
 
