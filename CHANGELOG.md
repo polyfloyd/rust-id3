@@ -1,3 +1,14 @@
+## v1.10.0 (2023-11-16)
+
+### Feat
+
+- Add write_to_file, for encoding to MP3 files and buffers (#117)
+
+### Fix
+
+- **v1**: Unwrap in remove_from_path
+- io::Cursor resize should zero-fill
+
 ## v1.9.0 (2023-10-24)
 
 ### Feat
