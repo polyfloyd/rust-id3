@@ -3,7 +3,7 @@ use crate::stream::encoding::Encoding;
 use crate::stream::frame;
 use crate::tag::Version;
 use crate::{Error, ErrorKind};
-use byteorder::{BigEndian, ByteOrder};
+use byteorder::{BigEndian, WriteBytesExt};
 use std::io;
 
 pub fn decode(mut reader: impl io::Read) -> crate::Result<Option<(usize, Frame)>> {
@@ -39,9 +39,7 @@ pub fn encode(mut writer: impl io::Write, frame: &Frame) -> crate::Result<usize>
     })?;
     assert_eq!(3, id.len());
     writer.write_all(id.as_bytes())?;
-    let mut size_buf = [0; 4];
-    BigEndian::write_u32(&mut size_buf, content_buf.len() as u32);
-    writer.write_all(&size_buf[1..4])?;
+    writer.write_u24::<BigEndian>(content_buf.len() as u32)?;
     writer.write_all(&content_buf)?;
     Ok(6 + content_buf.len())
 }
