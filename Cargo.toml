@@ -14,7 +14,7 @@ categories = ["encoding", "multimedia", "multimedia::audio", "parser-implementat
 include = ["src/*", "Cargo.toml", "LICENSE", "README.md"]
 
 [dependencies]
-bitflags = "2.0"
+bitflags = "2.4"
 byteorder = "1.4"
 flate2 = "1"
 tokio = { version = "1.21", default-features = false, features = ["rt", "macros", "io-util", "fs"], optional = true}
