@@ -117,7 +117,7 @@ impl<'a> Tag {
     /// Removes an ID3v2 tag from the specified file.
     ///
     /// Returns true if the file initially contained a tag.
-    pub fn remove_from_file(mut file: &mut fs::File) -> crate::Result<bool> {
+    pub fn remove_from_file(mut file: impl StorageFile) -> crate::Result<bool> {
         let location = match stream::tag::locate_id3v2(&mut file)? {
             Some(l) => l,
             None => return Ok(false),
@@ -167,7 +167,7 @@ impl<'a> Tag {
     }
 
     /// Reads an AIFF file and returns any present ID3 tag.
-    pub fn read_from_aiff_file(file: &mut fs::File) -> crate::Result<Tag> {
+    pub fn read_from_aiff_file(file: impl StorageFile) -> crate::Result<Tag> {
         chunk::load_id3_chunk::<chunk::AiffFormat, _>(file)
     }
 
@@ -183,7 +183,7 @@ impl<'a> Tag {
     }
 
     /// Reads an WAV file and returns any present ID3 tag.
-    pub fn read_from_wav_file(file: &mut fs::File) -> crate::Result<Tag> {
+    pub fn read_from_wav_file(file: impl StorageFile) -> crate::Result<Tag> {
         chunk::load_id3_chunk::<chunk::WavFormat, _>(file)
     }
 
@@ -237,7 +237,11 @@ impl<'a> Tag {
     }
 
     /// Overwrite AIFF file ID3 chunk in a file. The file must be opened read/write.
-    pub fn write_to_aiff_file(&self, file: &mut fs::File, version: Version) -> crate::Result<()> {
+    pub fn write_to_aiff_file(
+        &self,
+        file: impl StorageFile,
+        version: Version,
+    ) -> crate::Result<()> {
         chunk::write_id3_chunk_file::<chunk::AiffFormat>(file, self, version)
     }
 
@@ -255,7 +259,7 @@ impl<'a> Tag {
     }
 
     /// Overwrite AIFF file ID3 chunk in a file. The file must be opened read/write.
-    pub fn write_to_wav_file(&self, file: &mut fs::File, version: Version) -> crate::Result<()> {
+    pub fn write_to_wav_file(&self, file: impl StorageFile, version: Version) -> crate::Result<()> {
         chunk::write_id3_chunk_file::<chunk::WavFormat>(file, self, version)
     }
 
