@@ -1,4 +1,4 @@
-use crate::storage::{PlainStorage, Storage};
+use crate::storage::{plain::PlainStorage, Storage};
 use crate::{Error, ErrorKind, StorageFile, Tag, Version};
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
 use std::convert::TryFrom;

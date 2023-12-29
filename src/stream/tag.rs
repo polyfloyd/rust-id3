@@ -1,4 +1,4 @@
-use crate::storage::{PlainStorage, Storage, StorageFile};
+use crate::storage::{plain::PlainStorage, Storage, StorageFile};
 use crate::stream::{frame, unsynch};
 use crate::tag::{Tag, Version};
 use crate::taglike::TagLike;

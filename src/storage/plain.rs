@@ -1,91 +1,30 @@
-//! Abstractions that expose a simple interface for reading and storing tags according to some
-//! underlying file format.
-//!
-//! The need for this abstraction arises from the differences that audiofiles have when storing
-//! metadata. For example, MP3 uses a header for ID3v2, a trailer for ID3v1 while WAV has a special
-//! "RIFF-chunk" which stores an ID3 tag.
-
-use std::cmp;
-use std::cmp::Ordering;
-use std::fs;
+use super::{Storage, StorageFile};
+use std::cmp::{self, Ordering};
 use std::io::{self, Write};
 use std::ops;
 
 const COPY_BUF_SIZE: usize = 65536;
-
-/// Refer to the module documentation.
-pub trait Storage<'a> {
-    type Reader: io::Read + io::Seek + 'a;
-    type Writer: io::Write + io::Seek + 'a;
-
-    /// Opens the storage for reading.
-    fn reader(&'a mut self) -> io::Result<Self::Reader>;
-    /// Opens the storage for writing.
-    ///
-    /// The written data is comitted to persistent storage when the
-    /// writer is dropped, altough this will ignore any errors. The caller must manually commit by
-    /// using `io::Write::flush` to check for errors.
-    fn writer(&'a mut self) -> io::Result<Self::Writer>;
-}
 
 /// `PlainStorage` keeps track of a writeable region in a file and prevents accidental overwrites
 /// of unrelated data. Any data following after the region is moved left and right as needed.
 ///
 /// Padding is included from the reader.
 #[derive(Debug)]
-pub struct PlainStorage<F>
-where
-    F: StorageFile,
-{
+pub struct PlainStorage<F: StorageFile> {
     /// The backing storage.
     file: F,
     /// The region that may be writen to including any padding.
     region: ops::Range<u64>,
 }
 
-/// This trait is the combination of the [`std::io`] stream traits with an additional method to resize the
-/// file.
-pub trait StorageFile: io::Read + io::Write + io::Seek + private::Sealed {
-    /// Performs the resize. Assumes the same behaviour as [`std::fs::File::set_len`].
-    fn set_len(&mut self, new_len: u64) -> io::Result<()>;
-}
-
-impl<'a, T> StorageFile for &'a mut T
-where
-    T: StorageFile,
-{
-    fn set_len(&mut self, new_len: u64) -> io::Result<()> {
-        (*self).set_len(new_len)
-    }
-}
-
-impl StorageFile for fs::File {
-    fn set_len(&mut self, new_len: u64) -> io::Result<()> {
-        fs::File::set_len(self, new_len)
-    }
-}
-
-impl StorageFile for io::Cursor<Vec<u8>> {
-    fn set_len(&mut self, new_len: u64) -> io::Result<()> {
-        self.get_mut().resize(new_len as usize, 0);
-        Ok(())
-    }
-}
-
-impl<F> PlainStorage<F>
-where
-    F: StorageFile,
-{
+impl<F: StorageFile> PlainStorage<F> {
     /// Creates a new storage.
     pub fn new(file: F, region: ops::Range<u64>) -> PlainStorage<F> {
         PlainStorage { file, region }
     }
 }
 
-impl<'a, F> Storage<'a> for PlainStorage<F>
-where
-    F: StorageFile + 'a,
-{
+impl<'a, F: StorageFile + 'a> Storage<'a> for PlainStorage<F> {
     type Reader = PlainReader<'a, F>;
     type Writer = PlainWriter<'a, F>;
 
@@ -104,17 +43,11 @@ where
     }
 }
 
-pub struct PlainReader<'a, F>
-where
-    F: StorageFile + 'a,
-{
+pub struct PlainReader<'a, F: StorageFile + 'a> {
     storage: &'a mut PlainStorage<F>,
 }
 
-impl<'a, F> io::Read for PlainReader<'a, F>
-where
-    F: StorageFile,
-{
+impl<'a, F: StorageFile> io::Read for PlainReader<'a, F> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let cur_pos = self.storage.file.stream_position()?;
         assert!(self.storage.region.start <= cur_pos);
@@ -129,10 +62,7 @@ where
     }
 }
 
-impl<'a, F> io::Seek for PlainReader<'a, F>
-where
-    F: StorageFile,
-{
+impl<'a, F: StorageFile> io::Seek for PlainReader<'a, F> {
     fn seek(&mut self, rel_pos: io::SeekFrom) -> io::Result<u64> {
         let abs_cur_pos = self.storage.file.stream_position()?;
         let abs_pos = match rel_pos {
@@ -154,10 +84,7 @@ where
     }
 }
 
-pub struct PlainWriter<'a, F>
-where
-    F: StorageFile + 'a,
-{
+pub struct PlainWriter<'a, F: StorageFile + 'a> {
     storage: &'a mut PlainStorage<F>,
     /// Data is writen to this buffer before it is committed to the underlying storage.
     buffer: io::Cursor<Vec<u8>>,
@@ -165,10 +92,7 @@ where
     buffer_changed: bool,
 }
 
-impl<'a, F> io::Write for PlainWriter<'a, F>
-where
-    F: StorageFile,
-{
+impl<'a, F: StorageFile> io::Write for PlainWriter<'a, F> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let nwritten = self.buffer.write(buf)?;
         self.buffer_changed = true;
@@ -261,31 +185,16 @@ where
     }
 }
 
-impl<'a, F> io::Seek for PlainWriter<'a, F>
-where
-    F: StorageFile,
-{
+impl<'a, F: StorageFile> io::Seek for PlainWriter<'a, F> {
     fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
         self.buffer.seek(pos)
     }
 }
 
-impl<'a, F> Drop for PlainWriter<'a, F>
-where
-    F: StorageFile,
-{
+impl<'a, F: StorageFile> Drop for PlainWriter<'a, F> {
     fn drop(&mut self) {
         let _ = self.flush();
     }
-}
-
-// https://rust-lang.github.io/api-guidelines/future-proofing.html#c-sealed
-mod private {
-    pub trait Sealed {}
-
-    impl<'a, T: Sealed> Sealed for &'a mut T {}
-    impl Sealed for std::fs::File {}
-    impl Sealed for std::io::Cursor<Vec<u8>> {}
 }
 
 #[cfg(test)]

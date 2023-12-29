@@ -3,7 +3,7 @@ use crate::frame::{
     Chapter, Comment, EncapsulatedObject, ExtendedLink, ExtendedText, Frame, Lyrics, Picture,
     SynchronisedLyrics, TableOfContents,
 };
-use crate::storage::{PlainStorage, Storage};
+use crate::storage::{plain::PlainStorage, Storage};
 use crate::stream;
 use crate::taglike::TagLike;
 use crate::v1;
