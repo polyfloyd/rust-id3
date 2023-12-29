@@ -1,3 +1,13 @@
+## v1.11.0 (2023-12-29)
+
+### Feat
+
+- make file-related APIs compatible with io::Cursor (#121)
+
+### Refactor
+
+- kill redundant array copy (#118)
+
 ## v1.10.0 (2023-11-16)
 
 ### Feat
