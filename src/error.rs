@@ -32,6 +32,37 @@ pub fn partial_tag_ok(rs: Result<Tag>) -> Result<Tag> {
     }
 }
 
+/// Takes a tag result and maps the NoTag kind to None. Any other error is returned as Err.
+///
+/// # Example
+/// ```
+/// use id3::{Tag, Error, ErrorKind, no_tag_ok};
+///
+/// let rs = Err(Error{
+///     kind: ErrorKind::NoTag,
+///     description: "the file contains no ID3 tag".to_string(),
+///     partial_tag: None,
+/// });
+/// assert!(matches!(no_tag_ok(rs), Ok(None)));
+///
+/// let rs = Err(Error{
+///     kind: ErrorKind::Parsing,
+///     description: "frame 12 could not be decoded".to_string(),
+///     partial_tag: Some(Tag::new()),
+/// });
+/// assert!(no_tag_ok(rs).is_err());
+/// ```
+pub fn no_tag_ok(rs: Result<Tag>) -> Result<Option<Tag>> {
+    match rs {
+        Ok(tag) => Ok(Some(tag)),
+        Err(Error {
+            kind: ErrorKind::NoTag,
+            ..
+        }) => Ok(None),
+        Err(err) => Err(err),
+    }
+}
+
 /// Kinds of errors that may occur while performing metadata operations.
 #[derive(Debug)]
 pub enum ErrorKind {

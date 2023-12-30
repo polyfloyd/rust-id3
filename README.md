@@ -97,6 +97,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+### Handling damaged or files without a tag
+```rust
+use id3::{Tag, TagLike, partial_tag_ok, no_tag_ok};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let tag_result = Tag::read_from_path("testdata/id3v24.id3");
+
+    // A partially decoded tag is set on the Err. partial_tag_ok takes it out and maps it to Ok.
+    let tag_result = partial_tag_ok(tag_result);
+
+    // no_tag_ok maps the NoTag error variant and maps it to Ok(None).
+    let tag_result = no_tag_ok(tag_result);
+
+    if let Some(tag) = tag_result? {
+      // ..
+    }
+
+    Ok(())
+}
+```
+
 
 ## Contributing
 
