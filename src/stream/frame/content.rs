@@ -586,6 +586,7 @@ impl<'a> Decoder<'a> {
             let r = match self.r.len() {
                 0..=8 => self.r,
                 9.. => &self.r[..8],
+                _ => unreachable!(),
             };
             let mut bin = [0; 8];
             bin[8 - r.len()..].copy_from_slice(r);
