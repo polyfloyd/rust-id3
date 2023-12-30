@@ -1,3 +1,9 @@
+## v1.12.0 (2023-12-30)
+
+### Feat
+
+- Add the no_tag_ok helper function (fixes #122)
+
 ## v1.11.0 (2023-12-29)
 
 ### Feat
