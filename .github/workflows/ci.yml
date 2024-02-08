@@ -9,6 +9,9 @@ on:
       - main
   workflow_call:
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   build:
     strategy:
