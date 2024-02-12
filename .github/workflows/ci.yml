@@ -25,11 +25,22 @@ jobs:
       - name: Check out source repository
         uses: actions/checkout@v4
 
-      - name: Update apt and install ffmpeg
+      - name: Install FFmpeg (Ubuntu)
         if: runner.os == 'Linux'
         run: |
           sudo apt update
           sudo apt install -y ffmpeg
+
+      - name: Install FFmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install ffmpeg
+
+      - name: Install FFmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install ffmpeg
+        shell: powershell
 
       - name: Set up Rust toolchain
         uses: actions-rs/toolchain@v1
