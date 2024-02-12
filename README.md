@@ -1,13 +1,13 @@
-rust-id3
-========
+# rust-id3
+
 [![Build Status](https://github.com/polyfloyd/rust-id3/workflows/CI/badge.svg)](https://github.com/polyfloyd/rust-id3/actions)
 [![Crate](https://img.shields.io/crates/v/id3.svg)](https://crates.io/crates/id3)
 [![Documentation](https://docs.rs/id3/badge.svg)](https://docs.rs/id3/)
 
 A library for reading and writing ID3 metadata.
 
-
 ## Implemented Features
+
 * ID3v1 reading
 * ID3v2.2, ID3v2.3, ID3v2.4 reading/writing
 * MP3, WAV and AIFF files
@@ -27,10 +27,10 @@ A library for reading and writing ID3 metadata.
 * MPEG Location Lookup Table frames
 * Tag and File Alter Preservation bits
 
-
 ## Examples
 
 ### Reading tag frames
+
 ```rust
 use id3::{Tag, TagLike};
 
@@ -56,7 +56,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### Modifying any existing tag.
+### Modifying any existing tag
+
 ```rust
 use id3::{Error, ErrorKind, Tag, TagLike, Version};
 use std::fs::copy;
@@ -77,7 +78,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### Creating a new tag, overwriting any old tag.
+### Creating a new tag, overwriting any old tag
+
 ```rust
 use id3::{Tag, TagLike, Frame, Version};
 use id3::frame::Content;
@@ -98,6 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```
 
 ### Handling damaged or files without a tag
+
 ```rust
 use id3::{Tag, TagLike, partial_tag_ok, no_tag_ok};
 
@@ -117,7 +120,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
-
 
 ## Contributing
 
