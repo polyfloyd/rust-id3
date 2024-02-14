@@ -63,9 +63,10 @@ use id3::{Error, ErrorKind, Tag, TagLike, Version};
 use std::fs::copy;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    copy("testdata/quiet.mp3", "/tmp/music.mp3")?;
+    let temp_file = std::env::temp_dir().join("music.mp3");
+    copy("testdata/quiet.mp3", &temp_file)?;
 
-    let mut tag = match Tag::read_from_path("/tmp/music.mp3") {
+    let mut tag = match Tag::read_from_path(&temp_file) {
         Ok(tag) => tag,
         Err(Error{kind: ErrorKind::NoTag, ..}) => Tag::new(),
         Err(err) => return Err(Box::new(err)),
@@ -73,7 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tag.set_album("Fancy Album Title");
 
-    tag.write_to_path("/tmp/music.mp3", Version::Id3v24)?;
+    tag.write_to_path(temp_file, Version::Id3v24)?;
     Ok(())
 }
 ```
@@ -86,7 +87,8 @@ use id3::frame::Content;
 use std::fs::copy;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    copy("testdata/quiet.mp3", "/tmp/music.mp3")?;
+    let temp_file = std::env::temp_dir().join("music.mp3");
+    copy("testdata/quiet.mp3", &temp_file)?;
 
     let mut tag = Tag::new();
     tag.set_album("Fancy Album Title");
@@ -94,7 +96,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Set the album the hard way.
     tag.add_frame(Frame::text("TALB", "album"));
 
-    tag.write_to_path("/tmp/music.mp3", Version::Id3v24)?;
+    tag.write_to_path(temp_file, Version::Id3v24)?;
     Ok(())
 }
 ```
