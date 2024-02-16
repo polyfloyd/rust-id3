@@ -1,13 +1,13 @@
-rust-id3
-========
+# rust-id3
+
 [![Build Status](https://github.com/polyfloyd/rust-id3/workflows/CI/badge.svg)](https://github.com/polyfloyd/rust-id3/actions)
 [![Crate](https://img.shields.io/crates/v/id3.svg)](https://crates.io/crates/id3)
 [![Documentation](https://docs.rs/id3/badge.svg)](https://docs.rs/id3/)
 
 A library for reading and writing ID3 metadata.
 
-
 ## Implemented Features
+
 * ID3v1 reading
 * ID3v2.2, ID3v2.3, ID3v2.4 reading/writing
 * MP3, WAV and AIFF files
@@ -27,10 +27,10 @@ A library for reading and writing ID3 metadata.
 * MPEG Location Lookup Table frames
 * Tag and File Alter Preservation bits
 
-
 ## Examples
 
 ### Reading tag frames
+
 ```rust
 use id3::{Tag, TagLike};
 
@@ -56,15 +56,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### Modifying any existing tag.
+### Modifying any existing tag
+
 ```rust
 use id3::{Error, ErrorKind, Tag, TagLike, Version};
 use std::fs::copy;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    copy("testdata/quiet.mp3", "/tmp/music.mp3")?;
+    let temp_file = std::env::temp_dir().join("music.mp3");
+    copy("testdata/quiet.mp3", &temp_file)?;
 
-    let mut tag = match Tag::read_from_path("/tmp/music.mp3") {
+    let mut tag = match Tag::read_from_path(&temp_file) {
         Ok(tag) => tag,
         Err(Error{kind: ErrorKind::NoTag, ..}) => Tag::new(),
         Err(err) => return Err(Box::new(err)),
@@ -72,19 +74,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tag.set_album("Fancy Album Title");
 
-    tag.write_to_path("/tmp/music.mp3", Version::Id3v24)?;
+    tag.write_to_path(temp_file, Version::Id3v24)?;
     Ok(())
 }
 ```
 
-### Creating a new tag, overwriting any old tag.
+### Creating a new tag, overwriting any old tag
+
 ```rust
 use id3::{Tag, TagLike, Frame, Version};
 use id3::frame::Content;
 use std::fs::copy;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    copy("testdata/quiet.mp3", "/tmp/music.mp3")?;
+    let temp_file = std::env::temp_dir().join("music.mp3");
+    copy("testdata/quiet.mp3", &temp_file)?;
 
     let mut tag = Tag::new();
     tag.set_album("Fancy Album Title");
@@ -92,12 +96,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Set the album the hard way.
     tag.add_frame(Frame::text("TALB", "album"));
 
-    tag.write_to_path("/tmp/music.mp3", Version::Id3v24)?;
+    tag.write_to_path(temp_file, Version::Id3v24)?;
     Ok(())
 }
 ```
 
 ### Handling damaged or files without a tag
+
 ```rust
 use id3::{Tag, TagLike, partial_tag_ok, no_tag_ok};
 
@@ -118,10 +123,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-
 ## Contributing
 
-Do you think you have found a bug? Then please report it via the Github issue tracker. Make sure to
+Do you think you have found a bug? Then please report it via the GitHub issue tracker. Make sure to
 attach any problematic files that can be used to reproduce the issue. Such files are also used to
 create regression tests that ensure that your bug will never return.
 
@@ -130,3 +134,9 @@ fixes and new features respectively. This is the
 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) scheme that is used to
 automate some maintenance chores such as generating the changelog and inferring the next version
 number.
+
+## Running tests
+
+```shell
+cargo test --all-features
+```
