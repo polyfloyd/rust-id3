@@ -10,6 +10,23 @@ use std::io;
 
 pub mod plain;
 
+pub enum Format {
+    Header,
+    Aiff,
+    Wav,
+}
+
+impl Format {
+    pub fn magic(probe: &[u8]) -> Option<Self> {
+        match (&probe[..3], &probe[..4], &probe[8..12]) {
+            (b"ID3", _, _) => Some(Format::Header),
+            (_, b"FORM", _) => Some(Format::Aiff),
+            (_, b"RIFF", b"WAVE") => Some(Format::Wav),
+            _ => None,
+        }
+    }
+}
+
 /// Refer to the module documentation.
 pub trait Storage<'a> {
     type Reader: io::Read + io::Seek + 'a;

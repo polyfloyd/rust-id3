@@ -1,4 +1,5 @@
-use crate::storage::{plain::PlainStorage, Storage, StorageFile};
+use crate::chunk;
+use crate::storage::{plain::PlainStorage, Format, Storage, StorageFile};
 use crate::stream::{frame, unsynch};
 use crate::tag::{Tag, Version};
 use crate::taglike::TagLike;
@@ -421,13 +422,33 @@ impl Encoder {
 
     /// Encodes a [`Tag`] and replaces any existing tag in the file.
     pub fn write_to_file(&self, tag: &Tag, mut file: impl StorageFile) -> crate::Result<()> {
-        #[allow(clippy::reversed_empty_ranges)]
-        let location = locate_id3v2(&mut file)?.unwrap_or(0..0); // Create a new tag if none could be located.
+        let mut probe = [0; 12];
+        let nread = file.read(&mut probe)?;
+        file.seek(io::SeekFrom::Start(0))?;
+        let storage_format = Format::magic(&probe[..nread]);
 
-        let mut storage = PlainStorage::new(file, location);
-        let mut w = storage.writer()?;
-        self.encode(tag, &mut w)?;
-        w.flush()?;
+        match storage_format {
+            Some(Format::Aiff) => {
+                chunk::write_id3_chunk_file::<chunk::AiffFormat>(file, tag, self.version)?;
+            }
+            Some(Format::Wav) => {
+                chunk::write_id3_chunk_file::<chunk::WavFormat>(file, tag, self.version)?;
+            }
+            Some(Format::Header) => {
+                let location = locate_id3v2(&mut file)?;
+                let mut storage = PlainStorage::new(file, location);
+                let mut w = storage.writer()?;
+                self.encode(tag, &mut w)?;
+                w.flush()?;
+            }
+            None => {
+                let mut storage = PlainStorage::new(file, 0..0);
+                let mut w = storage.writer()?;
+                self.encode(tag, &mut w)?;
+                w.flush()?;
+            }
+        };
+
         Ok(())
     }
 
@@ -458,14 +479,8 @@ impl Default for Encoder {
     }
 }
 
-pub fn locate_id3v2(mut reader: impl io::Read + io::Seek) -> crate::Result<Option<Range<u64>>> {
-    let header = match Header::decode(&mut reader) {
-        Ok(v) => v,
-        Err(err) => match err.kind {
-            ErrorKind::NoTag => return Ok(None),
-            _ => return Err(err),
-        },
-    };
+pub fn locate_id3v2(mut reader: impl io::Read + io::Seek) -> crate::Result<Range<u64>> {
+    let header = Header::decode(&mut reader)?;
 
     let tag_size = header.tag_size();
     reader.seek(io::SeekFrom::Start(tag_size))?;
@@ -473,7 +488,7 @@ pub fn locate_id3v2(mut reader: impl io::Read + io::Seek) -> crate::Result<Optio
         .bytes()
         .take_while(|rs| rs.as_ref().map(|b| *b == 0x00).unwrap_or(false))
         .count();
-    Ok(Some(0..tag_size + num_padding as u64))
+    Ok(0..tag_size + num_padding as u64)
 }
 
 #[cfg(test)]
@@ -969,35 +984,41 @@ mod tests {
     fn test_locate_id3v22() {
         let file = fs::File::open("testdata/id3v22.id3").unwrap();
         let location = locate_id3v2(file).unwrap();
-        assert_eq!(Some(0..0x0000c3ea), location);
+        assert_eq!(0..0x0000c3ea, location);
     }
 
     #[test]
     fn test_locate_id3v23() {
         let file = fs::File::open("testdata/id3v23.id3").unwrap();
         let location = locate_id3v2(file).unwrap();
-        assert_eq!(Some(0..0x00006c0a), location);
+        assert_eq!(0..0x00006c0a, location);
     }
 
     #[test]
     fn test_locate_id3v24() {
         let file = fs::File::open("testdata/id3v24.id3").unwrap();
         let location = locate_id3v2(file).unwrap();
-        assert_eq!(Some(0..0x00006c0a), location);
+        assert_eq!(0..0x00006c0a, location);
     }
 
     #[test]
     fn test_locate_id3v24_ext() {
         let file = fs::File::open("testdata/id3v24_ext.id3").unwrap();
         let location = locate_id3v2(file).unwrap();
-        assert_eq!(Some(0..0x0000018d), location);
+        assert_eq!(0..0x0000018d, location);
     }
 
     #[test]
     fn test_locate_no_tag() {
         let file = fs::File::open("testdata/mpeg-header").unwrap();
-        let location = locate_id3v2(file).unwrap();
-        assert_eq!(None, location);
+        let location = locate_id3v2(file).unwrap_err();
+        assert!(matches!(
+            location,
+            Error {
+                kind: ErrorKind::NoTag,
+                ..
+            }
+        ));
     }
 
     #[test]

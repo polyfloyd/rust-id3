@@ -8,6 +8,7 @@ use crate::stream;
 use crate::taglike::TagLike;
 use crate::v1;
 use crate::StorageFile;
+use crate::{Error, ErrorKind};
 use std::fmt;
 use std::fs::{self, File};
 use std::io::{self, BufReader, Write};
@@ -86,19 +87,32 @@ impl<'a> Tag {
     /// reset back to the previous position before returning.
     pub fn is_candidate(mut reader: impl io::Read + io::Seek) -> crate::Result<bool> {
         let initial_position = reader.stream_position()?;
-        let rs = stream::tag::locate_id3v2(&mut reader);
+        let is_candidate = match stream::tag::locate_id3v2(&mut reader) {
+            Ok(_) => true,
+            Err(Error {
+                kind: ErrorKind::NoTag,
+                ..
+            }) => false,
+            Err(err) => return Err(err),
+        };
         reader.seek(io::SeekFrom::Start(initial_position))?;
-        Ok(rs?.is_some())
+        Ok(is_candidate)
     }
 
     /// Detects the presence of an ID3v2 tag at the current position of the reader and skips it
     /// if is found. Returns true if a tag was found.
     pub fn skip(mut reader: impl io::Read + io::Seek) -> crate::Result<bool> {
         let initial_position = reader.stream_position()?;
-        let range = stream::tag::locate_id3v2(&mut reader)?;
-        let end = range.as_ref().map(|r| r.end).unwrap_or(0);
-        reader.seek(io::SeekFrom::Start(initial_position + end))?;
-        Ok(range.is_some())
+        let range = match stream::tag::locate_id3v2(&mut reader) {
+            Ok(v) => v,
+            Err(Error {
+                kind: ErrorKind::NoTag,
+                ..
+            }) => return Ok(false),
+            Err(err) => return Err(err),
+        };
+        reader.seek(io::SeekFrom::Start(initial_position + range.end))?;
+        Ok(true)
     }
 
     /// Removes an ID3v2 tag from the file at the specified path.
@@ -118,9 +132,13 @@ impl<'a> Tag {
     ///
     /// Returns true if the file initially contained a tag.
     pub fn remove_from_file(mut file: impl StorageFile) -> crate::Result<bool> {
-        let location = match stream::tag::locate_id3v2(&mut file)? {
-            Some(l) => l,
-            None => return Ok(false),
+        let location = match stream::tag::locate_id3v2(&mut file) {
+            Ok(l) => l,
+            Err(Error {
+                kind: ErrorKind::NoTag,
+                ..
+            }) => return Ok(false),
+            Err(err) => return Err(err),
         };
         // Open the ID3 region for writing and write nothing. This removes the region in its
         // entirety.
@@ -200,16 +218,10 @@ impl<'a> Tag {
     /// Attempts to write the ID3 tag from the file at the indicated path. If the specified path is
     /// the same path which the tag was read from, then the tag will be written to the padding if
     /// possible.
-    pub fn write_to_file(&self, mut file: impl StorageFile, version: Version) -> crate::Result<()> {
-        #[allow(clippy::reversed_empty_ranges)]
-        let location = stream::tag::locate_id3v2(&mut file)?.unwrap_or(0..0); // Create a new tag if none could be located.
-
-        let mut storage = PlainStorage::new(file, location);
-        let mut w = storage.writer()?;
+    pub fn write_to_file(&self, file: impl StorageFile, version: Version) -> crate::Result<()> {
         stream::tag::Encoder::new()
             .version(version)
-            .encode(self, &mut w)?;
-        w.flush()?;
+            .write_to_file(self, file)?;
         Ok(())
     }
 
@@ -220,6 +232,7 @@ impl<'a> Tag {
     }
 
     /// Overwrite WAV file ID3 chunk in a file
+    #[deprecated(note = "use write_to_path")]
     pub fn write_to_aiff_path(
         &self,
         path: impl AsRef<Path>,
@@ -237,6 +250,7 @@ impl<'a> Tag {
     }
 
     /// Overwrite AIFF file ID3 chunk in a file. The file must be opened read/write.
+    #[deprecated(note = "use write_to_file")]
     pub fn write_to_aiff_file(
         &self,
         file: impl StorageFile,
@@ -246,6 +260,7 @@ impl<'a> Tag {
     }
 
     /// Overwrite WAV file ID3 chunk
+    #[deprecated(note = "use write_to_path")]
     pub fn write_to_wav_path(&self, path: impl AsRef<Path>, version: Version) -> crate::Result<()> {
         let mut file = fs::OpenOptions::new()
             .read(true)
@@ -259,6 +274,7 @@ impl<'a> Tag {
     }
 
     /// Overwrite AIFF file ID3 chunk in a file. The file must be opened read/write.
+    #[deprecated(note = "use write_to_file")]
     pub fn write_to_wav_file(&self, file: impl StorageFile, version: Version) -> crate::Result<()> {
         chunk::write_id3_chunk_file::<chunk::WavFormat>(file, self, version)
     }
@@ -598,7 +614,7 @@ mod tests {
         tag.set_album("NewAlbum");
 
         // Write
-        tag.write_to_aiff_path(&tmp, Version::Id3v24).unwrap();
+        tag.write_to_path(&tmp, Version::Id3v24).unwrap();
 
         // Check if not corrupted with ffprobe
         use std::process::Command;
@@ -798,7 +814,7 @@ mod tests {
         tag.set_year(2020);
 
         // Write
-        tag.write_to_wav_path(to, Version::Id3v24)?;
+        tag.write_to_path(to, Version::Id3v24)?;
 
         // Check written data
         tag = Tag::read_from_wav_path(to)?;
