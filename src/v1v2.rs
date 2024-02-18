@@ -25,7 +25,7 @@ pub fn is_candidate_path(path: impl AsRef<Path>) -> crate::Result<FormatVersion>
 ///
 /// If neither version tag is found, an error with [`ErrorKind::NoTag`] is returned.
 pub fn read_from(mut file: impl io::Read + io::Seek) -> crate::Result<Tag> {
-    match Tag::read_from(&mut file) {
+    match Tag::read_from2(&mut file) {
         Err(Error {
             kind: ErrorKind::NoTag,
             ..

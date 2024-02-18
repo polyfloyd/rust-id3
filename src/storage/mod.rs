@@ -10,14 +10,28 @@ use std::io;
 
 pub mod plain;
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Format {
+    /// ID3 is typically written as a header that precedes any audio content. For MPEG files, it is
+    /// always a header. However, other formats where it is possible for the tag to be located
+    /// elsewhere may also have an ID3 header.
     Header,
+
+    /// Aiff is a chunk-y format format like WAV. Here, the file is built up in chunks where every
+    /// chunk is a size header and some binary data. Audio is a chunk, but an ID3 tag may also be
+    /// written to a chunk.
     Aiff,
+
+    /// Similar to Aiff.
     Wav,
 }
 
 impl Format {
-    pub fn magic(probe: &[u8]) -> Option<Self> {
+    pub fn magic(probe: impl AsRef<[u8]>) -> Option<Self> {
+        let probe = probe.as_ref();
+        if probe.len() < 12 {
+            return None;
+        }
         match (&probe[..3], &probe[..4], &probe[8..12]) {
             (b"ID3", _, _) => Some(Format::Header),
             (_, b"FORM", _) => Some(Format::Aiff),
@@ -76,4 +90,43 @@ mod private {
     impl<'a, T: Sealed> Sealed for &'a mut T {}
     impl Sealed for std::fs::File {}
     impl Sealed for std::io::Cursor<Vec<u8>> {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Read;
+    use std::path::Path;
+
+    fn probe(path: impl AsRef<Path>) -> [u8; 12] {
+        let mut f = fs::File::open(path).unwrap();
+        let mut b = [0u8; 12];
+        f.read(&mut b[..]).unwrap();
+        b
+    }
+
+    #[test]
+    fn test_format_magic() {
+        assert_eq!(
+            Format::magic(probe("testdata/aiff/padding.aiff")),
+            Some(Format::Aiff)
+        );
+        assert_eq!(
+            Format::magic(probe("testdata/aiff/quiet.aiff")),
+            Some(Format::Aiff)
+        );
+        assert_eq!(
+            Format::magic(probe("testdata/wav/tagged-end.wav")),
+            Some(Format::Wav)
+        );
+        assert_eq!(
+            Format::magic(probe("testdata/wav/tagless.wav")),
+            Some(Format::Wav)
+        );
+        assert_eq!(
+            Format::magic(probe("testdata/id3v22.id3")),
+            Some(Format::Header)
+        );
+        assert_eq!(Format::magic(probe("testdata/mpeg-header")), None);
+    }
 }

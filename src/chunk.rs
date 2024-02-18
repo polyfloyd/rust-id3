@@ -1,4 +1,5 @@
 use crate::storage::{plain::PlainStorage, Storage};
+use crate::stream;
 use crate::{Error, ErrorKind, StorageFile, Tag, Version};
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
 use std::convert::TryFrom;
@@ -29,7 +30,7 @@ where
 
     let tag_chunk = ChunkHeader::find_id3::<F, _>(&mut reader, eof.into())?;
     let chunk_reader = reader.take(tag_chunk.size.into());
-    Tag::read_from(chunk_reader)
+    stream::tag::decode(chunk_reader)
 }
 
 /// Writes a tag to the given file. If the file contains no previous tag data, a new ID3

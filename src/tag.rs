@@ -3,7 +3,7 @@ use crate::frame::{
     Chapter, Comment, EncapsulatedObject, ExtendedLink, ExtendedText, Frame, Lyrics, Picture,
     SynchronisedLyrics, TableOfContents,
 };
-use crate::storage::{plain::PlainStorage, Storage};
+use crate::storage::{plain::PlainStorage, Format, Storage};
 use crate::stream;
 use crate::taglike::TagLike;
 use crate::v1;
@@ -11,7 +11,7 @@ use crate::StorageFile;
 use crate::{Error, ErrorKind};
 use std::fmt;
 use std::fs::{self, File};
-use std::io::{self, BufReader, Write};
+use std::io::{self, BufRead, BufReader, Write};
 use std::iter::{FromIterator, Iterator};
 use std::path::Path;
 
@@ -148,8 +148,26 @@ impl<'a> Tag {
     }
 
     /// Attempts to read an ID3 tag from the reader.
+    #[deprecated(note = "use read_from2")]
     pub fn read_from(reader: impl io::Read) -> crate::Result<Tag> {
         stream::tag::decode(reader)
+    }
+
+    /// Attempts to read an ID3 tag from the reader.
+    ///
+    /// The file format is detected using header magic.
+    ///
+    /// In the case of both Aiff/Wav tags and a ID3 header being present, the header takes
+    /// precense.
+    pub fn read_from2(reader: impl io::Read + io::Seek) -> crate::Result<Tag> {
+        let mut b = BufReader::new(reader);
+        let probe = b.fill_buf()?;
+
+        match Format::magic(probe) {
+            Some(Format::Header) | None => stream::tag::decode(b),
+            Some(Format::Aiff) => chunk::load_id3_chunk::<chunk::AiffFormat, _>(b),
+            Some(Format::Wav) => chunk::load_id3_chunk::<chunk::WavFormat, _>(b),
+        }
     }
 
     /// Attempts to read an ID3 tag via Tokio from the reader.
@@ -162,8 +180,7 @@ impl<'a> Tag {
 
     /// Attempts to read an ID3 tag from the file at the indicated path.
     pub fn read_from_path(path: impl AsRef<Path>) -> crate::Result<Tag> {
-        let file = BufReader::new(File::open(path)?);
-        Tag::read_from(file)
+        Tag::read_from2(File::open(path)?)
     }
 
     /// Attempts to read an ID3 tag via Tokio from the file at the indicated path.
@@ -174,33 +191,39 @@ impl<'a> Tag {
     }
 
     /// Reads an AIFF stream and returns any present ID3 tag.
+    #[deprecated(note = "use read_from")]
     pub fn read_from_aiff(reader: impl io::Read + io::Seek) -> crate::Result<Tag> {
         chunk::load_id3_chunk::<chunk::AiffFormat, _>(reader)
     }
 
     /// Reads an AIFF file at the specified path and returns any present ID3 tag.
+    #[deprecated(note = "use read_from_path")]
     pub fn read_from_aiff_path(path: impl AsRef<Path>) -> crate::Result<Tag> {
         let mut file = BufReader::new(File::open(path)?);
         chunk::load_id3_chunk::<chunk::AiffFormat, _>(&mut file)
     }
 
     /// Reads an AIFF file and returns any present ID3 tag.
+    #[deprecated(note = "use read_from_file")]
     pub fn read_from_aiff_file(file: impl StorageFile) -> crate::Result<Tag> {
         chunk::load_id3_chunk::<chunk::AiffFormat, _>(file)
     }
 
     /// Reads an WAV stream and returns any present ID3 tag.
+    #[deprecated(note = "use read_from")]
     pub fn read_from_wav(reader: impl io::Read + io::Seek) -> crate::Result<Tag> {
         chunk::load_id3_chunk::<chunk::WavFormat, _>(reader)
     }
 
     /// Reads an WAV file at the specified path and returns any present ID3 tag.
+    #[deprecated(note = "use read_from_path")]
     pub fn read_from_wav_path(path: impl AsRef<Path>) -> crate::Result<Tag> {
         let mut file = BufReader::new(File::open(path)?);
         chunk::load_id3_chunk::<chunk::WavFormat, _>(&mut file)
     }
 
     /// Reads an WAV file and returns any present ID3 tag.
+    #[deprecated(note = "use read_from_file")]
     pub fn read_from_wav_file(file: impl StorageFile) -> crate::Result<Tag> {
         chunk::load_id3_chunk::<chunk::WavFormat, _>(file)
     }
@@ -575,7 +598,7 @@ mod tests {
         assert_eq!(tag.artist(), Some("artist 1\0artist 2\0artist 3"));
         let mut buf = Vec::new();
         tag.write_to(&mut buf, Version::Id3v22).unwrap();
-        let tag = Tag::read_from(&buf[..]).unwrap();
+        let tag = Tag::read_from2(io::Cursor::new(buf)).unwrap();
         assert_eq!(tag.artist(), Some("artist 1\0artist 2\0artist 3"));
     }
 
@@ -605,7 +628,7 @@ mod tests {
         std::fs::copy("testdata/aiff/quiet.aiff", &tmp).unwrap();
 
         // Read
-        let mut tag = Tag::read_from_aiff(&tmp).unwrap();
+        let mut tag = Tag::read_from2(&tmp).unwrap();
         assert_eq!(tag.title(), Some("Title"));
         assert_eq!(tag.album(), Some("Album"));
 
@@ -629,14 +652,14 @@ mod tests {
         println!("{}", output);
 
         // Check written data
-        tag = Tag::read_from_aiff_path(&tmp).unwrap();
+        tag = Tag::read_from_path(&tmp).unwrap();
         assert_eq!(tag.title(), Some("NewTitle"));
         assert_eq!(tag.album(), Some("NewAlbum"));
     }
 
     #[test]
     fn aiff_read_padding() {
-        let tag = Tag::read_from_aiff_path("testdata/aiff/padding.aiff").unwrap();
+        let tag = Tag::read_from_path("testdata/aiff/padding.aiff").unwrap();
 
         assert_eq!(tag.title(), Some("TEST TITLE"));
         assert_eq!(tag.artist(), Some("TEST ARTIST"));
@@ -646,7 +669,7 @@ mod tests {
     fn wav_read_tagless() {
         use crate::ErrorKind;
 
-        let error = Tag::read_from_wav_path("testdata/wav/tagless.wav").unwrap_err();
+        let error = Tag::read_from_path("testdata/wav/tagless.wav").unwrap_err();
 
         assert!(
             matches!(error.kind, ErrorKind::NoTag),
@@ -657,7 +680,7 @@ mod tests {
 
     #[test]
     fn wav_read_tag_mid() {
-        let tag = Tag::read_from_wav_path("testdata/wav/tagged-mid.wav").unwrap();
+        let tag = Tag::read_from_path("testdata/wav/tagged-mid.wav").unwrap();
 
         assert_eq!(tag.title(), Some("Some Great Song"));
         assert_eq!(tag.artist(), Some("Some Great Band"));
@@ -668,7 +691,7 @@ mod tests {
 
     #[test]
     fn wav_read_tag_end() {
-        let tag = Tag::read_from_wav_path("testdata/wav/tagged-end.wav").unwrap();
+        let tag = Tag::read_from_path("testdata/wav/tagged-end.wav").unwrap();
 
         assert_eq!(tag.title(), Some("Some Great Song"));
         assert_eq!(tag.artist(), Some("Some Great Band"));
@@ -681,7 +704,7 @@ mod tests {
     fn wav_read_tagless_corrupted() {
         use crate::ErrorKind;
 
-        let error = Tag::read_from_wav_path("testdata/wav/tagless-corrupted.wav").unwrap_err();
+        let error = Tag::read_from_path("testdata/wav/tagless-corrupted.wav").unwrap_err();
 
         // With this file, we reach EOF before the expected chunk end.
         assert!(
@@ -690,7 +713,7 @@ mod tests {
             error.kind
         );
 
-        let error = Tag::read_from_wav_path("testdata/wav/tagless-corrupted-2.wav").unwrap_err();
+        let error = Tag::read_from_path("testdata/wav/tagless-corrupted-2.wav").unwrap_err();
 
         // With this file, the RIFF chunk size is zero.
         assert!(
@@ -704,7 +727,7 @@ mod tests {
     fn wav_read_tag_corrupted() {
         use crate::ErrorKind;
 
-        let error = Tag::read_from_wav_path("testdata/wav/tagged-mid-corrupted.wav").unwrap_err();
+        let error = Tag::read_from_path("testdata/wav/tagged-mid-corrupted.wav").unwrap_err();
 
         assert!(
             matches!(error.kind, ErrorKind::NoTag),
@@ -717,7 +740,7 @@ mod tests {
     fn wav_read_trailing_data() {
         use crate::ErrorKind;
 
-        let error = Tag::read_from_wav_path("testdata/wav/tagless-trailing-data.wav").unwrap_err();
+        let error = Tag::read_from_path("testdata/wav/tagless-trailing-data.wav").unwrap_err();
 
         assert!(
             matches!(error.kind, ErrorKind::NoTag),
@@ -803,7 +826,7 @@ mod tests {
         let to = to.as_ref();
 
         // Read
-        let mut tag = Tag::read_from_wav_path(from)?;
+        let mut tag = Tag::read_from_path(from)?;
 
         // Edit
         tag.set_title("NewTitle");
@@ -817,7 +840,7 @@ mod tests {
         tag.write_to_path(to, Version::Id3v24)?;
 
         // Check written data
-        tag = Tag::read_from_wav_path(to)?;
+        tag = Tag::read_from_path(to)?;
         assert_eq!(tag.title(), Some("NewTitle"));
         assert_eq!(tag.album(), Some("NewAlbum"));
         assert_eq!(tag.genre(), Some("New Wave"));
