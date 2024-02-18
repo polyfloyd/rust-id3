@@ -1,3 +1,14 @@
+## v1.13.0 (2024-02-18)
+
+### Feat
+
+- Add Tag::read_from2 that also reads Aiff/Wav
+- Let write_to_file handle all supported formats
+
+### Refactor
+
+- Split storage.rs
+
 ## v1.12.0 (2023-12-30)
 
 ### Feat
