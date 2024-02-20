@@ -9,6 +9,11 @@ on:
       - main
   workflow_call:
 
+# Cancel previous runs for PRs but not pushes to main
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.head_ref || github.sha }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 
