@@ -1,3 +1,9 @@
+## v1.13.1 (2024-02-26)
+
+### Fix
+
+- Allow MSRV 1.63 with range match usize behavioral change (#129)
+
 ## v1.13.0 (2024-02-18)
 
 ### Feat
