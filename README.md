@@ -137,6 +137,8 @@ number.
 
 ## Running tests
 
+Tests require `ffprobe` (part of ffmpeg) to be present in $PATH.
+
 ```shell
 cargo test --all-features
 ```
