@@ -541,9 +541,31 @@ impl From<v1::Tag> for Tag {
 mod tests {
     use super::*;
     use crate::taglike::TagLike;
+    use std::error::Error;
     use std::fs;
-    use std::{io::Read, io::Seek};
+    use std::process::Command;
+    use std::{self, io::Read, io::Seek};
     use tempfile::tempdir;
+
+    fn ffprobe(file: impl AsRef<Path>) -> Result<String, Box<dyn Error>> {
+        let output = Command::new("ffprobe")
+            .arg(file.as_ref())
+            .output()
+            .map_err(|err| match err.kind() {
+                io::ErrorKind::NotFound => io::Error::new(
+                    io::ErrorKind::NotFound,
+                    format!("{}. Is ffprobe present in $PATH?", err),
+                ),
+                _ => err,
+            })?;
+        if !output.status.success() {
+            return Err(Box::new(io::Error::new(
+                io::ErrorKind::Other,
+                "ffprobe output status failure",
+            )));
+        }
+        Ok(String::from_utf8(output.stderr)?)
+    }
 
     #[test]
     fn remove_id3v2() {
@@ -577,13 +599,7 @@ mod tests {
         tag.set_artist("Artist");
         tag.write_to_path(&tmp, Version::Id3v24).unwrap();
         // Check with ffprobe
-        use std::process::Command;
-        let command = Command::new("ffprobe")
-            .arg(tmp.path().to_str().unwrap())
-            .output()
-            .unwrap();
-        assert!(command.status.success());
-        let output = String::from_utf8(command.stderr).unwrap();
+        let output = ffprobe(&tmp).unwrap();
         // This bug shows as different messages in ffprobe
         assert!(!output.contains("Estimating duration from bitrate, this may be inaccurate"));
         assert!(!output.contains("bytes of junk at"));
@@ -640,13 +656,7 @@ mod tests {
         tag.write_to_path(&tmp, Version::Id3v24).unwrap();
 
         // Check if not corrupted with ffprobe
-        use std::process::Command;
-        let command = Command::new("ffprobe")
-            .arg(tmp.path().to_str().unwrap())
-            .output()
-            .unwrap();
-        assert!(command.status.success());
-        let output = String::from_utf8(command.stderr).unwrap();
+        let output = ffprobe(&tmp).unwrap();
         assert!(!output.contains("Input/output error"));
         // Also show in console too for manual double check
         println!("{}", output);
