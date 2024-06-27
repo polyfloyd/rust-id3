@@ -1,7 +1,7 @@
 use crate::chunk;
 use crate::frame::{
     Chapter, Comment, EncapsulatedObject, ExtendedLink, ExtendedText, Frame, Lyrics, Picture,
-    SynchronisedLyrics, TableOfContents,
+    SynchronisedLyrics, TableOfContents, UniqueFileIdentifier,
 };
 use crate::storage::{plain::PlainStorage, Format, Storage};
 use crate::stream;
@@ -403,6 +403,31 @@ impl<'a> Tag {
     /// ```
     pub fn pictures(&'a self) -> impl Iterator<Item = &'a Picture> + 'a {
         self.frames().filter_map(|frame| frame.content().picture())
+    }
+
+    /// Returns an iterator over the Unique File Identifiers (ufid) in the tag.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::{Frame, Tag, TagLike};
+    /// use id3::frame::{Content, UniqueFileIdentifier};
+    ///
+    /// let mut tag = Tag::new();
+    ///
+    /// let unique_file_identifier = UniqueFileIdentifier {
+    ///     owner_identifier: String::from("http://www.id3.org/dummy/ufid.html"),
+    ///     identifier: "7FZo5fMqyG5Ys1dm8F1FHa".into(),
+    /// };
+    /// tag.add_frame(Frame::with_content("UFID", Content::UniqueFileIdentifier(unique_file_identifier.clone())));
+    /// tag.add_frame(Frame::with_content("UFID", Content::UniqueFileIdentifier(unique_file_identifier.clone())));
+    ///
+    /// assert_eq!(tag.unique_file_identifiers().count(), 1);
+    /// ```
+    pub fn unique_file_identifiers(
+        &'a self,
+    ) -> impl Iterator<Item = &'a UniqueFileIdentifier> + 'a {
+        self.frames()
+            .filter_map(|frame| frame.content().unique_file_identifier())
     }
 
     /// Returns an iterator over all chapters (CHAP) in the tag.

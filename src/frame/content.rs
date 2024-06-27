@@ -53,6 +53,8 @@ pub enum Content {
     Private(Private),
     /// A value containing the parsed contents of a table of contents frame (CTOC).
     TableOfContents(TableOfContents),
+    /// A value containing the parsed contents of a unique file identifier frame (UFID).
+    UniqueFileIdentifier(UniqueFileIdentifier),
     /// A value containing the bytes of a currently unknown frame type.
     ///
     /// Users that wish to write custom decoders must use [`Content::to_unknown`] instead of
@@ -109,6 +111,9 @@ impl Content {
             Self::TableOfContents(table_of_contents) => {
                 Comparable(vec![Cow::Borrowed(table_of_contents.element_id.as_bytes())])
             }
+            Self::UniqueFileIdentifier(unique_file_identifier) => Comparable(vec![Cow::Borrowed(
+                unique_file_identifier.owner_identifier.as_bytes(),
+            )]),
             Self::Unknown(_) => Incomparable,
         }
     }
@@ -248,6 +253,15 @@ impl Content {
         }
     }
 
+    /// Returns the `UniqueFileIdentifier` or None if the value is not
+    /// `Ufid`
+    pub fn unique_file_identifier(&self) -> Option<&UniqueFileIdentifier> {
+        match self {
+            Content::UniqueFileIdentifier(unique_file_identifier) => Some(unique_file_identifier),
+            _ => None,
+        }
+    }
+
     /// Returns the `Unknown` or None if the value is not `Unknown`.
     #[deprecated(note = "Use to_unknown")]
     pub fn unknown(&self) -> Option<&[u8]> {
@@ -291,6 +305,9 @@ impl fmt::Display for Content {
             Content::MpegLocationLookupTable(mpeg_table) => write!(f, "{}", mpeg_table),
             Content::Private(private) => write!(f, "{}", private),
             Content::TableOfContents(table_of_contents) => write!(f, "{}", table_of_contents),
+            Content::UniqueFileIdentifier(unique_file_identifier) => {
+                write!(f, "{}", unique_file_identifier)
+            }
             Content::Unknown(unknown) => write!(f, "{}", unknown),
         }
     }
@@ -806,6 +823,33 @@ impl From<Private> for Frame {
     }
 }
 
+/// The parsed contents of a UFID frame.
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct UniqueFileIdentifier {
+    /// Owner identifier
+    pub owner_identifier: String,
+    /// Identifier
+    pub identifier: Vec<u8>,
+}
+
+impl fmt::Display for UniqueFileIdentifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}: {}",
+            self.owner_identifier,
+            String::from_utf8(self.identifier.clone())
+                .unwrap_or(format!("{:x?}", &self.identifier))
+        )
+    }
+}
+
+impl From<UniqueFileIdentifier> for Frame {
+    fn from(c: UniqueFileIdentifier) -> Self {
+        Self::with_content("UFID", Content::UniqueFileIdentifier(c))
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[allow(missing_docs)]
 pub struct TableOfContents {
@@ -870,6 +914,8 @@ impl fmt::Display for Unknown {
 
 #[cfg(test)]
 mod tests {
+    use std::string;
+
     use super::*;
 
     #[test]
@@ -948,6 +994,18 @@ mod tests {
         assert_eq!(
             format!("{}", picture),
             "description value: Artist (MIME type, 3 bytes)"
+        );
+    }
+
+    #[test]
+    fn content_ufid_display() {
+        let unique_file_identifier = Content::UniqueFileIdentifier(UniqueFileIdentifier {
+            owner_identifier: String::from("http://www.id3.org/dummy/ufid.html"),
+            identifier: String::from("901aebc0-fb6a-4500-a349-139df7450964").into_bytes(),
+        });
+        assert_eq!(
+            format!("{}", unique_file_identifier),
+            "http://www.id3.org/dummy/ufid.html: 901aebc0-fb6a-4500-a349-139df7450964"
         );
     }
 

@@ -1,7 +1,8 @@
 use crate::frame::{
     Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics,
     MpegLocationLookupTable, MpegLocationLookupTableReference, Picture, PictureType, Popularimeter,
-    Private, SynchronisedLyrics, SynchronisedLyricsType, TableOfContents, TimestampFormat, Unknown,
+    Private, SynchronisedLyrics, SynchronisedLyricsType, TableOfContents, TimestampFormat,
+    UniqueFileIdentifier, Unknown,
 };
 use crate::stream::encoding::Encoding;
 use crate::stream::frame;
@@ -294,6 +295,16 @@ impl<W: io::Write> Encoder<W> {
         Ok(())
     }
 
+    fn unique_file_identifier_content(
+        &mut self,
+        content: &UniqueFileIdentifier,
+    ) -> crate::Result<()> {
+        self.bytes(content.owner_identifier.as_bytes())?;
+        self.byte(0)?;
+        self.bytes(content.identifier.as_slice())?;
+        Ok(())
+    }
+
     fn table_of_contents_content(&mut self, content: &TableOfContents) -> crate::Result<()> {
         self.string_with_other_encoding(Encoding::Latin1, &content.element_id)?;
         self.byte(0)?;
@@ -348,6 +359,7 @@ pub fn encode(
         Content::MpegLocationLookupTable(c) => encoder.mpeg_location_lookup_table_content(c)?,
         Content::Private(c) => encoder.private_content(c)?,
         Content::TableOfContents(c) => encoder.table_of_contents_content(c)?,
+        Content::UniqueFileIdentifier(c) => encoder.unique_file_identifier_content(c)?,
         Content::Unknown(c) => encoder.bytes(&c.data)?,
     };
 
@@ -404,6 +416,7 @@ pub fn decode(
         "CHAP" => decoder.chapter_content(),
         "MLLT" => decoder.mpeg_location_lookup_table_content(),
         "PRIV" => decoder.private_content(),
+        "UFID" => decoder.unique_file_identifier_content(),
         "CTOC" => decoder.table_of_contents_content(),
         _ => Ok(Content::Unknown(Unknown { data, version })),
     }?;
@@ -806,6 +819,17 @@ impl<'a> Decoder<'a> {
             private_data,
         }))
     }
+
+    fn unique_file_identifier_content(mut self) -> crate::Result<Content> {
+        let owner_identifier = self.string_delimited(Encoding::Latin1)?;
+        let identifier = self.r.to_vec();
+
+        Ok(Content::UniqueFileIdentifier(UniqueFileIdentifier {
+            owner_identifier,
+            identifier,
+        }))
+    }
+
     fn table_of_contents_content(mut self) -> crate::Result<Content> {
         let element_id = self.string_delimited(Encoding::Latin1)?;
         let flags = self.byte()?;

@@ -1445,6 +1445,72 @@ pub trait TagLike: private::Sealed {
     fn remove_all_tables_of_contents(&mut self) {
         self.remove("CTOC");
     }
+
+    /// Removes all Unique File Identifiers with the specified owner_identifier.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::{Tag, TagLike};
+    /// use id3::frame::{UniqueFileIdentifier};
+    ///
+    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let mut tag = Tag::new();
+    ///     tag.add_frame(UniqueFileIdentifier {
+    ///         owner_identifier: "https://example.com".to_string(),
+    ///         identifier: "09FxXfNTQsCgzkPmCeFwlr".into(),
+    ///     });
+    ///     tag.add_frame(UniqueFileIdentifier {
+    ///         owner_identifier: "http://www.id3.org/dummy/ufid.html".to_string(),
+    ///         identifier: "7FZo5fMqyG5Ys1dm8F1FHa".into(),
+    ///     });
+    ///
+    ///     assert_eq!(tag.unique_file_identifiers().count(), 2);
+    ///     tag.remove_unique_file_identifier_by_owner_identifier("http://www.id3.org/dummy/ufid.html");
+    ///     assert_eq!(tag.unique_file_identifiers().count(), 1);
+    ///     assert_eq!(tag.unique_file_identifiers().nth(0).ok_or("no such ufid owner")?.owner_identifier, "https://example.com");
+    ///     Ok(())
+    /// }
+    /// ```
+    fn remove_unique_file_identifier_by_owner_identifier(&mut self, owner_identifier: &str) {
+        self.frames_vec_mut().retain(|frame| {
+            if frame.id() == "UFID" {
+                let uf = match *frame.content() {
+                    Content::UniqueFileIdentifier(ref unique_file_identifier) => {
+                        unique_file_identifier
+                    }
+                    _ => return false,
+                };
+                return uf.owner_identifier != owner_identifier;
+            }
+
+            true
+        });
+    }
+
+    /// Removes all unique file identifiers.
+    ///
+    /// # Example
+    /// ```
+    /// use id3::{Tag, TagLike};
+    /// use id3::frame::{UniqueFileIdentifier};
+    ///
+    /// let mut tag = Tag::new();
+    ///     tag.add_frame(UniqueFileIdentifier {
+    ///         owner_identifier: "https://example.com".to_string(),
+    ///         identifier: "09FxXfNTQsCgzkPmCeFwlr".into(),
+    ///     });
+    ///     tag.add_frame(UniqueFileIdentifier {
+    ///         owner_identifier: "http://www.id3.org/dummy/ufid.html".to_string(),
+    ///         identifier: "7FZo5fMqyG5Ys1dm8F1FHa".into(),
+    ///     });
+    ///
+    /// assert_eq!(tag.unique_file_identifiers().count(), 2);
+    /// tag.remove_all_unique_file_identifiers();
+    /// assert_eq!(tag.unique_file_identifiers().count(), 0);
+    /// ```
+    fn remove_all_unique_file_identifiers(&mut self) {
+        self.frames_vec_mut().retain(|frame| frame.id() != "UFID");
+    }
 }
 
 // https://rust-lang.github.io/api-guidelines/future-proofing.html#c-sealed
