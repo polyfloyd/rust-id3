@@ -7,7 +7,8 @@ use std::str;
 pub use self::content::{
     Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics,
     MpegLocationLookupTable, MpegLocationLookupTableReference, Picture, PictureType, Popularimeter,
-    Private, SynchronisedLyrics, SynchronisedLyricsType, TableOfContents, TimestampFormat, Unknown,
+    Private, SynchronisedLyrics, SynchronisedLyricsType, TableOfContents, TimestampFormat,
+    UniqueFileIdentifier, Unknown,
 };
 pub use self::timestamp::Timestamp;
 
@@ -85,6 +86,7 @@ impl Frame {
             ("MLLT", Content::MpegLocationLookupTable(_)) => Ok(()),
             ("PRIV", Content::Private(_)) => Ok(()),
             ("CTOC", Content::TableOfContents(_)) => Ok(()),
+            ("UFID", Content::UniqueFileIdentifier(_)) => Ok(()),
             (_, Content::Unknown(_)) => Ok(()),
             (id, content) => {
                 let content_kind = match content {
@@ -102,6 +104,7 @@ impl Frame {
                     Content::MpegLocationLookupTable(_) => "MpegLocationLookupTable",
                     Content::Private(_) => "PrivateFrame",
                     Content::TableOfContents(_) => "TableOfContents",
+                    Content::UniqueFileIdentifier(_) => "UFID",
                     Content::Unknown(_) => "Unknown",
                 };
                 Err(Error::new(
@@ -610,6 +613,41 @@ mod tests {
         assert!(
             !frame_a.compare(&frame_b),
             "frames should not be counted as equal"
+        );
+    }
+
+    #[test]
+    fn test_frame_cmp_ufid() {
+        let frame_a = Frame::with_content(
+            "UFID",
+            Content::UniqueFileIdentifier(UniqueFileIdentifier {
+                owner_identifier: String::from("http://www.id3.org/dummy/ufid.html"),
+                identifier: String::from("A").into(),
+            }),
+        );
+        let frame_b = Frame::with_content(
+            "UFID",
+            Content::UniqueFileIdentifier(UniqueFileIdentifier {
+                owner_identifier: String::from("http://www.id3.org/dummy/ufid.html"),
+                identifier: String::from("B").into(),
+            }),
+        );
+        let frame_c = Frame::with_content(
+            "UFID",
+            Content::UniqueFileIdentifier(UniqueFileIdentifier {
+                owner_identifier: String::from("https://example.com"),
+                identifier: String::from("C").into(),
+            }),
+        );
+
+        assert!(
+            frame_a.compare(&frame_b),
+            "frames should be equal because they share the same owner_identifier"
+        );
+
+        assert!(
+            !frame_a.compare(&frame_c),
+            "frames should not be equal because they share have different owner_identifiers"
         );
     }
 

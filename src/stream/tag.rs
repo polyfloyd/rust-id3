@@ -497,9 +497,10 @@ mod tests {
     use crate::frame::{
         Chapter, Content, EncapsulatedObject, Frame, MpegLocationLookupTable,
         MpegLocationLookupTableReference, Picture, PictureType, Popularimeter, Private,
-        SynchronisedLyrics, SynchronisedLyricsType, TableOfContents, TimestampFormat, Unknown,
+        SynchronisedLyrics, SynchronisedLyricsType, TableOfContents, TimestampFormat,
+        UniqueFileIdentifier, Unknown,
     };
-    use std::fs;
+    use std::fs::{self};
     use std::io::{self, Read};
 
     fn make_tag(version: Version) -> Tag {
@@ -585,6 +586,14 @@ mod tests {
             tag.add_frame(Private {
                 owner_identifier: "PrivateFrameIdentifier1".to_string(),
                 private_data: "SomePrivateBytes".into(),
+            });
+            tag.add_frame(UniqueFileIdentifier {
+                owner_identifier: String::from("http://www.id3.org/dummy/ufid.html"),
+                identifier: "7FZo5fMqyG5Ys1dm8F1FHa".into(),
+            });
+            tag.add_frame(UniqueFileIdentifier {
+                owner_identifier: String::from("example.com"),
+                identifier: "3107f6e3-99c0-44c1-9785-655fc9c32d8b".into(),
             });
         }
         tag
@@ -1040,5 +1049,38 @@ mod tests {
         tag.set_total_tracks(16);
         assert_eq!(tag.track(), Some(9));
         assert_eq!(tag.total_tracks(), Some(16));
+    }
+
+    #[test]
+    fn write_id3v24_ufids() {
+        let mut tag = make_tag(Version::Id3v24);
+        tag.add_frame(UniqueFileIdentifier {
+            owner_identifier: String::from("http://www.id3.org/dummy/ufid.html"),
+            identifier: "7FZo5fMqyG5Ys1dm8F1FHa".into(),
+        });
+        assert_eq!(tag.unique_file_identifiers().count(), 2);
+
+        tag.add_frame(UniqueFileIdentifier {
+            owner_identifier: String::from("http://www.id3.org/dummy/ufid.html"),
+            identifier: "09FxXfNTQsCgzkPmCeFwlr".into(),
+        });
+        assert_eq!(tag.unique_file_identifiers().count(), 2);
+
+        tag.add_frame(UniqueFileIdentifier {
+            owner_identifier: String::from("open.blotchify.com"),
+            identifier: "09FxXfNTQsCgzkPmCeFwlr".into(),
+        });
+
+        assert_eq!(tag.unique_file_identifiers().count(), 3);
+
+        let mut buffer = Vec::new();
+        Encoder::new()
+            .compression(true)
+            .version(Version::Id3v24)
+            .encode(&tag, &mut buffer)
+            .unwrap();
+        let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
+
+        assert_eq!(tag, tag_read);
     }
 }
