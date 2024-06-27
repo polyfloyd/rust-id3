@@ -496,8 +496,8 @@ mod tests {
     use super::*;
     use crate::frame::{
         Chapter, Content, EncapsulatedObject, Frame, MpegLocationLookupTable,
-        MpegLocationLookupTableReference, Picture, PictureType, Popularimeter, SynchronisedLyrics,
-        SynchronisedLyricsType, TableOfContents, TimestampFormat, Unknown,
+        MpegLocationLookupTableReference, Picture, PictureType, Popularimeter, Private,
+        SynchronisedLyrics, SynchronisedLyricsType, TableOfContents, TimestampFormat, Unknown,
     };
     use std::fs;
     use std::io::{self, Read};
@@ -581,6 +581,10 @@ mod tests {
                         deviate_millis: 0x0,
                     },
                 ],
+            });
+            tag.add_frame(Private {
+                owner_identifier: "PrivateFrameIdentifier1".to_string(),
+                private_data: "SomePrivateBytes".into(),
             });
         }
         tag
