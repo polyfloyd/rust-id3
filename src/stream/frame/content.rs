@@ -290,6 +290,7 @@ impl<W: io::Write> Encoder<W> {
 
     fn private_content(&mut self, content: &Private) -> crate::Result<()> {
         self.bytes(content.owner_identifier.as_bytes())?;
+        self.byte(0)?;
         self.bytes(content.private_data.as_slice())?;
         Ok(())
     }
