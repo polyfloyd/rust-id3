@@ -47,6 +47,7 @@ pub trait Storage<'a> {
     type Writer: io::Write + io::Seek + 'a;
 
     /// Opens the storage for reading.
+    #[allow(unused)] // Idk, it would be cool to use this for some formats.
     fn reader(&'a mut self) -> io::Result<Self::Reader>;
 
     /// Opens the storage for writing.
