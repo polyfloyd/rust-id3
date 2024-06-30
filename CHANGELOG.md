@@ -1,3 +1,14 @@
+## v1.14.0 (2024-06-30)
+
+### Feat
+
+- Add support for UFID frames (#136)
+
+### Fix
+
+- Warning about unused Storage::reader
+- Fixes bug where PrivateFrame data was missing a delimeter null byte between owner_identifier and private data fields (#138)
+
 ## v1.13.1 (2024-02-26)
 
 ### Fix
