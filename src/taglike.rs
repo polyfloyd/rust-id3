@@ -240,7 +240,7 @@ pub trait TagLike: private::Sealed {
         self.remove("TYER");
     }
 
-    /// Return the content of the TRDC frame, if any
+    /// Return the content of the TDRC frame, if any
     ///
     /// # Example
     /// ```
