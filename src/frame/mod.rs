@@ -5,10 +5,10 @@ use std::fmt;
 use std::str;
 
 pub use self::content::{
-    Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics,
-    MpegLocationLookupTable, MpegLocationLookupTableReference, Picture, PictureType, Popularimeter,
-    Private, SynchronisedLyrics, SynchronisedLyricsType, TableOfContents, TimestampFormat,
-    UniqueFileIdentifier, Unknown,
+    Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, InvolvedPeopleList,
+    InvolvedPeopleListItem, Lyrics, MpegLocationLookupTable, MpegLocationLookupTableReference,
+    Picture, PictureType, Popularimeter, Private, SynchronisedLyrics, SynchronisedLyricsType,
+    TableOfContents, TimestampFormat, UniqueFileIdentifier, Unknown,
 };
 pub use self::timestamp::Timestamp;
 
@@ -84,6 +84,7 @@ impl Frame {
             ("APIC", Content::Picture(_)) => Ok(()),
             ("CHAP", Content::Chapter(_)) => Ok(()),
             ("MLLT", Content::MpegLocationLookupTable(_)) => Ok(()),
+            ("IPLS", Content::InvolvedPeopleList(_)) => Ok(()),
             ("PRIV", Content::Private(_)) => Ok(()),
             ("CTOC", Content::TableOfContents(_)) => Ok(()),
             ("UFID", Content::UniqueFileIdentifier(_)) => Ok(()),
@@ -105,6 +106,7 @@ impl Frame {
                     Content::Private(_) => "PrivateFrame",
                     Content::TableOfContents(_) => "TableOfContents",
                     Content::UniqueFileIdentifier(_) => "UFID",
+                    Content::InvolvedPeopleList(_) => "InvolvedPeopleList",
                     Content::Unknown(_) => "Unknown",
                 };
                 Err(Error::new(
