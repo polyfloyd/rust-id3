@@ -109,7 +109,7 @@ impl Header {
         Ok(base_header.with_ext_header(ext_header_size))
     }
 
-    #[cfg(any(feature = "tokio", test))]
+    #[cfg(feature = "tokio")]
     async fn async_decode(
         mut reader: impl tokio::io::AsyncRead + std::marker::Unpin,
     ) -> crate::Result<Header> {
@@ -205,7 +205,7 @@ pub fn decode(mut reader: impl io::Read) -> crate::Result<Tag> {
     decode_remaining(reader, header)
 }
 
-#[cfg(any(feature = "tokio", test))]
+#[cfg(feature = "tokio")]
 pub async fn async_decode(
     mut reader: impl tokio::io::AsyncRead + std::marker::Unpin,
 ) -> crate::Result<Tag> {
@@ -618,6 +618,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "tokio")]
     #[tokio::test]
     async fn read_id3v22_tokio() {
         let mut file = tokio::fs::File::open("testdata/id3v22.id3").await.unwrap();
@@ -653,6 +654,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "tokio")]
     #[tokio::test]
     async fn read_id3v23_tokio() {
         let mut file = tokio::fs::File::open("testdata/id3v23.id3").await.unwrap();
@@ -790,6 +792,7 @@ mod tests {
         assert_eq!(2, tag.track().unwrap());
     }
 
+    #[cfg(feature = "tokio")]
     #[tokio::test]
     async fn read_id3v24_extended_tokio() {
         let mut file = tokio::fs::File::open("testdata/id3v24_ext.id3")
