@@ -136,7 +136,7 @@ impl<W: io::Write> Encoder<W> {
             _ => unreachable!(),
         })?;
         self.bytes(
-            &content
+            content
                 .lang
                 .bytes()
                 .chain(iter::repeat(b' '))
