@@ -18,10 +18,24 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  cargo-toml-features:
+    name: Generate Feature Combinations
+    runs-on: ubuntu-latest
+    outputs:
+      feature-combinations: ${{ steps.cargo-toml-features.outputs.feature-combinations }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Determine Cargo Features
+        id: cargo-toml-features
+        uses: Holzhaus/cargo-toml-features-action@3afa751aae4071b2d1ca1c5fa42528a351c995f4
+
   build:
+    needs: cargo-toml-features
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        features: ${{ fromJson(needs.cargo-toml-features.outputs.feature-combinations) }}
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
@@ -63,10 +77,10 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
 
       - name: Build
-        run: cargo build --all-features
+        run: cargo build --no-default-features --features "${{ join(matrix.features, ',') }}"
 
       - name: Run tests
-        run: cargo test --all-features --no-fail-fast
+        run: cargo test --no-default-features --features "${{ join(matrix.features, ',') }}" --no-fail-fast
 
   msrv:
     name: Current MSRV is 1.70.0
