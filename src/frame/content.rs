@@ -909,7 +909,7 @@ impl fmt::Display for InvolvedPeopleList {
 
 impl From<InvolvedPeopleList> for Frame {
     fn from(c: InvolvedPeopleList) -> Self {
-        Self::with_content("IPLS", Content::InvolvedPeopleList(c))
+        Self::with_content("TIPL", Content::InvolvedPeopleList(c))
     }
 }
 
