@@ -55,7 +55,7 @@ pub enum Content {
     TableOfContents(TableOfContents),
     /// A value containing the parsed contents of a unique file identifier frame (UFID).
     UniqueFileIdentifier(UniqueFileIdentifier),
-    /// A value containing the parsed contents of an involved people list IPLS
+    /// A value containing the parsed contents of an involved people list frame (IPLS/TIPL/TMCL)
     InvolvedPeopleList(InvolvedPeopleList),
     /// A value containing the bytes of a currently unknown frame type.
     ///
@@ -277,7 +277,7 @@ impl Content {
         }
     }
 
-    /// Returns the `InvolvedPeopleList` or None if the value is not `IPLS`
+    /// Returns the `InvolvedPeopleList` or None if the value is not `IPLS`/`TIPL`/`TMCL`
     pub fn involved_people_list(&self) -> Option<&InvolvedPeopleList> {
         match self {
             Content::InvolvedPeopleList(involved_people_list) => Some(involved_people_list),
@@ -876,14 +876,14 @@ impl From<UniqueFileIdentifier> for Frame {
     }
 }
 
-/// The parsed contents of an IPLS frame.
+/// The parsed contents of an `IPLS` (ID3v2.3) or `TIPL`/`TMCL` (ID3v2.4) frame.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct InvolvedPeopleList {
     /// Items in the People List.
     pub items: Vec<InvolvedPeopleListItem>,
 }
 
-/// The parsed contents of an IPLS frame.
+/// A entry inside the list in an `IPLS` (ID3v2.3) or `TIPL`/`TMCL` (ID3v2.4) frame.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct InvolvedPeopleListItem {
     /// Role of the involved person.
