@@ -1082,7 +1082,12 @@ mod tests {
             .version(Version::Id3v24)
             .encode(&tag, &mut buffer)
             .unwrap();
-        let tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
+        let mut tag_read = decode(&mut io::Cursor::new(buffer)).unwrap();
+
+        if !cfg!(feature = "decode_picture") {
+            tag_read.remove_all_pictures();
+            tag.remove_all_pictures();
+        }
 
         assert_eq!(tag, tag_read);
     }
