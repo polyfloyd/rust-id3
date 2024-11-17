@@ -1036,15 +1036,19 @@ mod tests {
         assert_eq!(count, tag.encapsulated_objects().count());
     }
 
-    /// Read an IPLS frame with UTF-16 encording in an ID3v2.3 tag written by MusicBrainz Picard 2.12.3.
+    /// Read an IPLS frame with UTF-16 encording in an ID3v2.3 tag written by MusicBrainz Picard
+    /// 2.12.3.
     #[test]
     fn test_ipls_id3v23_utf16() {
         let tag = Tag::read_from_path("testdata/picard-2.12.3-id3v23-utf16.id3").unwrap();
         assert_eq!(tag.version(), Version::Id3v23);
         let count = tag.involved_people_lists().count();
         assert_eq!(count, 1);
-        let ipls = tag.involved_people_lists().next().unwrap();
+        let ipls = tag.get("IPLS").unwrap();
         let involved_people = ipls
+            .content()
+            .involved_people_list()
+            .unwrap()
             .items
             .iter()
             .map(|item| (item.involvement.as_str(), item.involvee.as_str()))
@@ -1058,9 +1062,27 @@ mod tests {
                 ("producer", "Dave Usher")
             ]
         );
+
+        // Now write the tag. Then check if it can be parsed and results in the same input.
+        let mut buffer = Vec::new();
+        tag.write_to(&mut buffer, Version::Id3v23).unwrap();
+        let new_tag = Tag::read_from2(io::Cursor::new(&buffer)).unwrap();
+
+        let new_involved_people = new_tag
+            .get("IPLS")
+            .unwrap()
+            .content()
+            .involved_people_list()
+            .unwrap()
+            .items
+            .iter()
+            .map(|item| (item.involvement.as_str(), item.involvee.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(&involved_people, &new_involved_people,);
     }
 
-    /// Read an TIPL frame with UTF-8 encording in an ID3v2.4 tag written by MusicBrainz Picard 2.12.3.
+    /// Read `TIPL` and `TMCL` frames with UTF-8 encording in an ID3v2.4 tag written by MusicBrainz
+    /// Picard 2.12.3.
     #[test]
     fn test_ipls_id3v24_utf8() {
         let tag = Tag::read_from_path("testdata/picard-2.12.3-id3v24-utf8.id3").unwrap();
@@ -1096,5 +1118,34 @@ mod tests {
                 ("piano", "Ahmad Jamal")
             ]
         );
+
+        // Now write the tag. Then check if it can be parsed and results in the same input.
+        let mut buffer = Vec::new();
+        tag.write_to(&mut buffer, Version::Id3v24).unwrap();
+        let new_tag = Tag::read_from2(io::Cursor::new(&buffer)).unwrap();
+
+        let new_involved_people = new_tag
+            .get("TIPL")
+            .unwrap()
+            .content()
+            .involved_people_list()
+            .unwrap()
+            .items
+            .iter()
+            .map(|item| (item.involvement.as_str(), item.involvee.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(&involved_people, &new_involved_people,);
+
+        let new_musician_credits = new_tag
+            .get("TMCL")
+            .unwrap()
+            .content()
+            .involved_people_list()
+            .unwrap()
+            .items
+            .iter()
+            .map(|item| (item.involvement.as_str(), item.involvee.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(&musician_credits, &new_musician_credits,);
     }
 }
