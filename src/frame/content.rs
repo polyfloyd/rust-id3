@@ -116,19 +116,7 @@ impl Content {
             Self::UniqueFileIdentifier(unique_file_identifier) => Comparable(vec![Cow::Borrowed(
                 unique_file_identifier.owner_identifier.as_bytes(),
             )]),
-            Self::InvolvedPeopleList(involved_people_list) => Comparable(
-                involved_people_list
-                    .items
-                    .iter()
-                    .flat_map(|item| {
-                        [
-                            Cow::Borrowed(item.involvement.as_bytes()),
-                            Cow::Borrowed(item.involvee.as_bytes()),
-                        ]
-                        .into_iter()
-                    })
-                    .collect(),
-            ),
+            Self::InvolvedPeopleList(_) => Same,
             Self::Unknown(_) => Incomparable,
         }
     }
