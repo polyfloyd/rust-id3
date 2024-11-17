@@ -1035,4 +1035,66 @@ mod tests {
         let tag = Tag::read_from_path("testdata/geob_serato.id3").unwrap();
         assert_eq!(count, tag.encapsulated_objects().count());
     }
+
+    /// Read an IPLS frame with UTF-16 encording in an ID3v2.3 tag written by MusicBrainz Picard 2.12.3.
+    #[test]
+    fn test_ipls_id3v23_utf16() {
+        let tag = Tag::read_from_path("testdata/picard-2.12.3-id3v23-utf16.id3").unwrap();
+        assert_eq!(tag.version(), Version::Id3v23);
+        let count = tag.involved_people_lists().count();
+        assert_eq!(count, 1);
+        let ipls = tag.involved_people_lists().next().unwrap();
+        let involved_people = ipls
+            .items
+            .iter()
+            .map(|item| (item.involvement.as_str(), item.involvee.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            &involved_people,
+            &[
+                ("double bass", "Israel Crosby"),
+                ("drums (drum set)", "Vernell Fournier"),
+                ("piano", "Ahmad Jamal"),
+                ("producer", "Dave Usher")
+            ]
+        );
+    }
+
+    /// Read an TIPL frame with UTF-8 encording in an ID3v2.4 tag written by MusicBrainz Picard 2.12.3.
+    #[test]
+    fn test_ipls_id3v24_utf8() {
+        let tag = Tag::read_from_path("testdata/picard-2.12.3-id3v24-utf8.id3").unwrap();
+        assert_eq!(tag.version(), Version::Id3v24);
+        let count = tag.involved_people_lists().count();
+        assert_eq!(count, 2);
+
+        let tipl = tag.get("TIPL").unwrap();
+        let involved_people = tipl
+            .content()
+            .involved_people_list()
+            .unwrap()
+            .items
+            .iter()
+            .map(|item| (item.involvement.as_str(), item.involvee.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(&involved_people, &[("producer", "Dave Usher")]);
+
+        let tmcl = tag.get("TMCL").unwrap();
+        let musician_credits = tmcl
+            .content()
+            .involved_people_list()
+            .unwrap()
+            .items
+            .iter()
+            .map(|item| (item.involvement.as_str(), item.involvee.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            &musician_credits,
+            &[
+                ("double bass", "Israel Crosby"),
+                ("drums (drum set)", "Vernell Fournier"),
+                ("piano", "Ahmad Jamal")
+            ]
+        );
+    }
 }
