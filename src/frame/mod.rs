@@ -72,7 +72,9 @@ impl Frame {
         // The matching groups must match the decoding groups of stream/frame/content.rs:decode().
         match (id.as_str(), &self.content) {
             ("GRP1", Content::Text(_)) => Ok(()),
-            (id, Content::Text(_)) if id.starts_with('T') => Ok(()),
+            (id, Content::Text(_)) if id.starts_with('T') && !matches!(id, "TIPL" | "TMCL") => {
+                Ok(())
+            }
             ("TXXX", Content::ExtendedText(_)) => Ok(()),
             (id, Content::Link(_)) if id.starts_with('W') => Ok(()),
             ("WXXX", Content::ExtendedLink(_)) => Ok(()),
@@ -84,7 +86,7 @@ impl Frame {
             ("APIC", Content::Picture(_)) => Ok(()),
             ("CHAP", Content::Chapter(_)) => Ok(()),
             ("MLLT", Content::MpegLocationLookupTable(_)) => Ok(()),
-            ("IPLS", Content::InvolvedPeopleList(_)) => Ok(()),
+            ("IPLS" | "TIPL" | "TMCL", Content::InvolvedPeopleList(_)) => Ok(()),
             ("PRIV", Content::Private(_)) => Ok(()),
             ("CTOC", Content::TableOfContents(_)) => Ok(()),
             ("UFID", Content::UniqueFileIdentifier(_)) => Ok(()),
