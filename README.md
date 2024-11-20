@@ -26,6 +26,7 @@ A library for reading and writing ID3 metadata.
 * Compression
 * MPEG Location Lookup Table frames
 * Unique File Identifier frames
+* Involved People List frames
 * Tag and File Alter Preservation bits
 
 ## Examples
