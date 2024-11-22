@@ -424,6 +424,18 @@ pub fn decode(
             Ok(content)
         }
         "IPLS" | "IPL" | "TMCL" | "TIPL" => decoder.involved_people_list(),
+        // According to the ID3v2.2.0/ID3v2.3.0 specifications, these text frames may contain
+        // multiple values that 'are seperated with the "/" character'. Hence, the "/" character is
+        // replaced with a null byte for these frames, so that the values can be accessed
+        // separately using the `text_values()` method.
+        //
+        // All other frames do not support multiple values in these ID3 versions and therefore their
+        // contents are read verbatim. Note that when trying to write multiple values, the values
+        // will be joined using "/" for  *all* tags, because the alternative would be to just throw
+        // an error.
+        "TCOM" | "TCM" | "TEXT" | "TXT" | "TOLY" | "TOL" | "TOPE" | "TOA" | "TPE1" | "TP1" => {
+            decoder.text_content_multiple()
+        }
         id if id.starts_with('T') => decoder.text_content(),
         id if id.starts_with('W') => decoder.link_content(),
         "GRP1" => decoder.text_content(),
@@ -519,11 +531,21 @@ impl<'a> Decoder<'a> {
             },
         };
         let text = encoding.decode(self.bytes(end)?)?;
-        let text = match self.version {
-            Version::Id3v22 | Version::Id3v23 => text.replace('/', "\0"),
-            Version::Id3v24 => text,
-        };
         Ok(Content::Text(text))
+    }
+
+    fn text_content_multiple(self) -> crate::Result<Content> {
+        let version = self.version;
+        self.text_content().map(|content| match content {
+            Content::Text(text) => {
+                let text = match version {
+                    Version::Id3v22 | Version::Id3v23 => text.replace('/', "\0"),
+                    Version::Id3v24 => text,
+                };
+                Content::Text(text)
+            }
+            content => content,
+        })
     }
 
     fn involved_people_list(mut self) -> crate::Result<Content> {
