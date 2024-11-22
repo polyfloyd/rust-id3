@@ -5,10 +5,10 @@ use std::fmt;
 use std::str;
 
 pub use self::content::{
-    Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics,
-    MpegLocationLookupTable, MpegLocationLookupTableReference, Picture, PictureType, Popularimeter,
-    Private, SynchronisedLyrics, SynchronisedLyricsType, TableOfContents, TimestampFormat,
-    UniqueFileIdentifier, Unknown,
+    Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, InvolvedPeopleList,
+    InvolvedPeopleListItem, Lyrics, MpegLocationLookupTable, MpegLocationLookupTableReference,
+    Picture, PictureType, Popularimeter, Private, SynchronisedLyrics, SynchronisedLyricsType,
+    TableOfContents, TimestampFormat, UniqueFileIdentifier, Unknown,
 };
 pub use self::timestamp::Timestamp;
 
@@ -72,7 +72,9 @@ impl Frame {
         // The matching groups must match the decoding groups of stream/frame/content.rs:decode().
         match (id.as_str(), &self.content) {
             ("GRP1", Content::Text(_)) => Ok(()),
-            (id, Content::Text(_)) if id.starts_with('T') => Ok(()),
+            (id, Content::Text(_)) if id.starts_with('T') && !matches!(id, "TIPL" | "TMCL") => {
+                Ok(())
+            }
             ("TXXX", Content::ExtendedText(_)) => Ok(()),
             (id, Content::Link(_)) if id.starts_with('W') => Ok(()),
             ("WXXX", Content::ExtendedLink(_)) => Ok(()),
@@ -84,6 +86,7 @@ impl Frame {
             ("APIC", Content::Picture(_)) => Ok(()),
             ("CHAP", Content::Chapter(_)) => Ok(()),
             ("MLLT", Content::MpegLocationLookupTable(_)) => Ok(()),
+            ("IPLS" | "TIPL" | "TMCL", Content::InvolvedPeopleList(_)) => Ok(()),
             ("PRIV", Content::Private(_)) => Ok(()),
             ("CTOC", Content::TableOfContents(_)) => Ok(()),
             ("UFID", Content::UniqueFileIdentifier(_)) => Ok(()),
@@ -105,6 +108,7 @@ impl Frame {
                     Content::Private(_) => "PrivateFrame",
                     Content::TableOfContents(_) => "TableOfContents",
                     Content::UniqueFileIdentifier(_) => "UFID",
+                    Content::InvolvedPeopleList(_) => "InvolvedPeopleList",
                     Content::Unknown(_) => "Unknown",
                 };
                 Err(Error::new(

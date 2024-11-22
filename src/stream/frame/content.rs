@@ -1,8 +1,8 @@
 use crate::frame::{
-    Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics,
-    MpegLocationLookupTable, MpegLocationLookupTableReference, Picture, PictureType, Popularimeter,
-    Private, SynchronisedLyrics, SynchronisedLyricsType, TableOfContents, TimestampFormat,
-    UniqueFileIdentifier, Unknown,
+    Chapter, Comment, Content, EncapsulatedObject, ExtendedLink, ExtendedText, InvolvedPeopleList,
+    InvolvedPeopleListItem, Lyrics, MpegLocationLookupTable, MpegLocationLookupTableReference,
+    Picture, PictureType, Popularimeter, Private, SynchronisedLyrics, SynchronisedLyricsType,
+    TableOfContents, TimestampFormat, UniqueFileIdentifier, Unknown,
 };
 use crate::stream::encoding::Encoding;
 use crate::stream::frame;
@@ -306,6 +306,17 @@ impl<W: io::Write> Encoder<W> {
         Ok(())
     }
 
+    fn involved_people_list(&mut self, content: &InvolvedPeopleList) -> crate::Result<()> {
+        self.encoding()?;
+        for item in &content.items {
+            self.string(&item.involvement)?;
+            self.delim()?;
+            self.string(&item.involvee)?;
+            self.delim()?;
+        }
+        Ok(())
+    }
+
     fn table_of_contents_content(&mut self, content: &TableOfContents) -> crate::Result<()> {
         self.string_with_other_encoding(Encoding::Latin1, &content.element_id)?;
         self.byte(0)?;
@@ -361,6 +372,7 @@ pub fn encode(
         Content::Private(c) => encoder.private_content(c)?,
         Content::TableOfContents(c) => encoder.table_of_contents_content(c)?,
         Content::UniqueFileIdentifier(c) => encoder.unique_file_identifier_content(c)?,
+        Content::InvolvedPeopleList(c) => encoder.involved_people_list(c)?,
         Content::Unknown(c) => encoder.bytes(&c.data)?,
     };
 
@@ -411,6 +423,7 @@ pub fn decode(
             encoding = Some(enc);
             Ok(content)
         }
+        "IPLS" | "IPL" | "TMCL" | "TIPL" => decoder.involved_people_list(),
         id if id.starts_with('T') => decoder.text_content(),
         id if id.starts_with('W') => decoder.link_content(),
         "GRP1" => decoder.text_content(),
@@ -511,6 +524,67 @@ impl<'a> Decoder<'a> {
             Version::Id3v24 => text,
         };
         Ok(Content::Text(text))
+    }
+
+    fn involved_people_list(mut self) -> crate::Result<Content> {
+        let encoding = self.encoding()?;
+        let end = match self.version {
+            Version::Id3v23 | Version::Id3v24 => find_closing_delim(encoding, self.r),
+            _ => find_delim(encoding, self.r, 0),
+        }
+        .unwrap_or(self.r.len());
+
+        let data = self.bytes(end)?;
+
+        let mut pos = 0;
+        let items = iter::repeat_with(|| {
+            find_delim(encoding, data, pos)
+                .map(|next_pos| {
+                    let substr = encoding.decode(&data[pos..next_pos]);
+                    pos = next_pos + delim_len(encoding);
+                    substr
+                })
+                .or_else(|| {
+                    if pos < data.len() {
+                        let substr = encoding.decode(&data[pos..]);
+                        pos = data.len();
+                        Some(substr)
+                    } else {
+                        None
+                    }
+                })
+        })
+        .scan(None, |last_string, string| match (&last_string, string) {
+            (None, Some(string)) => {
+                *last_string = Some(string);
+                Some(Ok(None))
+            }
+            (Some(_), Some(second)) => {
+                let first = last_string.take().expect("option must be some");
+                let result = first.and_then(|involvement| {
+                    second.map(|involvee| {
+                        Some(InvolvedPeopleListItem {
+                            involvement,
+                            involvee,
+                        })
+                    })
+                });
+                Some(result)
+            }
+            (Some(_), None) => {
+                // This can only happen if there is an uneven number of elements.
+                *last_string = None;
+                Some(Err(Error::new(
+                    ErrorKind::Parsing,
+                    "uneven number of IPLS strings",
+                )))
+            }
+            (None, None) => None,
+        })
+        .filter_map(|item| item.transpose())
+        .collect::<crate::Result<Vec<InvolvedPeopleListItem>>>()?;
+
+        Ok(Content::InvolvedPeopleList(InvolvedPeopleList { items }))
     }
 
     fn link_content(self) -> crate::Result<Content> {
@@ -1507,6 +1581,101 @@ mod tests {
             data.extend(bytes_for_encoding(description, *encoding).into_iter());
             data.extend(bytes_for_encoding(lyrics, *encoding).into_iter());
             assert!(decode("USLT", Version::Id3v23, &data[..]).is_err());
+        }
+    }
+
+    #[test]
+    fn test_ipls() {
+        check_involved_people_list("IPLS", Version::Id3v23);
+    }
+
+    #[test]
+    fn test_tmcl() {
+        check_involved_people_list("TMCL", Version::Id3v24);
+    }
+
+    #[test]
+    fn test_tipl() {
+        check_involved_people_list("TIPL", Version::Id3v24);
+    }
+
+    fn check_involved_people_list(frame_id: &str, version: Version) {
+        assert!(decode(frame_id, version, &[][..]).is_err());
+
+        println!("valid");
+        for people_list in &[
+            vec![],
+            vec![("involvement", "involvee")],
+            vec![
+                ("double bass", "Israel Crosby"),
+                ("drums (drum set)", "Vernell Fournier"),
+                ("piano", "Ahmad Jamal"),
+                ("producer", "Dave Usher"),
+            ],
+        ] {
+            for encoding in &[
+                Encoding::Latin1,
+                Encoding::UTF8,
+                Encoding::UTF16,
+                Encoding::UTF16BE,
+            ] {
+                println!("`{:?}`, `{:?}`", people_list, encoding);
+                let mut data = Vec::new();
+                data.push(*encoding as u8);
+                for (involvement, involvee) in people_list {
+                    data.extend(bytes_for_encoding(&involvement, *encoding).into_iter());
+                    data.extend(delim_for_encoding(*encoding).into_iter());
+                    data.extend(bytes_for_encoding(&involvee, *encoding).into_iter());
+                    data.extend(delim_for_encoding(*encoding).into_iter());
+                }
+
+                let content = frame::InvolvedPeopleList {
+                    items: people_list
+                        .iter()
+                        .map(|(involvement, involvee)| InvolvedPeopleListItem {
+                            involvement: involvement.to_string(),
+                            involvee: involvee.to_string(),
+                        })
+                        .collect(),
+                };
+                assert_eq!(
+                    *decode(frame_id, version, &data[..])
+                        .unwrap()
+                        .0
+                        .involved_people_list()
+                        .unwrap(),
+                    content
+                );
+                let mut data_out = Vec::new();
+                encode(
+                    &mut data_out,
+                    &&Content::InvolvedPeopleList(content),
+                    Version::Id3v23,
+                    *encoding,
+                )
+                .unwrap();
+                assert_eq!(data, data_out);
+            }
+        }
+
+        println!("invalid");
+        for encoding in &[
+            Encoding::Latin1,
+            Encoding::UTF8,
+            Encoding::UTF16,
+            Encoding::UTF16BE,
+        ] {
+            println!("`{:?}`", encoding);
+            let mut data = Vec::new();
+            data.push(*encoding as u8);
+            data.extend(bytes_for_encoding("involvement", *encoding).into_iter());
+            data.extend(delim_for_encoding(*encoding).into_iter());
+            data.extend(bytes_for_encoding("involvee", *encoding).into_iter());
+            data.extend(delim_for_encoding(*encoding).into_iter());
+            data.extend(bytes_for_encoding("other involvement", *encoding).into_iter());
+            data.extend(delim_for_encoding(*encoding).into_iter());
+            // involveee missing here
+            assert!(decode(frame_id, version, &data[..]).is_err());
         }
     }
 

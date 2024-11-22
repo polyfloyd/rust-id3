@@ -1,7 +1,7 @@
 use crate::chunk;
 use crate::frame::{
-    Chapter, Comment, EncapsulatedObject, ExtendedLink, ExtendedText, Frame, Lyrics, Picture,
-    SynchronisedLyrics, TableOfContents, UniqueFileIdentifier,
+    Chapter, Comment, EncapsulatedObject, ExtendedLink, ExtendedText, Frame, InvolvedPeopleList,
+    Lyrics, Picture, SynchronisedLyrics, TableOfContents, UniqueFileIdentifier,
 };
 use crate::storage::{plain::PlainStorage, Format, Storage};
 use crate::stream;
@@ -496,6 +496,95 @@ impl<'a> Tag {
         self.frames()
             .filter_map(|frame| frame.content().table_of_contents())
     }
+
+    /// Returns an iterator over all involved people lists (`IPLS` in ID3v2.3, `TIPL` and `TMCL` in
+    /// ID3v2.4) in the tag.
+    ///
+    /// # Examples
+    ///
+    /// ## `IPLS` frame (ID3v2.3)
+    ///
+    /// ```
+    /// use id3::{Frame, Tag, TagLike, Version};
+    /// use id3::frame::{Content, InvolvedPeopleList, InvolvedPeopleListItem};
+    ///
+    /// let mut tag = Tag::with_version(Version::Id3v23);
+    ///
+    /// let frame = Frame::with_content("IPLS", Content::InvolvedPeopleList(InvolvedPeopleList {
+    ///     items: vec![
+    ///         InvolvedPeopleListItem {
+    ///             involvement: "drums (drum set)".to_string(),
+    ///             involvee: "Gene Krupa".to_string(),
+    ///         },
+    ///         InvolvedPeopleListItem {
+    ///             involvement: "piano".to_string(),
+    ///             involvee: "Hank Jones".to_string(),
+    ///         },
+    ///         InvolvedPeopleListItem {
+    ///             involvement: "tenor saxophone".to_string(),
+    ///             involvee: "Frank Socolow".to_string(),
+    ///         },
+    ///         InvolvedPeopleListItem {
+    ///             involvement: "tenor saxophone".to_string(),
+    ///             involvee: "Eddie Wasserman".to_string(),
+    ///         },
+    ///     ],
+    /// }));
+    /// tag.add_frame(frame);
+    /// assert_eq!(1, tag.involved_people_lists().count());
+    /// assert_eq!(4, tag.involved_people_lists().flat_map(|list| list.items.iter()).count());
+    /// ```
+    ///
+    /// ## `TIPL`/`TMCL` frames (ID3v2.4)
+    /// ```
+    /// use id3::{Frame, Tag, TagLike, Version};
+    /// use id3::frame::{Content, InvolvedPeopleList, InvolvedPeopleListItem};
+    ///
+    /// let mut tag = Tag::with_version(Version::Id3v24);
+    ///
+    /// let frame = Frame::with_content("TMCL", Content::InvolvedPeopleList(InvolvedPeopleList {
+    ///     items: vec![
+    ///         InvolvedPeopleListItem {
+    ///             involvement: "drums (drum set)".to_string(),
+    ///             involvee: "Gene Krupa".to_string(),
+    ///         },
+    ///         InvolvedPeopleListItem {
+    ///             involvement: "piano".to_string(),
+    ///             involvee: "Hank Jones".to_string(),
+    ///         },
+    ///         InvolvedPeopleListItem {
+    ///             involvement: "tenor saxophone".to_string(),
+    ///             involvee: "Frank Socolow".to_string(),
+    ///         },
+    ///         InvolvedPeopleListItem {
+    ///             involvement: "tenor saxophone".to_string(),
+    ///             involvee: "Eddie Wasserman".to_string(),
+    ///         },
+    ///     ],
+    /// }));
+    /// tag.add_frame(frame);
+    ///
+    /// let frame = Frame::with_content("TIPL", Content::InvolvedPeopleList(InvolvedPeopleList {
+    ///     items: vec![
+    ///         InvolvedPeopleListItem {
+    ///             involvement: "executive producer".to_string(),
+    ///             involvee: "Ken Druker".to_string(),
+    ///         },
+    ///         InvolvedPeopleListItem {
+    ///             involvement: "arranger".to_string(),
+    ///             involvee: "Gerry Mulligan".to_string(),
+    ///         },
+    ///     ],
+    /// }));
+    /// tag.add_frame(frame);
+    /// assert_eq!(2, tag.involved_people_lists().count());
+    /// assert_eq!(6, tag.involved_people_lists().flat_map(|list| list.items.iter()).count());
+    ///
+    /// ```
+    pub fn involved_people_lists(&self) -> impl Iterator<Item = &InvolvedPeopleList> {
+        self.frames()
+            .filter_map(|frame| frame.content().involved_people_list())
+    }
 }
 
 impl PartialEq for Tag {
@@ -945,5 +1034,118 @@ mod tests {
             .unwrap();
         let tag = Tag::read_from_path("testdata/geob_serato.id3").unwrap();
         assert_eq!(count, tag.encapsulated_objects().count());
+    }
+
+    /// Read an IPLS frame with UTF-16 encording in an ID3v2.3 tag written by MusicBrainz Picard
+    /// 2.12.3.
+    #[test]
+    fn test_ipls_id3v23_utf16() {
+        let tag = Tag::read_from_path("testdata/picard-2.12.3-id3v23-utf16.id3").unwrap();
+        assert_eq!(tag.version(), Version::Id3v23);
+        let count = tag.involved_people_lists().count();
+        assert_eq!(count, 1);
+        let ipls = tag.get("IPLS").unwrap();
+        let involved_people = ipls
+            .content()
+            .involved_people_list()
+            .unwrap()
+            .items
+            .iter()
+            .map(|item| (item.involvement.as_str(), item.involvee.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            &involved_people,
+            &[
+                ("double bass", "Israel Crosby"),
+                ("drums (drum set)", "Vernell Fournier"),
+                ("piano", "Ahmad Jamal"),
+                ("producer", "Dave Usher")
+            ]
+        );
+
+        // Now write the tag. Then check if it can be parsed and results in the same input.
+        let mut buffer = Vec::new();
+        tag.write_to(&mut buffer, Version::Id3v23).unwrap();
+        let new_tag = Tag::read_from2(io::Cursor::new(&buffer)).unwrap();
+
+        let new_involved_people = new_tag
+            .get("IPLS")
+            .unwrap()
+            .content()
+            .involved_people_list()
+            .unwrap()
+            .items
+            .iter()
+            .map(|item| (item.involvement.as_str(), item.involvee.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(&involved_people, &new_involved_people,);
+    }
+
+    /// Read `TIPL` and `TMCL` frames with UTF-8 encording in an ID3v2.4 tag written by MusicBrainz
+    /// Picard 2.12.3.
+    #[test]
+    fn test_ipls_id3v24_utf8() {
+        let tag = Tag::read_from_path("testdata/picard-2.12.3-id3v24-utf8.id3").unwrap();
+        assert_eq!(tag.version(), Version::Id3v24);
+        let count = tag.involved_people_lists().count();
+        assert_eq!(count, 2);
+
+        let tipl = tag.get("TIPL").unwrap();
+        let involved_people = tipl
+            .content()
+            .involved_people_list()
+            .unwrap()
+            .items
+            .iter()
+            .map(|item| (item.involvement.as_str(), item.involvee.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(&involved_people, &[("producer", "Dave Usher")]);
+
+        let tmcl = tag.get("TMCL").unwrap();
+        let musician_credits = tmcl
+            .content()
+            .involved_people_list()
+            .unwrap()
+            .items
+            .iter()
+            .map(|item| (item.involvement.as_str(), item.involvee.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            &musician_credits,
+            &[
+                ("double bass", "Israel Crosby"),
+                ("drums (drum set)", "Vernell Fournier"),
+                ("piano", "Ahmad Jamal")
+            ]
+        );
+
+        // Now write the tag. Then check if it can be parsed and results in the same input.
+        let mut buffer = Vec::new();
+        tag.write_to(&mut buffer, Version::Id3v24).unwrap();
+        let new_tag = Tag::read_from2(io::Cursor::new(&buffer)).unwrap();
+
+        let new_involved_people = new_tag
+            .get("TIPL")
+            .unwrap()
+            .content()
+            .involved_people_list()
+            .unwrap()
+            .items
+            .iter()
+            .map(|item| (item.involvement.as_str(), item.involvee.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(&involved_people, &new_involved_people,);
+
+        let new_musician_credits = new_tag
+            .get("TMCL")
+            .unwrap()
+            .content()
+            .involved_people_list()
+            .unwrap()
+            .items
+            .iter()
+            .map(|item| (item.involvement.as_str(), item.involvee.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(&musician_credits, &new_musician_credits,);
     }
 }
