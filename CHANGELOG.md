@@ -1,3 +1,16 @@
+## v1.15.0 (2024-11-22)
+
+### Feat
+
+- Add support for IPLS (v2.3) and TIPL/TMCL (v2.4) frames (#141)
+- Bump MSRV to 1.70
+
+### Fix
+
+- Do not compare picture frames when decode_picture is disabled
+- Fix tests in stream::tag module if "tokio" feature is disabled
+- typo in documentation for date_recorded(); (TRDC -> TDRC) (#139)
+
 ## v1.14.0 (2024-06-30)
 
 ### Feat
