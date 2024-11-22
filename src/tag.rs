@@ -1020,7 +1020,7 @@ mod tests {
         let genres = tag.genres();
         let artists = tag.artists();
 
-        assert_eq!(genres, Some(vec!["Pop", "Trip-Hop"]));
+        assert_eq!(genres, Some(vec!["Pop/Trip-Hop"]));
         assert_eq!(artists, Some(vec!["First", "Secondary"]));
     }
 

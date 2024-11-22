@@ -509,7 +509,7 @@ mod tests {
         tag.set_artist("Artist");
         tag.set_genre("Genre");
         tag.add_frame(Frame::with_content(
-            "TPE4",
+            "TPE1",
             Content::new_text_values(["artist 1", "artist 2", "artist 3"]),
         ));
         tag.set_duration(1337);
