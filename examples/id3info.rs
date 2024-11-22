@@ -2,8 +2,9 @@
 
 use id3::{
     frame::{
-        Chapter, Comment, EncapsulatedObject, ExtendedLink, ExtendedText, Lyrics, Picture,
-        Popularimeter, SynchronisedLyrics, UniqueFileIdentifier,
+        Chapter, Comment, EncapsulatedObject, ExtendedLink, ExtendedText, InvolvedPeopleList,
+        InvolvedPeopleListItem, Lyrics, Picture, Popularimeter, SynchronisedLyrics,
+        UniqueFileIdentifier,
     },
     Content, Tag,
 };
@@ -109,6 +110,19 @@ fn main() -> Result<(), Box<dyn Error>> {
                     })
                     .collect::<String>();
                 println!("{id}:{owner_identifier}=b\"{value}\"");
+            }
+            Content::InvolvedPeopleList(InvolvedPeopleList { items }) => {
+                if items.len() == 0 {
+                    println!("{id}=<empty>");
+                } else {
+                    for InvolvedPeopleListItem {
+                        involvement,
+                        involvee,
+                    } in items
+                    {
+                        println!("{id}:{involvement}={involvee:?}");
+                    }
+                }
             }
             content => {
                 println!("{id}={content:?}");
