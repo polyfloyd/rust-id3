@@ -1,3 +1,13 @@
+## v1.16.0 (2024-11-27)
+
+### Feat
+
+- **examples**: Add Involved People List support to `id3info`
+
+### Fix
+
+- **content**: Only replace `/` in the frames mentioned in the spec
+
 ## v1.15.0 (2024-11-22)
 
 ### Feat
