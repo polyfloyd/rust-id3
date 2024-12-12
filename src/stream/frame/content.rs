@@ -247,7 +247,9 @@ impl<W: io::Write> Encoder<W> {
         &mut self,
         content: &MpegLocationLookupTable,
     ) -> crate::Result<()> {
-        let ref_packed_size = content.bits_for_bytes + content.bits_for_millis;
+        let ref_packed_size = content
+            .bits_for_bytes
+            .saturating_add(content.bits_for_millis);
         if ref_packed_size % 4 != 0 {
             return Err(Error::new(
                 ErrorKind::InvalidInput,
@@ -886,7 +888,9 @@ impl<'a> Decoder<'a> {
                         ),
                     ));
                 }
-                deviations[i] = u32::try_from(carry >> (64 - bits_us)).unwrap();
+                deviations[i] = u32::try_from(carry >> (64 - bits_us)).map_err(|_| {
+                    Error::new(ErrorKind::InvalidInput, "MLLT deviation field overflow")
+                })?;
                 carry <<= bits_us;
                 carry_bits -= bits_us;
             }
@@ -1039,6 +1043,7 @@ mod tests {
     use crate::frame::Content;
     use crate::frame::{self, Picture, PictureType};
     use std::collections::HashMap;
+    use std::io::Cursor;
 
     fn bytes_for_encoding(text: &str, encoding: Encoding) -> Vec<u8> {
         encoding.encode(text)
@@ -1834,5 +1839,73 @@ mod tests {
             2
         )
         .is_none());
+    }
+
+    #[test]
+    fn test_encode_mllt_overflow() {
+        let mllt = Content::MpegLocationLookupTable(MpegLocationLookupTable {
+            frames_between_reference: 1,
+            bytes_between_reference: 418,
+            millis_between_reference: 15,
+            bits_for_bytes: 252,
+            bits_for_millis: 252, // This would cause an overflow if not for saturating_add
+            references: vec![
+                MpegLocationLookupTableReference {
+                    deviate_bytes: 0x1,
+                    deviate_millis: 0x2,
+                },
+                MpegLocationLookupTableReference {
+                    deviate_bytes: 0x3,
+                    deviate_millis: 0x4,
+                },
+                MpegLocationLookupTableReference {
+                    deviate_bytes: 0x5,
+                    deviate_millis: 0x6,
+                },
+            ],
+        });
+
+        let mut data_out = Vec::new();
+        let result = encode(&mut data_out, &mllt, Version::Id3v23, Encoding::UTF8);
+
+        // Error since 255 is not a multiple of 4, but no panic.
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(matches!(e.kind, ErrorKind::InvalidInput));
+            assert_eq!(
+                e.description,
+                "MLLT bits_for_bytes + bits_for_millis must be a multiple of 4"
+            );
+        }
+    }
+
+    #[test]
+    fn test_decode_mllt_deviation_overflow() {
+        // Create a payload with large deviation values that would overflow u32
+        let payload = [
+            0xFF, 0xFF, // frames_between_reference (u16::MAX)
+            0xFF, 0xFF, 0xFF, // bytes_between_reference (u24::MAX)
+            0xFF, 0xFF, 0xFF, // millis_between_reference (u24::MAX)
+            0x38, // bits_for_bytes (56)
+            0x1C, // bits_for_millis (28)
+            0xFF, 0xFF, 0xFF, 0xFF, // deviate_bytes (u32::MAX)
+            0xFF, 0xFF, 0xFF, 0xFF, // deviate_millis (u32::MAX)
+        ];
+
+        // Combine header and payload into a single data stream
+        let mut data = Vec::new();
+        data.extend_from_slice(&payload);
+
+        let mut reader = Cursor::new(data);
+
+        // Attempt to decode the frame
+        let result = decode("MLLT", Version::Id3v23, &mut reader);
+
+        // Ensure that the result is an error due to overflow
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(matches!(e.kind, ErrorKind::InvalidInput));
+            assert_eq!(e.description, "MLLT deviation field overflow");
+        }
     }
 }

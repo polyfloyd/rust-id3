@@ -45,7 +45,7 @@ pub fn decode(mut reader: impl io::Read) -> crate::Result<Option<(usize, Frame)>
 
     let read_size = if flags.contains(Flags::DATA_LENGTH_INDICATOR) {
         let _decompressed_size = unsynch::decode_u32(reader.read_u32::<BigEndian>()?);
-        content_size - 4
+        content_size.saturating_sub(4)
     } else {
         content_size
     };
@@ -94,7 +94,12 @@ pub fn encode(mut writer: impl io::Write, frame: &Frame, flags: Flags) -> crate:
 
     writer.write_all({
         let id = frame.id().as_bytes();
-        assert_eq!(4, id.len());
+        if id.len() != 4 {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "Frame ID must be 4 bytes long",
+            ));
+        }
         id
     })?;
     writer.write_u32::<BigEndian>(unsynch::encode_u32(
@@ -108,4 +113,52 @@ pub fn encode(mut writer: impl io::Write, frame: &Frame, flags: Flags) -> crate:
     }
     writer.write_all(&content_buf)?;
     Ok(10 + comp_hint_delta + content_buf.len())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::frame::Content;
+    use std::io::Cursor;
+
+    #[test]
+    fn test_encode_with_invalid_frame_id() {
+        let frame = Frame::with_content("TST", Content::Text("Test content".to_string()));
+        let flags = Flags::empty();
+        let mut writer = Cursor::new(Vec::new());
+
+        let result = encode(&mut writer, &frame, flags);
+
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(matches!(e.kind, ErrorKind::InvalidInput));
+            assert_eq!(e.description, "Frame ID must be 4 bytes long");
+        }
+    }
+
+    #[test]
+    fn test_decode_with_underflow() {
+        // Create a frame header with DATA_LENGTH_INDICATOR flag set and a content size of 3
+        let frame_header = [
+            b'T', b'E', b'S', b'T', // Frame ID
+            0x00, 0x00, 0x00, 0x03, // Content size (3 bytes)
+            0x00, 0x01, // Flags (DATA_LENGTH_INDICATOR)
+        ];
+        // Create a reader with the frame header followed by 4 bytes for the decompressed size
+        let mut data = Vec::new();
+        data.extend_from_slice(&frame_header);
+        data.extend_from_slice(&[0x00, 0x00, 0x00, 0x04]); // Decompressed size (4 bytes)
+
+        let mut reader = Cursor::new(data);
+
+        // Attempt to decode the frame
+        let result = decode(&mut reader);
+
+        // Ensure that the result is an error due to underflow
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(matches!(e.kind, ErrorKind::Parsing));
+            assert_eq!(e.description, "Insufficient data to decode bytes");
+        }
+    }
 }
