@@ -11,7 +11,7 @@ pub enum ContentCmp<'a> {
     Same,
 }
 
-impl<'a> PartialEq for ContentCmp<'a> {
+impl PartialEq for ContentCmp<'_> {
     fn eq(&self, other: &Self) -> bool {
         use ContentCmp::*;
 

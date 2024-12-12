@@ -8,7 +8,7 @@ pub struct Parser<'a>(&'a str);
 type ParseFunc<P, T> = dyn Fn(&mut P) -> Result<T, ()>;
 
 impl<'a> Parser<'a> {
-    pub fn parse_tcon(s: &'a str) -> Cow<str> {
+    pub fn parse_tcon(s: &'a str) -> Cow<'a, str> {
         let mut parser = Parser(s);
         let v1_genre_ids = match parser.one_or_more(&Self::content_type) {
             Ok(v) => v,

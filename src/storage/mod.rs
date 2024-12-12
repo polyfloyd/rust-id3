@@ -65,7 +65,7 @@ pub trait StorageFile: io::Read + io::Write + io::Seek + private::Sealed {
     fn set_len(&mut self, new_len: u64) -> io::Result<()>;
 }
 
-impl<'a, T: StorageFile> StorageFile for &'a mut T {
+impl<T: StorageFile> StorageFile for &mut T {
     fn set_len(&mut self, new_len: u64) -> io::Result<()> {
         (*self).set_len(new_len)
     }
@@ -88,7 +88,7 @@ impl StorageFile for io::Cursor<Vec<u8>> {
 mod private {
     pub trait Sealed {}
 
-    impl<'a, T: Sealed> Sealed for &'a mut T {}
+    impl<T: Sealed> Sealed for &mut T {}
     impl Sealed for std::fs::File {}
     impl Sealed for std::io::Cursor<Vec<u8>> {}
 }

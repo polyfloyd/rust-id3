@@ -47,7 +47,7 @@ pub struct PlainReader<'a, F: StorageFile + 'a> {
     storage: &'a mut PlainStorage<F>,
 }
 
-impl<'a, F: StorageFile> io::Read for PlainReader<'a, F> {
+impl<F: StorageFile> io::Read for PlainReader<'_, F> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let cur_pos = self.storage.file.stream_position()?;
         assert!(self.storage.region.start <= cur_pos);
@@ -62,7 +62,7 @@ impl<'a, F: StorageFile> io::Read for PlainReader<'a, F> {
     }
 }
 
-impl<'a, F: StorageFile> io::Seek for PlainReader<'a, F> {
+impl<F: StorageFile> io::Seek for PlainReader<'_, F> {
     fn seek(&mut self, rel_pos: io::SeekFrom) -> io::Result<u64> {
         let abs_cur_pos = self.storage.file.stream_position()?;
         let abs_pos = match rel_pos {
@@ -92,7 +92,7 @@ pub struct PlainWriter<'a, F: StorageFile + 'a> {
     buffer_changed: bool,
 }
 
-impl<'a, F: StorageFile> io::Write for PlainWriter<'a, F> {
+impl<F: StorageFile> io::Write for PlainWriter<'_, F> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let nwritten = self.buffer.write(buf)?;
         self.buffer_changed = true;
@@ -185,13 +185,13 @@ impl<'a, F: StorageFile> io::Write for PlainWriter<'a, F> {
     }
 }
 
-impl<'a, F: StorageFile> io::Seek for PlainWriter<'a, F> {
+impl<F: StorageFile> io::Seek for PlainWriter<'_, F> {
     fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
         self.buffer.seek(pos)
     }
 }
 
-impl<'a, F: StorageFile> Drop for PlainWriter<'a, F> {
+impl<F: StorageFile> Drop for PlainWriter<'_, F> {
     fn drop(&mut self) {
         let _ = self.flush();
     }
