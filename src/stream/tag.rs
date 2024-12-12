@@ -65,7 +65,7 @@ impl Header {
     }
 
     fn frame_bytes(&self) -> u64 {
-        u64::from(self.tag_size) - u64::from(self.ext_header_size)
+        u64::from(self.tag_size).saturating_sub(u64::from(self.ext_header_size))
     }
 
     fn tag_size(&self) -> u64 {
@@ -1090,5 +1090,18 @@ mod tests {
         }
 
         assert_eq!(tag, tag_read);
+    }
+
+    #[test]
+    fn test_frame_bytes_underflow() {
+        let header = Header {
+            version: Version::Id3v24,
+            flags: Flags::empty(),
+            tag_size: 10,
+            ext_header_size: 20,
+        };
+
+        // Without saturating_sub, this would underflow and cause a panic.
+        assert_eq!(header.frame_bytes(), 0);
     }
 }
