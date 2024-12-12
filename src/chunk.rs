@@ -349,7 +349,7 @@ impl ChunkHeader {
             }
 
             // Skip the chunk's contents, and padding if any.
-            let skip = chunk.size + (chunk.size % 2);
+            let skip = chunk.size.saturating_add(chunk.size % 2);
 
             pos = reader.seek(SeekFrom::Current(skip as i64))?;
         }
@@ -389,5 +389,51 @@ impl fmt::Debug for ChunkHeader {
             .field("tag", &tag)
             .field("size", &self.size)
             .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    struct MockFormat;
+
+    impl ChunkFormat for MockFormat {
+        type Endianness = LittleEndian;
+        const ROOT_TAG: ChunkTag = ChunkTag(*b"MOCK");
+        const ROOT_FORMAT: Option<ChunkTag> = None;
+    }
+
+    #[test]
+    fn test_find_saturating_skip() {
+        // Create a mock stream with chunks
+        let mut data = Vec::new();
+
+        // Add a chunk with a normal size
+        data.extend_from_slice(b"MOCK");
+        data.extend_from_slice(&4u32.to_le_bytes()); // size
+        data.extend_from_slice(b"DATA");
+
+        // Add a chunk with a size that would overflow if not handled correctly
+        data.extend_from_slice(b"ID3 ");
+        data.extend_from_slice(&u32::MAX.to_le_bytes()); // size
+        data.extend_from_slice(&[0; 8]); // some data
+
+        // Add another chunk to ensure the skip is calculated
+        data.extend_from_slice(b"TEST");
+        data.extend_from_slice(&4u32.to_le_bytes()); // size
+        data.extend_from_slice(b"DATA");
+
+        // Create a cursor for the mock data
+        let mut cursor = Cursor::new(data);
+
+        // Find the TEST chunk
+        let length = cursor.get_ref().len() as u64;
+        let result = ChunkHeader::find::<MockFormat, _>(&ChunkTag(*b"TEST"), &mut cursor, length);
+
+        // Verify the result
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
     }
 }
