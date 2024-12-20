@@ -891,7 +891,13 @@ impl<'a> Decoder<'a> {
                 deviations[i] = u32::try_from(carry >> (64 - bits_us)).map_err(|_| {
                     Error::new(ErrorKind::InvalidInput, "MLLT deviation field overflow")
                 })?;
-                carry <<= bits_us;
+                carry = carry
+                    .checked_shl(
+                        bits_us.try_into().map_err(|_| {
+                            Error::new(ErrorKind::InvalidInput, "MLLT shift overflow")
+                        })?,
+                    )
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidInput, "MLLT carry overflow"))?;
                 carry_bits -= bits_us;
             }
             let [deviate_bytes, deviate_millis] = deviations;
@@ -1906,6 +1912,36 @@ mod tests {
         if let Err(e) = result {
             assert!(matches!(e.kind, ErrorKind::InvalidInput));
             assert_eq!(e.description, "MLLT deviation field overflow");
+        }
+    }
+
+    #[test]
+    fn test_mllt_shift_overflow() {
+        // Create a payload with large deviation values that would cause an overflow
+        let payload = [
+            0xFF, 0x02, // frames_between_reference (65282)
+            0x00, 0x00, 0x00, // bytes_between_reference (0)
+            0xFF, 0xFF, 0x62, // millis_between_reference (16777058)
+            0x40, // bits_for_bytes (64)
+            0x01, // bits_for_millis (01)
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x80, 0x44, 0x37, 0x00,
+            0x62, // carry (4), carry_bits(64)
+        ];
+
+        // Combine header and payload into a single data stream
+        let mut data = Vec::new();
+        data.extend_from_slice(&payload);
+
+        let mut reader = Cursor::new(data);
+
+        // Attempt to decode the frame
+        let result = decode("MLLT", Version::Id3v23, &mut reader);
+
+        // Ensure that the result is an error due to overflow
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(matches!(e.kind, ErrorKind::InvalidInput));
+            assert_eq!(e.description, "MLLT carry overflow");
         }
     }
 }
