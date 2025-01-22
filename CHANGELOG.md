@@ -1,3 +1,12 @@
+## v1.16.1 (2025-01-22)
+
+### Fix
+
+- MLLT carry subtraction overflow
+- MLLT deviation field overflow
+- prevent panics from malformed id3 metadata
+- ChunkHeader find method overflow
+
 ## v1.16.0 (2024-11-27)
 
 ### Feat
