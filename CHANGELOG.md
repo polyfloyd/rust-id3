@@ -1,3 +1,9 @@
+## v1.16.2 (2025-02-08)
+
+### Fix
+
+- **content**: Decode IPLS/TIPL/TMCL with odd value count gracefully
+
 ## v1.16.1 (2025-01-22)
 
 ### Fix
