@@ -752,6 +752,14 @@ mod tests {
     }
 
     #[test]
+    fn github_issue_147() {
+        // Tag contains a broken IPLS frame with an odd value count. We need to handle this
+        // gracefully without failing to parse the entire tag, because these issue is apparently
+        // widespread.
+        let _tag = Tag::read_from_path("testdata/github-issue-147.id3").unwrap();
+    }
+
+    #[test]
     fn aiff_read_and_write() {
         // Copy
         let tmp = tempfile::NamedTempFile::new().unwrap();
