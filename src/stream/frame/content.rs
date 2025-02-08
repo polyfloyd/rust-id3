@@ -596,12 +596,21 @@ impl<'a> Decoder<'a> {
                 Some(result)
             }
             (Some(_), None) => {
-                // This can only happen if there is an uneven number of elements.
-                *last_string = None;
-                Some(Err(Error::new(
-                    ErrorKind::Parsing,
-                    "uneven number of IPLS strings",
-                )))
+                // This can only happen if there is an uneven number of elements. For
+                // compatibility, we assume that the missing value is an empty string instead of
+                // erroring out and failing to parse the entire tag.
+                //
+                // This is in line with what the Python mutagen library does. See this issue for
+                // details:
+                // - <https://github.com/polyfloyd/rust-id3/issues/147>
+                let first = last_string.take().expect("option must be some");
+                let result = first.map(|involvement| {
+                    Some(InvolvedPeopleListItem {
+                        involvement,
+                        involvee: String::new(),
+                    })
+                });
+                Some(result)
             }
             (None, None) => None,
         })
@@ -1711,7 +1720,28 @@ mod tests {
             data.extend(bytes_for_encoding("other involvement", *encoding).into_iter());
             data.extend(delim_for_encoding(*encoding).into_iter());
             // involveee missing here
-            assert!(decode(frame_id, version, &data[..]).is_err());
+
+            let content = frame::InvolvedPeopleList {
+                items: vec![
+                    InvolvedPeopleListItem {
+                        involvement: "involvement".to_string(),
+                        involvee: "involvee".to_string(),
+                    },
+                    InvolvedPeopleListItem {
+                        involvement: "other involvement".to_string(),
+                        // Assume empty string if value is missing
+                        involvee: "".to_string(),
+                    },
+                ],
+            };
+            assert_eq!(
+                *decode(frame_id, version, &data[..])
+                    .unwrap()
+                    .0
+                    .involved_people_list()
+                    .unwrap(),
+                content
+            );
         }
     }
 
