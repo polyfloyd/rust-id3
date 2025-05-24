@@ -1,4 +1,4 @@
-name: CI
+name: Test
 
 on:
   push:
@@ -124,11 +124,11 @@ jobs:
         run: "! grep -r 'dbg!' ./src"
 
   conventional-commits:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - run: pip3 install -U Commitizen
-        # The commit hash here is that of the commit where we started using conventional commits.
-      - run: cz check --rev-range 16610ddb..HEAD
+      - run: cz check --rev-range origin/${{ github.base_ref }}..HEAD
