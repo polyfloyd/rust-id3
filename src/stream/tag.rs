@@ -8,7 +8,7 @@ use bitflags::bitflags;
 use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
 use std::cmp;
 use std::fs;
-use std::io::{self, Read, Write};
+use std::io::{self, Read, Seek, Write};
 use std::ops::Range;
 use std::path::Path;
 
@@ -479,7 +479,9 @@ impl Default for Encoder {
     }
 }
 
-pub fn locate_id3v2(mut reader: impl io::Read + io::Seek) -> crate::Result<Range<u64>> {
+pub fn locate_id3v2(reader: impl io::Read + io::Seek) -> crate::Result<Range<u64>> {
+    let mut reader = io::BufReader::new(reader);
+
     let header = Header::decode(&mut reader)?;
 
     let tag_size = header.tag_size();

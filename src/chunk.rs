@@ -312,10 +312,10 @@ impl ChunkHeader {
     ///
     /// # Arguments
     ///
-    /// * `reader` - The input stream. The reader must be positioned right after the root
-    ///              chunk header.
-    /// * `end` - The stream position where the chunk sequence ends. This is used to
-    ///           prevent searching past the end.
+    /// * `reader`: The input stream. The reader must be positioned right after the root chunk
+    ///   header.
+    /// * `end`: The stream position where the chunk sequence ends. This is used to prevent
+    ///   searching past the end.
     pub fn find_id3<F, R>(reader: R, end: u64) -> crate::Result<Self>
     where
         F: ChunkFormat,
@@ -329,11 +329,11 @@ impl ChunkHeader {
     ///
     /// # Arguments
     ///
-    /// * `tag` - The chunk tag to search for.
-    /// * `reader` - The input stream. The reader must be positioned at the start of a
-    ///              sequence of chunks.
-    /// * `end` - The stream position where the chunk sequence ends. This is used to
-    ///           prevent searching past the end.
+    /// * `tag`: The chunk tag to search for.
+    /// * `reader`: The input stream. The reader must be positioned at the start of a sequence of
+    ///   chunks.
+    /// * `end`: The stream position where the chunk sequence ends. This is used to prevent
+    ///   searching past the end.
     fn find<F, R>(tag: &ChunkTag, mut reader: R, end: u64) -> crate::Result<Option<Self>>
     where
         F: ChunkFormat,
