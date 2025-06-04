@@ -481,16 +481,26 @@ impl Default for Encoder {
 
 pub fn locate_id3v2(reader: impl io::Read + io::Seek) -> crate::Result<Range<u64>> {
     let mut reader = io::BufReader::new(reader);
+    let start = reader.stream_position()?;
+
+    let file_size = reader.seek(io::SeekFrom::End(0))?;
+    reader.seek(io::SeekFrom::Start(start))?;
 
     let header = Header::decode(&mut reader)?;
-
     let tag_size = header.tag_size();
+
+    if start + tag_size >= file_size {
+        // Seen in the wild: tags that are encoded to be larger than the files actuall are.
+        reader.seek(io::SeekFrom::End(0))?;
+        return Ok(start..file_size);
+    }
+
     reader.seek(io::SeekFrom::Start(tag_size))?;
     let num_padding = reader
         .bytes()
         .take_while(|rs| rs.as_ref().map(|b| *b == 0x00).unwrap_or(false))
         .count();
-    Ok(0..tag_size + num_padding as u64)
+    Ok(start..tag_size + num_padding as u64)
 }
 
 #[cfg(test)]

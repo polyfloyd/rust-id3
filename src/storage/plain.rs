@@ -147,24 +147,25 @@ impl<F: StorageFile> io::Write for PlainWriter<'_, F> {
                 let old_file_end = self.storage.file.seek(io::SeekFrom::End(0))?;
                 let old_region_end = self.storage.region.end;
                 let new_region_end = self.storage.region.start + buf_len;
-                let new_file_end = old_file_end - (old_region_end - new_region_end);
+                let new_file_end =
+                    self.storage.region.start + buf_len + (old_file_end - old_region_end);
 
                 let mut rwbuf = [0; COPY_BUF_SIZE];
                 let rwbuf_len = rwbuf.len();
                 for i in 0.. {
                     let from = old_region_end + i * rwbuf.len() as u64;
                     let to = new_region_end + i * rwbuf.len() as u64;
-                    assert!(from >= to);
+                    assert!(from > to);
 
-                    let part = (to + rwbuf_len as u64).saturating_sub(new_file_end);
-                    let rwbuf_part = &mut rwbuf[part as usize..];
+                    if from >= old_file_end {
+                        break;
+                    }
+                    let part = cmp::min(rwbuf_len as i64, (old_file_end - from) as i64);
+                    let rwbuf_part = &mut rwbuf[..part as usize];
                     self.storage.file.seek(io::SeekFrom::Start(from))?;
                     self.storage.file.read_exact(rwbuf_part)?;
                     self.storage.file.seek(io::SeekFrom::Start(to))?;
                     self.storage.file.write_all(rwbuf_part)?;
-                    if rwbuf_part.len() < rwbuf_len {
-                        break;
-                    }
                 }
 
                 self.storage.file.set_len(new_file_end)?;

@@ -760,6 +760,24 @@ mod tests {
     }
 
     #[test]
+    fn github_issue_156a() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::copy("testdata/github-issue-156a.id3", &tmp).unwrap();
+
+        let tag = crate::partial_tag_ok(Tag::read_from_path(&tmp)).unwrap();
+        tag.write_to_path(&tmp, Version::Id3v23).unwrap();
+    }
+
+    #[test]
+    fn github_issue_156b() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::copy("testdata/github-issue-156b.id3", &tmp).unwrap();
+
+        let tag = Tag::read_from_path(&tmp).unwrap();
+        tag.write_to_path(&tmp, Version::Id3v23).unwrap();
+    }
+
+    #[test]
     fn aiff_read_and_write() {
         // Copy
         let tmp = tempfile::NamedTempFile::new().unwrap();
