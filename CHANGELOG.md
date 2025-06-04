@@ -1,3 +1,10 @@
+## v1.16.3 (2025-06-04)
+
+### Fix
+
+- Handle tags with sizes that exceed the file size (fixes #156)
+- Issues reported by clippy
+
 ## v1.16.2 (2025-02-08)
 
 ### Fix
