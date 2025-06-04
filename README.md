@@ -1,6 +1,5 @@
 # rust-id3
 
-[![Build Status](https://github.com/polyfloyd/rust-id3/workflows/CI/badge.svg)](https://github.com/polyfloyd/rust-id3/actions)
 [![Crate](https://img.shields.io/crates/v/id3.svg)](https://crates.io/crates/id3)
 [![Documentation](https://docs.rs/id3/badge.svg)](https://docs.rs/id3/)
 
