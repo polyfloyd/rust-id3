@@ -46,15 +46,15 @@ impl fmt::Display for Timestamp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:04}", self.year)?;
         if let Some(month) = self.month {
-            write!(f, "-{:02}", month)?;
+            write!(f, "-{month:02}",)?;
             if let Some(day) = self.day {
-                write!(f, "-{:02}", day)?;
+                write!(f, "-{day:02}",)?;
                 if let Some(hour) = self.hour {
-                    write!(f, "T{:02}", hour)?;
+                    write!(f, "T{hour:02}",)?;
                     if let Some(minute) = self.minute {
-                        write!(f, ":{:02}", minute)?;
+                        write!(f, ":{minute:02}",)?;
                         if let Some(second) = self.second {
-                            write!(f, ":{:02}", second)?;
+                            write!(f, ":{second:02}",)?;
                         }
                     }
                 }

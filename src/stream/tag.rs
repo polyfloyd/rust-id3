@@ -172,10 +172,7 @@ impl Header {
             (_, _) => {
                 return Err(Error::new(
                     ErrorKind::UnsupportedFeature,
-                    format!(
-                        "Unsupported id3 tag version: v2.{}.{}",
-                        ver_major, ver_minor
-                    ),
+                    format!("Unsupported id3 tag version: v2.{ver_major}.{ver_minor}"),
                 ));
             }
         };

@@ -33,7 +33,7 @@ impl<'a> Parser<'a> {
                 p.parse_number()
                     .map(|index| match GENRE_LIST.get(index as usize) {
                         Some(v1_genre) => v1_genre.to_string(),
-                        None => format!("({})", index),
+                        None => format!("({index})",),
                     })
             },
         ])?;

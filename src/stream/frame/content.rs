@@ -894,10 +894,7 @@ impl<'a> Decoder<'a> {
                 if carry_bits < bits_us {
                     return Err(Error::new(
                         ErrorKind::InvalidInput,
-                        format!(
-                            "MLLT not enough bits left for reference: {}<{}",
-                            carry_bits, bits_us
-                        ),
+                        format!("MLLT not enough bits left for reference: {carry_bits}<{bits_us}"),
                     ));
                 }
                 deviations[i] = u32::try_from(carry >> (64 - bits_us)).map_err(|_| {

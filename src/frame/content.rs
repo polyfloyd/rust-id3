@@ -302,27 +302,27 @@ impl Content {
 impl fmt::Display for Content {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Content::Text(s) => write!(f, "{}", s),
-            Content::Link(s) => write!(f, "{}", s),
-            Content::EncapsulatedObject(enc_obj) => write!(f, "{}", enc_obj),
-            Content::ExtendedText(ext_text) => write!(f, "{}", ext_text),
-            Content::ExtendedLink(ext_link) => write!(f, "{}", ext_link),
-            Content::Comment(comment) => write!(f, "{}", comment),
-            Content::Popularimeter(popularimeter) => write!(f, "{}", popularimeter),
-            Content::Lyrics(lyrics) => write!(f, "{}", lyrics),
+            Content::Text(s) => write!(f, "{s}"),
+            Content::Link(s) => write!(f, "{s}"),
+            Content::EncapsulatedObject(enc_obj) => write!(f, "{enc_obj}"),
+            Content::ExtendedText(ext_text) => write!(f, "{ext_text}"),
+            Content::ExtendedLink(ext_link) => write!(f, "{ext_link}"),
+            Content::Comment(comment) => write!(f, "{comment}"),
+            Content::Popularimeter(popularimeter) => write!(f, "{popularimeter}"),
+            Content::Lyrics(lyrics) => write!(f, "{lyrics}",),
             Content::SynchronisedLyrics(sync_lyrics) => write!(f, "{}", sync_lyrics.content_type),
-            Content::Picture(picture) => write!(f, "{}", picture),
-            Content::Chapter(chapter) => write!(f, "{}", chapter),
-            Content::MpegLocationLookupTable(mpeg_table) => write!(f, "{}", mpeg_table),
-            Content::Private(private) => write!(f, "{}", private),
-            Content::TableOfContents(table_of_contents) => write!(f, "{}", table_of_contents),
+            Content::Picture(picture) => write!(f, "{picture}"),
+            Content::Chapter(chapter) => write!(f, "{chapter}"),
+            Content::MpegLocationLookupTable(mpeg_table) => write!(f, "{mpeg_table}"),
+            Content::Private(private) => write!(f, "{private}"),
+            Content::TableOfContents(table_of_contents) => write!(f, "{table_of_contents}"),
             Content::UniqueFileIdentifier(unique_file_identifier) => {
-                write!(f, "{}", unique_file_identifier)
+                write!(f, "{unique_file_identifier}")
             }
             Content::InvolvedPeopleList(involved_people_list) => {
-                write!(f, "{}", involved_people_list)
+                write!(f, "{involved_people_list}")
             }
-            Content::Unknown(unknown) => write!(f, "{}", unknown),
+            Content::Unknown(unknown) => write!(f, "{unknown}"),
         }
     }
 }
@@ -523,7 +523,7 @@ impl SynchronisedLyrics {
                 writeln!(writer, "Frame\t{}", self.content_type)?;
 
                 for (frame, lyric) in self.content.iter() {
-                    writeln!(writer, "{}\t{}", frame, lyric)?;
+                    writeln!(writer, "{frame}\t{lyric}")?;
                 }
             }
             TimestampFormat::Ms => {
@@ -535,11 +535,7 @@ impl SynchronisedLyrics {
                     let secs = (total_ms % MILLISECONDS_PER_MINUTE) / MILLISECONDS_PER_SECOND;
                     let ms = total_ms % MILLISECONDS_PER_SECOND;
 
-                    writeln!(
-                        writer,
-                        "{:02}:{:02}:{:02}.{:03}\t{}",
-                        hours, mins, secs, ms, lyric
-                    )?;
+                    writeln!(writer, "{hours:02}:{mins:02}:{secs:02}.{ms:03}\t{lyric}")?;
                 }
             }
         }
@@ -686,7 +682,7 @@ impl fmt::Display for PictureType {
             PictureType::Illustration => f.write_str("Illustration"),
             PictureType::BandLogo => f.write_str("Band logo"),
             PictureType::PublisherLogo => f.write_str("Publisher logo"),
-            PictureType::Undefined(b) => write!(f, "Undefined type {}", b),
+            PictureType::Undefined(b) => write!(f, "Undefined type {b}"),
         }
     }
 }

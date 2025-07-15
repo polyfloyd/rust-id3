@@ -220,7 +220,7 @@ pub trait TagLike: private::Sealed {
     /// assert_eq!(tag.year(), Some(2014));
     /// ```
     fn set_year(&mut self, year: i32) {
-        self.set_text("TYER", format!("{:04}", year));
+        self.set_text("TYER", format!("{year:04}"));
     }
 
     /// Removes the year (TYER).
@@ -730,8 +730,8 @@ pub trait TagLike: private::Sealed {
             .text_pair("TPOS")
             .and_then(|(_, total_discs)| total_discs)
         {
-            Some(n) => format!("{}/{}", disc, n),
-            None => format!("{}", disc),
+            Some(n) => format!("{disc}/{n}"),
+            None => format!("{disc}"),
         };
         self.set_text("TPOS", text);
     }
@@ -788,8 +788,8 @@ pub trait TagLike: private::Sealed {
     /// ```
     fn set_total_discs(&mut self, total_discs: u32) {
         let text = match self.text_pair("TPOS") {
-            Some((disc, _)) => format!("{}/{}", disc, total_discs),
-            None => format!("1/{}", total_discs),
+            Some((disc, _)) => format!("{disc}/{total_discs}"),
+            None => format!("1/{total_discs}",),
         };
         self.set_text("TPOS", text);
     }
@@ -809,7 +809,7 @@ pub trait TagLike: private::Sealed {
     /// ```
     fn remove_total_discs(&mut self) {
         if let Some((disc, _)) = self.text_pair("TPOS") {
-            self.set_text("TPOS", format!("{}", disc));
+            self.set_text("TPOS", format!("{disc}"));
         }
     }
 
@@ -850,8 +850,8 @@ pub trait TagLike: private::Sealed {
             .text_pair("TRCK")
             .and_then(|(_, total_tracks)| total_tracks)
         {
-            Some(n) => format!("{}/{}", track, n),
-            None => format!("{}", track),
+            Some(n) => format!("{track}/{n}"),
+            None => format!("{track}"),
         };
         self.set_text("TRCK", text);
     }
@@ -908,8 +908,8 @@ pub trait TagLike: private::Sealed {
     /// ```
     fn set_total_tracks(&mut self, total_tracks: u32) {
         let text = match self.text_pair("TRCK") {
-            Some((track, _)) => format!("{}/{}", track, total_tracks),
-            None => format!("1/{}", total_tracks),
+            Some((track, _)) => format!("{track}/{total_tracks}"),
+            None => format!("1/{total_tracks}"),
         };
         self.set_text("TRCK", text);
     }
@@ -929,7 +929,7 @@ pub trait TagLike: private::Sealed {
     /// ```
     fn remove_total_tracks(&mut self) {
         if let Some((track, _)) = self.text_pair("TRCK") {
-            self.set_text("TRCK", format!("{}", track));
+            self.set_text("TRCK", format!("{track}"));
         }
     }
 

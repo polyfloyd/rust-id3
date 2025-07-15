@@ -160,7 +160,7 @@ impl fmt::Display for Error {
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ErrorKind::Io(io_error) => write!(f, "IO: {}", io_error),
+            ErrorKind::Io(io_error) => write!(f, "IO: {io_error}"),
             ErrorKind::StringDecoding(_) => write!(f, "StringDecoding"),
             ErrorKind::NoTag => write!(f, "NoTag"),
             ErrorKind::Parsing => write!(f, "Parsing"),
