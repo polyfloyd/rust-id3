@@ -1,3 +1,5 @@
+Moved to https://codeberg.org/polyfloyd/rust-id3
+
 # rust-id3
 
 [![Crate](https://img.shields.io/crates/v/id3.svg)](https://crates.io/crates/id3)
